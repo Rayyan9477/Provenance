@@ -1,0 +1,11 @@
+# Development toolchain — ops/41_RUNBOOK.md section 2.2 installs this file.
+#
+# The list itself lives in [project.optional-dependencies].dev in pyproject.toml
+# so there is exactly one place to change a pin. Two copies of a dependency set
+# drift, and the drift is only discovered when CI and a laptop disagree about a
+# version.
+#
+# alembic, pytest, mypy, ruff, hypothesis, anthropic and boto3 are all in that
+# extra, together with import-linter, coverage, mutmut and the pytest plugins
+# the [tool.pytest.ini_options] block requires.
+-e .[dev]

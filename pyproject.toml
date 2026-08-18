@@ -1,0 +1,267 @@
+# =============================================================================
+# Provenance — workspace root
+#
+# A system of record for the institutions that already have one of you.
+#
+# This file is the workspace root, the pytest configuration, the lint
+# configuration and the type-check configuration. It is Integrator-owned:
+# EXECUTION/71_AGENT_WORKFLOW.md section 7 forbids Builder agents from editing
+# it, because every task in every phase reads it.
+#
+# Layout authority: implementation/00_IMPLEMENTATION_MAP.md section 5.
+# Test configuration authority: quality/20_TDD_STRATEGY.md sections 3.3, 3.4.
+# ARCHITECTURE.md section 25 is superseded and must not be built from.
+# =============================================================================
+
+[project]
+name = "provenance"
+version = "0.1.0"
+description = "A system of record for the institutions that already have one of you."
+# No `readme = "README.md"` yet: the root README is written in Phase 15 (T15.1)
+# and hatchling fails metadata generation on a readme file that does not exist.
+# Add the field in the same change that adds the file.
+license = { text = "Apache-2.0" }
+# 3.12.x, not 3.13. provenance_contracts targets 3.12 typing, and the
+# AgentCore Runtime and LangGraph pins are validated on 3.12
+# (ops/41_RUNBOOK.md section 1).
+requires-python = ">=3.12,<3.13"
+
+# The root distribution ships no code. It exists so that `pip install -e .[dev]`
+# and `uv sync` have a single place to resolve the toolchain from. Product code
+# lives in the four packages under packages/python/ and in the three
+# path-imported deployment units (services/, agents/, workers/).
+dependencies = []
+
+[project.optional-dependencies]
+
+# The toolchain named in ops/41_RUNBOOK.md section 2.2 and
+# quality/20_TDD_STRATEGY.md section 14.
+dev = [
+  # CockroachDB reports version() as "CockroachDB CCL v26.2.5 ...", which
+  # SQLAlchemy's generic postgresql dialect cannot parse -- it raises
+  # "Could not determine version from string" before a single statement runs.
+  # db/migrations/env.py carries a _shim_cockroach_version() workaround; this
+  # dialect is the supported fix and lets that shim be deleted.
+  "sqlalchemy-cockroachdb>=2.0",
+  # test runner and its plugins — the pytest config below requires
+  # pytest-asyncio (asyncio_mode) and tolerates the absence of pytest-randomly
+  # (`-p no:randomly` is inert when the plugin is not installed).
+  "pytest>=8.0,<9",
+  "pytest-asyncio>=0.24,<1",
+  "pytest-cov>=5",
+  "pytest-xdist>=3.6",          # `-n 4` on the db lane
+  "hypothesis>=6.100",          # property-based money tests, 20_TDD_STRATEGY section 5
+  "coverage[toml]>=7.6",
+  "mutmut>=2.5",                # nightly mutation lane, 20_TDD_STRATEGY section 15.2
+  # lint and type
+  # Pinned exactly, not ranged. `ruff format` is a formatter: its output moves
+  # between 0.x minors (0.9 reflowed several constructs this tree uses), so
+  # `>=0.6,<1` meant `ruff format --check .` — a merge-blocking step in
+  # `make lint`, in the `lint` CI job and inside G0.4's clean-clone proof —
+  # returned a different verdict depending on the day the runner resolved it.
+  # A formatter version is part of the definition of "formatted". Moving this
+  # pin is a deliberate change that reformats the tree in the same commit.
+  "ruff==0.6.9",
+  "mypy>=1.11,<2",
+  "import-linter>=2.0,<3",      # .importlinter — 20_TDD_STRATEGY section 2.3 E1
+  "pre-commit>=3.8",
+  # database and migrations
+  "alembic>=1.13,<2",
+  "psycopg[binary,pool]>=3.2,<4",
+  # AWS and model clients used by the nightly live_model lane
+  "boto3>=1.35",
+  "botocore>=1.35",
+  "anthropic>=0.39",
+  # misc tooling used by tools/ and scripts/
+  "pyyaml>=6.0",                # tests/sabotage_matrix.yaml, evals/retrieval/*.yaml
+]
+
+# Runtime dependencies of deployment unit 2, `control-plane`
+# (00_IMPLEMENTATION_MAP.md section 4.2). Declared here rather than in a
+# services/control_plane manifest because the unit is imported by path
+# (`uvicorn services.control_plane.app.main:app`), not installed as a
+# distribution. Phase 8 pins these; Phase 0 records the set.
+control-plane = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.30,<1",
+  "provenance-contracts==1.0.0",
+  "provenance-db==1.0.0",
+  "provenance-domain==1.0.0",
+  "provenance-telemetry==1.0.0",
+]
+
+# Runtime dependencies of deployment unit 3, `agent-runtime`. Same reasoning.
+# Phase 7 pins these.
+agent-runtime = [
+  "langgraph>=0.2,<1",
+  "boto3>=1.35",
+  "provenance-contracts==1.0.0",
+  "provenance-telemetry==1.0.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# The root distribution is a dependency aggregator with no importable module of
+# its own. Without this, hatchling fails the build looking for a package named
+# `provenance`, which does not and must not exist — the Python namespace is
+# provenance_contracts / provenance_domain / provenance_db /
+# provenance_telemetry (CANONICAL_DECISIONS.md, "Names and counts").
+bypass-selection = true
+
+# -----------------------------------------------------------------------------
+# uv workspace
+#
+# `uv` is optional (ops/41_RUNBOOK.md section 1: "make bootstrap uses it when
+# present and falls back to pip"). When it is present, these declarations make
+# the four local packages resolve from the working tree instead of from PyPI,
+# where they do not exist.
+# -----------------------------------------------------------------------------
+[tool.uv.workspace]
+members = ["packages/python/*"]
+
+[tool.uv.sources]
+provenance-contracts = { workspace = true }
+provenance-domain = { workspace = true }
+provenance-db = { workspace = true }
+provenance-telemetry = { workspace = true }
+
+# =============================================================================
+# pytest — quality/20_TDD_STRATEGY.md section 3.4, reproduced
+#
+# --strict-markers plus filterwarnings = ["error"] means an unregistered marker
+# or a new deprecation fails the build rather than scrolling past.
+# =============================================================================
+[tool.pytest.ini_options]
+minversion = "8.0"
+# Deviation from section 3.4, recorded: `tools` is added to the four paths that
+# section prints. T0.3 declares the 28 tests in tools/tests/test_scrub.py as its
+# "Tests first", and without this entry pytest collected none of them — not in
+# `make test`, not in `make test-fast`, not in CI. The scrubber that keeps
+# credentials out of committed gate logs had a suite that nothing ran.
+# (D-00-005.)
+testpaths = ["packages", "services", "agents", "tests", "tools"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+    "--import-mode=importlib",
+    "-p", "no:randomly",          # ordering is explicit, not shuffled
+]
+asyncio_mode = "auto"
+# Not in the section 3.4 block, and added deliberately: pytest-asyncio 0.24
+# emits a PytestDeprecationWarning on every run while this is unset, and
+# `filterwarnings = ["error"]` below means the pack's own configuration would
+# eventually fail its own build. "function" is the value that matches the
+# behaviour section 3.4 was written against.
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: hermetic; no database, no network, no credentials",
+    "db: requires a CockroachDB cluster (PROVENANCE_TEST_DB_URL)",
+    "contract: agent contract test; uses recorded model cassettes",
+    "live_model: invokes Bedrock; costs money; nightly only",
+    "retrieval: retrieval pipeline; some require Titan embeddings",
+    "e2e: full hero flow through real kernel, real database, stub sinks",
+    "adversarial: injection, forged provenance, capability probing",
+    "concurrency: multi-connection interleaving",
+    "isolation: cross-tenant / cross-user leakage proofs",
+    "slow: over 10 seconds",
+    "golden: compares against a checked-in golden file",
+]
+filterwarnings = ["error", "ignore::DeprecationWarning:botocore.*"]
+
+# =============================================================================
+# ruff
+# =============================================================================
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = [
+    "packages/python/provenance_contracts/src",
+    "packages/python/provenance_domain/src",
+    "packages/python/provenance_db/src",
+    "packages/python/provenance_telemetry/src",
+    ".",
+]
+extend-exclude = [
+    ".venv",
+    "apps/web",
+    "db/migrations/versions",   # generated by alembic; asserted by test_migrations.py
+    "evals/reports",
+    "ops",
+    # ruff >= 0.9 formats Python code blocks inside Markdown. The design pack
+    # and the gate ledgers are specifications and evidence, not source: a
+    # formatter that rewrites them changes documents that other documents are
+    # checked against. Excluded deliberately, not by oversight.
+    "docs",
+    "*.md",
+]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle
+    "F",         # pyflakes
+    "I",         # import sorting
+    "N",         # pep8-naming
+    "UP",        # pyupgrade
+    "B",         # flake8-bugbear
+    "C4",        # comprehensions
+    "SIM",       # flake8-simplify
+    "TID",       # tidy imports (relative-import bans)
+    "PTH",       # pathlib over os.path
+    "ARG",       # unused arguments
+    "RUF",       # ruff-specific
+]
+ignore = [
+    "E501",      # line length is enforced by the formatter, not twice
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may shadow builtins in fixtures and take unused arguments from fixtures.
+"**/tests/**" = ["ARG001", "ARG002", "ARG005"]
+"tests/**" = ["ARG001", "ARG002", "ARG005"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "provenance_contracts",
+    "provenance_domain",
+    "provenance_db",
+    "provenance_telemetry",
+    "services",
+    "agents",
+    "workers",
+    "scripts",
+    "tools",
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# =============================================================================
+# mypy
+#
+# The commit lane (20_TDD_STRATEGY.md section 14.2) runs
+#   mypy --strict packages/python/provenance_domain packages/python/provenance_contracts
+# and `make lint` runs exactly that, so this block must agree with the flag.
+# =============================================================================
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+warn_unused_configs = true
+show_error_codes = true
+# Test modules are not type-checked: the commit lane checks the two shipped
+# packages, and two packages both owning a tests/test_roundtrip.py would
+# otherwise collide on module name.
+exclude = ["(^|/)tests/", "(^|/)evals/", "(^|/)apps/"]
+
+# There is deliberately no [[tool.mypy.overrides]] block yet. `--strict` implies
+# --warn-unused-configs, so an override for a package nothing imports prints a
+# note on every run and trains the reader to ignore mypy output. The phase that
+# first imports an unstubbed third-party package (boto3 in Phase 6, langgraph in
+# Phase 7) adds its own entry, and that addition is reviewable on its own.
