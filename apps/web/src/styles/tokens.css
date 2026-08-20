@@ -1,0 +1,156 @@
+/*
+ * Design tokens.
+ *
+ * Transcribed from the returned design (Design.pdf, 26 pages). Token names are the
+ * contract between design and implementation and do not get renamed -- later revisions
+ * may add tokens; a rename costs a repository-wide search and replace (T12.2).
+ *
+ * Every token has a light and a dark value. The design's Settings screen carries a
+ * DARK / LIGHT surface control, so both are load-bearing, not decorative.
+ *
+ * Colour is never the only carrier of meaning. SUPPORTS / CONTRADICTS / QUALIFIES and
+ * claim / fact are separated by glyph, rule style, and weight as well as by hue, so the
+ * grayscale proof in `src/components/__tests__/grayscale.test.tsx` holds.
+ */
+
+:root {
+  /* ---- type ------------------------------------------------------------- */
+  /* No web fonts: the app must render identically with no network. */
+  --pv-font-prose: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --pv-font-ui:
+    Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --pv-font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --pv-size-display: 1.75rem;
+  --pv-size-title: 1.3125rem;
+  --pv-size-prose: 1rem;
+  --pv-size-body: 0.875rem;
+  --pv-size-mono: 0.8125rem;
+  --pv-size-label: 0.6875rem;
+
+  --pv-leading-tight: 1.2;
+  --pv-leading-prose: 1.55;
+  --pv-leading-mono: 1.6;
+
+  --pv-tracking-label: 0.08em;
+  --pv-tracking-mono: 0.01em;
+
+  --pv-weight-regular: 400;
+  --pv-weight-medium: 500;
+  --pv-weight-strong: 600;
+
+  /* ---- space ------------------------------------------------------------ */
+  --pv-space-1: 0.25rem;
+  --pv-space-2: 0.5rem;
+  --pv-space-3: 0.75rem;
+  --pv-space-4: 1rem;
+  --pv-space-5: 1.5rem;
+  --pv-space-6: 2rem;
+  --pv-space-7: 3rem;
+
+  --pv-radius-sm: 2px;
+  --pv-radius-md: 4px;
+  --pv-rule: 1px;
+  --pv-accent-rule: 3px;
+
+  --pv-measure: 68ch;
+  --pv-frame-max: 1440px;
+
+  /* ---- surfaces --------------------------------------------------------- */
+  --pv-surface-page: #f4f5f7;
+  --pv-surface-card: #ffffff;
+  --pv-surface-band: #e9eaee;
+  --pv-surface-inset: #e8eaed;
+  --pv-surface-raised: #ffffff;
+
+  /* ---- ink -------------------------------------------------------------- */
+  --pv-ink-primary: #15171c;
+  --pv-ink-secondary: #4c525c;
+  --pv-ink-faint: #6c737e;
+  --pv-ink-inverse: #ffffff;
+
+  /* ---- lines ------------------------------------------------------------ */
+  --pv-line-hairline: #d6d9de;
+  --pv-line-strong: #a9aeb6;
+
+  /* ---- semantic: the epistemic vocabulary ------------------------------- */
+  /* Contradiction, urgency, and the counterparty claim. */
+  --pv-conflict: #9a1f27;
+  --pv-conflict-soft: #f6e9ea;
+  /* The Kernel: deterministic, committed, binding. */
+  --pv-kernel: #0d6046;
+  --pv-kernel-soft: #e6f1ec;
+  /* The model: proposes, never binds. */
+  --pv-model: #8a5d0b;
+  --pv-model-soft: #f7efdd;
+  /* Valid time -- the world's clock. */
+  --pv-valid-time: #24528f;
+  /* Record time -- the system's clock. */
+  --pv-record-time: #6c737e;
+  /* The fixture disclosure. Loud on purpose. */
+  --pv-disclosure: #7a3a00;
+  --pv-disclosure-surface: #fdf1df;
+
+  /* ---- attention levels (closed set; no aliases) ------------------------ */
+  --pv-attention-none: #6c737e;
+  --pv-attention-info: #24528f;
+  --pv-attention-attention: #8a5d0b;
+  --pv-attention-urgent: #9a1f27;
+
+  /* ---- focus ------------------------------------------------------------ */
+  --pv-focus-ring: #24528f;
+  --pv-focus-ring-width: 2px;
+  --pv-focus-ring-offset: 2px;
+
+  /* ---- motion ----------------------------------------------------------- */
+  /*
+   * Two durations only. Every motion token has a documented reduced-motion behaviour:
+   * under `prefers-reduced-motion: reduce` both collapse to 1ms, so state changes are
+   * instantaneous rather than animated. Nothing in this application animates a trace.
+   */
+  --pv-motion-fast: 90ms;
+  --pv-motion-considered: 180ms;
+  --pv-motion-ease: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+:root[data-theme="dark"] {
+  --pv-surface-page: #101216;
+  --pv-surface-card: #171a20;
+  --pv-surface-band: #1d2128;
+  --pv-surface-inset: #1f242c;
+  --pv-surface-raised: #1c2027;
+
+  --pv-ink-primary: #eef0f3;
+  --pv-ink-secondary: #b3b9c2;
+  --pv-ink-faint: #8b929c;
+  --pv-ink-inverse: #101216;
+
+  --pv-line-hairline: #2b3038;
+  --pv-line-strong: #454c56;
+
+  --pv-conflict: #f28b8f;
+  --pv-conflict-soft: #2a1618;
+  --pv-kernel: #6fd3ad;
+  --pv-kernel-soft: #10241d;
+  --pv-model: #e5b661;
+  --pv-model-soft: #29200f;
+  --pv-valid-time: #8ab4ee;
+  --pv-record-time: #8b929c;
+  --pv-disclosure: #f0be7e;
+  --pv-disclosure-surface: #2a1d0c;
+
+  --pv-attention-none: #8b929c;
+  --pv-attention-info: #8ab4ee;
+  --pv-attention-attention: #e5b661;
+  --pv-attention-urgent: #f28b8f;
+
+  --pv-focus-ring: #8ab4ee;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --pv-motion-fast: 1ms;
+    --pv-motion-considered: 1ms;
+  }
+}
