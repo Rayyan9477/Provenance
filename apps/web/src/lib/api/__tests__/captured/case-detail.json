@@ -1,0 +1,80 @@
+{
+    "case_id": "ed127bde-6b37-55e8-a41d-7c72c5e02f2e",
+    "title": "Movers damage reimbursement",
+    "status": "WAITING",
+    "revision": 5,
+    "attention_level": "INFO",
+    "attention_reason_codes": [
+        "COMMITMENT_PARTIAL"
+    ],
+    "relationship_id": "e4b44059-e1cb-5617-829c-990124d8e553",
+    "counterparty_display_name": "Beltline Movers",
+    "last_activity_at": "2026-08-23T22:25:54.917366+00:00",
+    "headline": "Part of this obligation was met; the outstanding amount is still outstanding.",
+    "case_type": "DAMAGE_REIMBURSEMENT",
+    "opened_at": "2026-05-12T00:00:00+00:00",
+    "resolved_at": null,
+    "reopened_count": 0,
+    "relationship": {
+        "relationship_id": "e4b44059-e1cb-5617-829c-990124d8e553",
+        "label": "Beltline Movers \u00e2\u20ac\u201d job #88214",
+        "status": "ACTIVE"
+    },
+    "counterparty": {
+        "counterparty_id": "a2b0939b-3bd1-5da7-98a3-0e1c9e899343",
+        "display_name": "Beltline Movers",
+        "kind": "MOVING_COMPANY",
+        "canonical_domain": "beltlinemovers.example"
+    },
+    "context": {
+        "context_id": "05b88604-003c-5c0a-8c45-52b27f97a52b",
+        "title": "The Move \u00e2\u20ac\u201d 214 Ridgeway to 88 Larkin"
+    },
+    "commitments": [
+        {
+            "commitment_id": "81b67882-7764-4abe-bd1a-5867af5d671e",
+            "case_id": "ed127bde-6b37-55e8-a41d-7c72c5e02f2e",
+            "relationship_id": "e4b44059-e1cb-5617-829c-990124d8e553",
+            "counterparty_display_name": null,
+            "commitment_type": "MONETARY_REIMBURSEMENT",
+            "description": "Reimbursement of USD 420.00 for damage caused during the move.",
+            "obligor_type": "COUNTERPARTY",
+            "beneficiary_type": "USER",
+            "status": "PARTIAL",
+            "currency": "USD",
+            "committed_amount": {
+                "currency": "USD",
+                "amount": "420.0000"
+            },
+            "fulfilled_amount": {
+                "currency": "USD",
+                "amount": "200.0000"
+            },
+            "outstanding_amount": {
+                "currency": "USD",
+                "amount": "220.0000"
+            },
+            "due_at": null,
+            "overdue": false,
+            "days_overdue": null,
+            "source_claim_id": "f00fffbe-fcb6-43b2-a54a-55a37e84de73",
+            "revision": 1
+        }
+    ],
+    "active_conflicts": [],
+    "next_trigger": {
+        "trigger_id": "833f09f1-a753-45a3-973f-82537d1d8665",
+        "trigger_type": "RESPONSE_DEADLINE",
+        "state": "ARMED",
+        "not_before": "2026-06-29T00:00:00+00:00",
+        "expires_at": "2027-06-15T00:00:00+00:00",
+        "basis_case_revision": 4
+    },
+    "latest_action_intent": null,
+    "counts": {
+        "evidence_items": 5,
+        "claims": 6,
+        "beliefs": 1,
+        "state_transitions": 3
+    }
+}

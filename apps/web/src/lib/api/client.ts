@@ -49,6 +49,32 @@ export function dataSource(): DataSource {
   return apiBaseUrl() === null ? "FIXTURE" : "LIVE";
 }
 
+/**
+ * The bearer token for live reads, from the server environment.
+ *
+ * Without this, LIVE mode was unreachable rather than merely unconfigured. Every read
+ * takes an optional `token`, `session.ts` passes none, and the control plane answers
+ * `401 UNAUTHENTICATED` to an anonymous read -- correctly. So setting `PV_API_BASE_URL`
+ * turned every screen into an error state, and the only mode that rendered was FIXTURE.
+ *
+ * `PV_API_TOKEN`, deliberately WITHOUT the `NEXT_PUBLIC_` prefix: Next.js only inlines
+ * prefixed variables into the client bundle, so this one is readable from server
+ * components and unreachable from the browser. Every read in `reads.ts` runs server-side,
+ * so the token stays on the server and never reaches a page a viewer can inspect.
+ *
+ * Returns `null` rather than `""` when unset, so "no token configured" and "a token that
+ * is the empty string" stay distinguishable -- the second is a misconfiguration worth
+ * seeing, and an empty `Authorization: Bearer ` header would produce a confusing 401
+ * instead of the honest anonymous one.
+ *
+ * Mint one with `python scripts/mint_local_token.py`.
+ */
+export function apiToken(): string | null {
+  const raw = process.env.PV_API_TOKEN ?? "";
+  const trimmed = raw.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
 function failure(
   path: string,
   status: number,
@@ -149,7 +175,12 @@ function buildPath(path: string, query: GetOptions["query"]): string {
 export async function apiGet<T>(path: string, options: GetOptions = {}): Promise<ApiResult<T>> {
   const full = buildPath(path, options.query);
   if (dataSource() === "LIVE") {
-    return liveGet<T>(full, options.token ?? null);
+    // An explicit token wins, so a caller acting for a different principal --
+    // the agent runtime, a second tenant in an isolation test -- still can.
+    // `??` rather than `||`: an explicitly-passed empty string is a caller
+    // error worth surfacing as a 401, not something to silently paper over
+    // with the ambient token.
+    return liveGet<T>(full, options.token ?? apiToken());
   }
   const { readFixture } = await import("./fixture-source");
   return readFixture<T>(path, options.query ?? {});

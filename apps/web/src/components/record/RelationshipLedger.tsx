@@ -97,23 +97,37 @@ export function ContextTotal({
         ))
       )}
 
+      {/* `label`, not `counterparty.display_name`. The corpus holds two live
+          relationships with the same counterparty -- an ISP account at the old
+          address and another at the new one -- so display names rendered two
+          visually identical rows carrying different balances, with nothing on
+          screen to tell a reader which was which. The label is what carries the
+          distinguishing part ("- 88 Larkin" against "- 214 Ridgeway Apt 3B"). */}
       <div style={{ marginTop: "var(--pv-space-3)" }}>
         {contributing.map((r) => (
           <div className="pv-ledger-line" key={r.relationship_id}>
-            <span>{r.counterparty.display_name}</span>
+            <span>{r.label}</span>
             <span>{r.outstanding.map(formatMoney).join(" · ")}</span>
           </div>
         ))}
         {silent.map((r) => (
           <div className="pv-ledger-line" key={r.relationship_id} style={{ opacity: 0.75 }}>
-            <span>{r.counterparty.display_name}</span>
+            <span>{r.label}</span>
             <span>contributes nothing</span>
           </div>
         ))}
       </div>
 
+      {/* The breakdown lists EVERY relationship the reader has, while the
+          heading above it counts only the ones inside this context -- 6 rows
+          under "4 relationships in scope". Both numbers are correct and they
+          answer different questions, so the scope is stated rather than left
+          for a reader to reconcile. Silently trimming the list to four would
+          hide two counterparties who owe nothing *yet*, which is exactly the
+          kind of quiet omission this record exists to prevent. */}
       <p className="pv-label" style={{ marginTop: "var(--pv-space-2)" }}>
-        Sum returned by the API, not computed here
+        {contributors.length} {contributors.length === 1 ? "relationship" : "relationships"} on
+        file, all counterparties · sum returned by the API, not computed here
       </p>
     </div>
   );

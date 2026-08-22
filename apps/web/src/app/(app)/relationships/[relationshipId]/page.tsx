@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ErrorState } from "@/components/primitives/States";
 import { Absent } from "@/components/primitives/Absent";
+import { MoneyValue } from "@/components/primitives/MoneyValue";
 import { AttentionChip, CaseStatusBadge, RevisionBadge } from "@/components/primitives/Chips";
 import { TimePair } from "@/components/primitives/TimePair";
 import { CanonicalPosition, CounterpartyAssertions } from "@/components/record/CounterpartyFile";
@@ -191,15 +192,15 @@ export default async function RelationshipFilePage({ params }: PageProps) {
                   </p>
                   <div className="pv-ledger-line">
                     <span className="pv-label">Committed</span>
-                    <span className="pv-mono">{formatMoney(commitment.committed_amount)}</span>
+                    <MoneyValue amount={commitment.committed_amount} />
                   </div>
                   <div className="pv-ledger-line">
                     <span className="pv-label">Fulfilled</span>
-                    <span className="pv-mono">{formatMoney(commitment.fulfilled_amount)}</span>
+                    <MoneyValue amount={commitment.fulfilled_amount} />
                   </div>
                   <div className="pv-ledger-line" data-total="true">
                     <span className="pv-label">Outstanding</span>
-                    <span className="pv-mono">{formatMoney(commitment.outstanding_amount)}</span>
+                    <MoneyValue amount={commitment.outstanding_amount} />
                   </div>
                   <div className="pv-meta-row">
                     <span className="pv-chip">{commitment.status}</span>

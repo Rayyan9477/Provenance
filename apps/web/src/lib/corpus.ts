@@ -63,7 +63,19 @@ export interface SearchRecord {
   readonly origin: string;
   readonly href: string | null;
   /** Every string this record is matched against. Never includes invented text. */
+  /**
+   * Searchable terms. Entries may be null at the source -- a commitment whose
+   * counterparty name lives on the case, an action intent with no subject --
+   * and `terms()` drops those rather than indexing the string "null", which
+   * would make every such record findable by typing "null" and would rank
+   * unrelated rows together.
+   */
   readonly haystack: readonly string[];
+}
+
+/** Drop the nulls a nullable API field contributes; keep everything else. */
+function terms(...values: readonly (string | null | undefined)[]): readonly string[] {
+  return values.filter((v): v is string => typeof v === "string" && v.length > 0);
 }
 
 export interface SearchCorpus {
@@ -122,13 +134,13 @@ export async function buildSearchCorpus(): Promise<SearchCorpus> {
         detail: `${item.status} · revision ${item.revision} · ${item.counterparty_display_name}`,
         origin: "/v1/dashboard",
         href: `/cases/${item.case_id}`,
-        haystack: [
+        haystack: terms(
           item.title,
           item.status,
           item.counterparty_display_name,
           item.headline,
           ...item.attention_reason_codes,
-        ],
+        ),
       });
     }
   } else {
@@ -244,13 +256,13 @@ export async function buildSearchCorpus(): Promise<SearchCorpus> {
         detail: `${draft.status} · ${draft.action_type} · ${draft.counterparty_display_name}`,
         origin: "/v1/action-intents",
         href: `/actions/${draft.action_intent_id}`,
-        haystack: [
+        haystack: terms(
           draft.subject_preview,
           draft.status,
           draft.action_type,
           draft.counterparty_display_name,
           draft.recipient_masked,
-        ],
+        ),
       });
     }
   } else {

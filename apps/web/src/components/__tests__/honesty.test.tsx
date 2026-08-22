@@ -168,9 +168,53 @@ describe("a genuine zero is still rendered as a zero", () => {
 
     expect(container.querySelectorAll('[data-absent="true"]').length).toBe(0);
     for (const relationship of silent) {
-      expect(screen.getByText(relationship.counterparty.display_name)).toBeDefined();
+      // `label`, not `counterparty.display_name`. The corpus holds two live
+      // relationships with the SAME counterparty -- an ISP account at the old
+      // address and one at the new -- so display names produced two visually
+      // identical rows carrying different balances. The label is what carries
+      // the distinguishing part.
+      expect(screen.getByText(relationship.label)).toBeDefined();
     }
     expect(screen.getAllByText("contributes nothing").length).toBe(silent.length);
+  });
+
+  it("names each row by its label, so two accounts with one counterparty stay apart", () => {
+    /*
+     * The LIVE corpus holds two relationships with the same counterparty -- an
+     * ISP account at the old address and one at the new -- and rendering
+     * `counterparty.display_name` produced two visually identical rows carrying
+     * different balances. One of them is the ISP whose cancellation the entire
+     * demo turns on.
+     *
+     * This asserts the MECHANISM (the row is named by `label`) rather than the
+     * corpus property (a duplicate exists), because `hero.fixture.ts` has no
+     * duplicate: the first draft of this test guarded the property, went red,
+     * and the red was the fixture disagreeing with production. That gap is
+     * worth its own note -- it is the same class that put a `Money` object
+     * where a decimal string was declared and took nine live routes down --
+     * but a test that can only pass once the fixture is rewritten is a test
+     * that gets deleted, so it checks the thing the component does.
+     */
+    render(
+      <ContextTotal
+        amounts={heroDashboard.contexts[0]?.total_outstanding ?? []}
+        contributors={heroDashboard.relationships_summary}
+      />,
+    );
+
+    for (const relationship of heroDashboard.relationships_summary) {
+      expect(
+        screen.getByText(relationship.label),
+        `row for ${relationship.relationship_id} is not named by its label`,
+      ).toBeDefined();
+    }
+
+    // And the labels are DISTINCT, which is the property that actually makes
+    // two rows tellable apart. An earlier draft asserted the label was longer
+    // than the display name -- a guess, and a wrong one: a fixture label is 19
+    // characters against a 30-character display name.
+    const labels = heroDashboard.relationships_summary.map((r) => r.label);
+    expect(new Set(labels).size, "two relationships share a label").toBe(labels.length);
   });
 
   it("the context total is the sum the API returned, not one computed here", () => {
@@ -195,6 +239,6 @@ describe("a genuine zero is still rendered as a zero", () => {
 
     const rendered = container.querySelector(`[data-context-total="${total?.currency}"]`);
     expect(rendered).not.toBeNull();
-    expect(screen.getByText(/Sum returned by the API, not computed here/)).toBeDefined();
+    expect(screen.getByText(/sum returned by the API, not computed here/i)).toBeDefined();
   });
 });

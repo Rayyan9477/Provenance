@@ -115,13 +115,23 @@ const NOW = "2026-09-18T14:05:00.000Z";
 /* -- model ids -------------------------------------------------------------- */
 
 /*
- * Bedrock model id canon, frozen 2026-08-17. Phase 0 disproved the earlier ids by live
- * invocation. The submission ships on Opus 4.6 and says so; claiming Opus 5 would be a
- * small, checkable dishonesty, and `agent_runs.model_route` makes it checkable.
+ * Gemini model id canon, frozen 2026-08-24 (`docs/CANONICAL_DECISIONS.md`), superseding
+ * the Bedrock canon these constants previously carried. Judge Mode renders `model_id`
+ * verbatim, so leaving `us.anthropic.claude-opus-4-6-v1` here would have put Anthropic
+ * model ids on the most judge-facing screen of a Google-sponsored submission.
+ *
+ * There is deliberately no Pro tier: `gemini-3.1-pro-preview` is version 3.1, BELOW the
+ * hackathon's "Gemini 3.5 or newer" floor, so both tiers are Flash-class.
+ *
+ * UNPROBED. None of these ids has been invoked -- `ops/gemini-probe.txt` currently reads
+ * `CANNOT RUN`. The previous canon was disproved by live invocation after being frozen
+ * from documentation, which is exactly the state these three are in now. A fixture that
+ * names a model nobody called is a claim, and `agent_runs.model_route` is what will make
+ * it checkable once the run is real.
  */
-const TIER_R = "us.anthropic.claude-opus-4-6-v1";
-const TIER_E = "us.anthropic.claude-haiku-4-5-20251001-v1:0";
-const EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0";
+const TIER_R = "gemini-3.7-flash";
+const TIER_E = "gemini-3.5-flash-lite";
+const EMBEDDING_MODEL = "gemini-embedding-2";
 
 /* -- GET /v1/version -------------------------------------------------------- */
 
@@ -541,9 +551,9 @@ export const heroCases: Readonly<Record<string, CaseResponse>> = {
         obligor_type: "COUNTERPARTY",
         beneficiary_type: "USER",
         status: "UNFULFILLED",
-        committed_amount: "1800.0000",
-        fulfilled_amount: "0.0000",
-        outstanding_amount: "1800.0000",
+        committed_amount: { currency: "USD", amount: "1800.0000" },
+        fulfilled_amount: { currency: "USD", amount: "0.0000" },
+        outstanding_amount: { currency: "USD", amount: "1800.0000" },
         currency: "USD",
         due_at: "2026-06-15T00:00:00.000Z",
         revision: 4,
@@ -584,9 +594,9 @@ export const heroCases: Readonly<Record<string, CaseResponse>> = {
         obligor_type: "COUNTERPARTY",
         beneficiary_type: "USER",
         status: "PARTIAL",
-        committed_amount: "420.0000",
-        fulfilled_amount: "200.0000",
-        outstanding_amount: "220.0000",
+        committed_amount: { currency: "USD", amount: "420.0000" },
+        fulfilled_amount: { currency: "USD", amount: "200.0000" },
+        outstanding_amount: { currency: "USD", amount: "220.0000" },
         currency: "USD",
         due_at: "2026-10-01T00:00:00.000Z",
         revision: 3,

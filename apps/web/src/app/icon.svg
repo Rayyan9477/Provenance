@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Provenance">
+  <title>Provenance</title>
+  <!--
+    The lineage chain, which is the one thing the product is about: a belief
+    superseded by a belief superseded by a belief, each grounded in evidence
+    below it. Three nodes descending, three grounding ties.
+
+    Monochrome and drawn with `currentColor` so it inherits the tab's own
+    palette rather than asserting a brand colour the design system does not
+    have. `#15171c` is `--pv-ink-primary` from `tokens.css`.
+  -->
+  <rect width="32" height="32" rx="6" fill="#15171c" />
+  <g stroke="#eef0f3" stroke-width="1.75" stroke-linecap="round" fill="none">
+    <!-- the supersession chain -->
+    <path d="M9 8.5 V 23.5" />
+    <!-- three belief versions, latest solid -->
+    <circle cx="9" cy="9" r="2.25" fill="#eef0f3" stroke="none" />
+    <circle cx="9" cy="16" r="2.25" />
+    <circle cx="9" cy="23" r="2.25" />
+    <!-- grounding edges out to evidence -->
+    <path d="M11.75 9 H 23" />
+    <path d="M11.75 16 H 20" />
+    <path d="M11.75 23 H 17" />
+  </g>
+</svg>

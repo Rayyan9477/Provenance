@@ -452,8 +452,27 @@ button {
   min-width: 16rem;
 }
 
+/* Label and value are two inline spans, and JSX strips the newline whitespace
+   between sibling elements -- so under `display: block` they rendered welded
+   together: `RECORD TIMELAST ACTIVITY 18 SEP 2026`. The two clocks are the
+   distinction the whole record rests on, and a reader who cannot see where the
+   label ends cannot tell which one they are reading.
+
+   `space-between` puts the value at the right edge of the coloured rule, which
+   is what the rule is drawn the full width for. `min-width: 0` on the value
+   lets a long timestamp wrap instead of pushing the row wider than its
+   column. */
 .pv-time-field {
-  display: block;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--pv-space-3);
+}
+
+.pv-time-field .pv-time-value {
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .pv-time-field[data-clock="VALID"] {
@@ -606,8 +625,24 @@ button {
   font-size: var(--pv-size-mono);
 }
 
+/* `position: relative` is load-bearing, not cosmetic.
+
+   These tables carry `.pv-sr-only` spans -- "rows_returned not returned for
+   this node" and the like, which is how an absent value stays absent for a
+   screen reader instead of being read as the em-dash beside it. `.pv-sr-only`
+   is `position: absolute`, so without a positioned ancestor its containing
+   block is the INITIAL one: the document. It then positions against the page
+   rather than the scroller, and at 390px the judge table pushed
+   `documentElement.scrollWidth` 15px past `clientWidth` -- the whole page
+   scrolled sideways, from a one-pixel element nobody can see.
+
+   The table itself was never the cause: measured at 390px the scroller reports
+   scrollWidth 622 inside width 453 and every ancestor reports no overflow, so
+   `overflow-x` was doing its job. Only the absolutely positioned descendant
+   escaped it. */
 .pv-table-scroll {
   overflow-x: auto;
+  position: relative;
 }
 
 .pv-table th {
@@ -799,6 +834,24 @@ button {
   justify-content: space-between;
   gap: var(--pv-space-3);
   align-items: baseline;
+  /* A flex item defaults to `min-width: auto`, which refuses to shrink below
+     its content. Two of these cells carry a 64-character SHA-256 with no break
+     opportunity, so without this the value overflowed the cell and rendered on
+     top of the neighbouring grid cell -- the MODEL ID cell showed the content
+     hash struck through its own value and the word MATCH twice.
+     Observed in a browser; jsdom computes no layout, so no unit test in this
+     repository can see it. */
+  min-width: 0;
+}
+
+.pv-parity-cell > :first-child {
+  min-width: 0;
+}
+
+/* Break the hash rather than the layout. `anywhere`, not `break-word`: these
+   are hex digests with no word boundary to prefer. */
+.pv-parity-cell .pv-mono {
+  overflow-wrap: anywhere;
 }
 
 .pv-parity-verdict[data-equal="true"] {

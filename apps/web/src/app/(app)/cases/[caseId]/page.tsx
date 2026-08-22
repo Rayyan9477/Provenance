@@ -6,7 +6,7 @@ import { AttentionChip, CaseStatusBadge, RevisionBadge } from "@/components/prim
 import { getCase, getTimeline } from "@/lib/api/reads";
 import { loadMe, timeZoneOf } from "@/lib/session";
 import { formatDate, formatDateOrRaw, formatInstantOrRaw, formatMoney } from "@/lib/format";
-import type { CaseCommitment } from "@/lib/api/contract";
+import type { CaseCommitment, Money } from "@/lib/api/contract";
 
 /**
  * S02 -- case detail and the merged docket.
@@ -26,9 +26,14 @@ interface PageProps {
 }
 
 function CommitmentRow({ commitment }: { readonly commitment: CaseCommitment }) {
-  const currency = commitment.currency;
-  const money = (amount: string | null) =>
-    currency === null || amount === null ? null : formatMoney({ currency, amount });
+  // The endpoint sends each amount as a complete `Money` -- currency and value
+  // together -- so it is passed through, not rebuilt. The previous version took
+  // a bare decimal and re-paired it with `commitment.currency`, which wrapped an
+  // object inside another object and threw `amount.split is not a function` on
+  // every case detail route. Reading the currency off the amount rather than off
+  // the commitment also means a row can never render a value under a currency
+  // that belongs to a different field.
+  const money = (amount: Money | null) => (amount === null ? null : formatMoney(amount));
 
   return (
     <li className="pv-card pv-card-pad" data-commitment-id={commitment.commitment_id}>
@@ -112,8 +117,20 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
           <div>
             <p className="pv-label">Case docket</p>
             <h1 className="pv-display">{record.title}</h1>
+            {/* A case can sit outside any context, and several in the corpus do.
+                The separator goes with the title rather than being stranded, and
+                the absence is stated rather than rendered as an empty gap that
+                reads like a failed load. */}
             <p className="pv-mono">
-              {record.counterparty.display_name} · {record.case_type} · {record.context.title}
+              {record.counterparty.display_name} · {record.case_type}
+              {record.context === null ? (
+                <>
+                  {" · "}
+                  <Absent describe="this case belongs to no context" />
+                </>
+              ) : (
+                ` · ${record.context.title}`
+              )}
             </p>
           </div>
           <div style={{ display: "flex", gap: "var(--pv-space-2)", alignItems: "flex-start" }}>

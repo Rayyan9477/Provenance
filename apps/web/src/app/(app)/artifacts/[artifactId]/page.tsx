@@ -211,7 +211,21 @@ export default async function ArtifactPage({ params }: PageProps) {
               Only the first step carries a timestamp on this endpoint. The rest are trace spans;
               the trace holds their times.
             </p>
-            {Object.keys(data.parser_metadata).length > 0 ? (
+            {/* Three states, not two. `null` is "no parser metadata was ever
+                recorded"; `{}` is "a parser ran and recorded nothing". Rendering
+                both as blank would say the same thing about two different facts,
+                which is the one thing a record of provenance must not do. */}
+            {data.parser_metadata === null ? (
+              <p style={{ marginTop: "var(--pv-space-3)" }}>
+                <span className="pv-label">Parser metadata</span>{" "}
+                <Absent describe="no parser metadata recorded for this artifact" />
+              </p>
+            ) : Object.keys(data.parser_metadata).length === 0 ? (
+              <p style={{ marginTop: "var(--pv-space-3)" }}>
+                <span className="pv-label">Parser metadata</span>{" "}
+                <span className="pv-mono">recorded, empty</span>
+              </p>
+            ) : (
               <ul className="pv-mono" style={{ marginTop: "var(--pv-space-3)" }}>
                 {Object.entries(data.parser_metadata).map(([key, value]) => (
                   <li key={key} data-parser-metadata={key}>
@@ -219,7 +233,7 @@ export default async function ArtifactPage({ params }: PageProps) {
                   </li>
                 ))}
               </ul>
-            ) : null}
+            )}
           </section>
         </div>
       </div>

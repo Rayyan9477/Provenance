@@ -177,14 +177,30 @@ export default async function JudgeModePage({ searchParams }: PageProps) {
         <MemoryTracePanel trace={trace.data} />
       ) : (
         <ErrorState
-          heading="Trace unreadable."
+          heading={
+            trace.status === 501 ? "The trace assembler is not built yet." : "Trace unreadable."
+          }
           detail={`GET ${trace.path} returned ${trace.status} ${trace.code}`}
           traceId={trace.traceId}
         >
-          <p>
-            A judge requesting a trace outside the demo tenant receives TRACE_NOT_FOUND rather than
-            a forbidden response, because a forbidden response would confirm the trace exists.
-          </p>
+          {/* 501 and 500 are different claims and must not read alike. A 501
+              says this capability has never been written and names the
+              subsystem it waits on; a 500 says something broke. Showing
+              "unreadable" for both told a reader the product was faulty when it
+              was being precise about its own boundary -- the same confusion as
+              reporting CANNOT RUN as FAIL, one layer up and in front of a
+              judge. The API's message is rendered verbatim because it is a
+              curated constant naming the missing subsystem, not an exception
+              string. */}
+          {trace.status === 501 ? (
+            <p>{trace.message}</p>
+          ) : (
+            <p>
+              A judge requesting a trace outside the demo tenant receives TRACE_NOT_FOUND rather
+              than a forbidden response, because a forbidden response would confirm the trace
+              exists.
+            </p>
+          )}
         </ErrorState>
       )}
 

@@ -184,7 +184,9 @@ export interface MeResponse {
   readonly created_at: Instant;
   readonly feature_flags: FeatureFlags;
   readonly judge_mode_enabled: boolean;
-  readonly ingest_alias_status: string;
+  // Null until an ingest alias is provisioned. 'Not provisioned' and 'status
+  // unknown' are different answers and the settings screen shows both.
+  readonly ingest_alias_status: string | null;
 }
 
 /* -- Section 8.4 GET /v1/dashboard ------------------------------------------ */
@@ -236,7 +238,8 @@ export interface CaseAttentionItem {
   readonly attention_level: AttentionLevel;
   readonly attention_reason_codes: readonly string[];
   readonly relationship_id: Uuid;
-  readonly counterparty_display_name: string;
+  // Null where the display name is carried by the nested counterparty object.
+  readonly counterparty_display_name: string | null;
   readonly last_activity_at: Instant;
   /** Deterministic template output keyed on reason codes. Never model-generated. */
   readonly headline: string;
@@ -276,7 +279,11 @@ export interface RelationshipResponse {
   readonly valid_from: Instant | null;
   readonly valid_to: Instant | null;
   readonly revision: number;
-  readonly context: { readonly context_id: Uuid; readonly title: string };
+  // Nullable. A case can exist outside any context -- the seeded corpus has
+  // several -- and the endpoint sends null for them. Declared non-null, so
+  // `record.context.title` threw and those case routes 500'd while cases
+  // that happened to sit inside a context rendered fine.
+  readonly context: { readonly context_id: Uuid; readonly title: string } | null;
   readonly cases: readonly RelationshipCaseRef[];
   readonly summary: {
     readonly total_cases: number;
@@ -298,9 +305,17 @@ export interface CaseCommitment {
   readonly obligor_type: string;
   readonly beneficiary_type: string;
   readonly status: string;
-  readonly committed_amount: Decimal | null;
-  readonly fulfilled_amount: Decimal | null;
-  readonly outstanding_amount: Decimal | null;
+  // `Money`, not `Decimal`. These were declared as bare decimal strings and the
+  // control plane sends `{"currency":"USD","amount":"420.0000"}`, so the case
+  // detail page wrapped an object in another object and every case route died
+  // with `amount.split is not a function`. TypeScript was satisfied because the
+  // claim itself was false -- and `ProofCommitment` below declared the same
+  // three fields as `Money` correctly, so the repository held two answers to one
+  // question and the wrong one sat on the busier path.
+  // Pinned by `__tests__/contract-conformance.test.ts` against a captured response.
+  readonly committed_amount: Money | null;
+  readonly fulfilled_amount: Money | null;
+  readonly outstanding_amount: Money | null;
   readonly currency: string | null;
   readonly due_at: Instant | null;
   readonly revision: number;
@@ -348,7 +363,11 @@ export interface CaseResponse {
     readonly status: string;
   };
   readonly counterparty: CounterpartyRef;
-  readonly context: { readonly context_id: Uuid; readonly title: string };
+  // Nullable. A case can exist outside any context -- the seeded corpus has
+  // several -- and the endpoint sends null for them. Declared non-null, so
+  // `record.context.title` threw and those case routes 500'd while cases
+  // that happened to sit inside a context rendered fine.
+  readonly context: { readonly context_id: Uuid; readonly title: string } | null;
   readonly opened_at: Instant;
   readonly resolved_at: Instant | null;
   readonly reopened_count: number;
@@ -371,7 +390,8 @@ export interface TimelineEntry {
   readonly id: Uuid;
   readonly kind: TimelineKind;
   readonly occurred_at: Instant;
-  readonly case_revision: number;
+  // Null on an entry that is not case-scoped.
+  readonly case_revision: number | null;
   readonly trace_id: Uuid | null;
   readonly actor: { readonly type: ActorType; readonly label: string };
   readonly headline: string;
@@ -425,7 +445,8 @@ export interface GroundingEdge {
   readonly source_kind: "EVIDENCE" | "CLAIM";
   readonly source_id: Uuid;
   readonly weight: Decimal;
-  readonly reason_code: string;
+  // Null where the grounding edge carries no reason code.
+  readonly reason_code: string | null;
   readonly created_at: Instant;
   readonly source: EvidenceSource | ClaimSource;
 }
@@ -444,7 +465,9 @@ export interface BeliefVersion {
   readonly superseded_by_version_no?: number | null;
   readonly supersession_reason_codes?: readonly string[];
   readonly kernel_decision_id: Uuid;
-  readonly grounding_count?: number;
+  // Null when the count was not computed, which is not the same as zero --
+  // zero support would violate the grounding invariant and must be visible.
+  readonly grounding_count?: number | null;
   readonly is_current?: boolean;
 }
 
@@ -473,10 +496,19 @@ export interface ProofCommitment {
   readonly commitment_id: Uuid;
   readonly description: string;
   readonly status: string;
-  readonly currency: string;
-  readonly committed_amount: Money;
-  readonly fulfilled_amount: Money;
-  readonly outstanding_amount: Money;
+  // Null together, on a NON-MONETARY commitment -- an obligation to send a
+  // letter, attend an inspection, restore a service. The corpus contains one,
+  // and it crashed the relationship file with "Cannot read properties of null
+  // (reading 'currency')" because these three were declared non-null.
+  //
+  // The UI must not fall back to `USD 0.00` here. Zero outstanding says the
+  // obligation is DISCHARGED; null says it was never denominated in money at
+  // all. Those are opposite claims about whether the counterparty still owes
+  // something, which is the single question this product exists to answer.
+  readonly currency: string | null;
+  readonly committed_amount: Money | null;
+  readonly fulfilled_amount: Money | null;
+  readonly outstanding_amount: Money | null;
   readonly due_at: Instant | null;
   readonly source_claim_id: Uuid | null;
   readonly fulfillments: readonly Fulfillment[];
@@ -514,11 +546,16 @@ export interface Derivation {
 }
 
 export interface StateTransition {
-  readonly case_revision: number;
+  // Null on an entry that is not case-scoped.
+  readonly case_revision: number | null;
   readonly transition_type: string;
-  readonly from_state: string;
+  // Null is MEANINGFUL: it is the FIRST transition, which has no prior state.
+  // Rendering it as blank loses the distinction between 'opened here' and
+  // 'we do not know where this came from'.
+  readonly from_state: string | null;
   readonly to_state: string;
-  readonly reason_code: string;
+  // Null where the transition carries no reason code.
+  readonly reason_code: string | null;
   readonly kernel_decision_id: Uuid;
   readonly trace_id: Uuid | null;
   readonly recorded_at: Instant;
@@ -543,7 +580,8 @@ export interface IntegrityWarning {
 export interface StateProofResponse {
   readonly schema_version: string;
   readonly case_id: Uuid;
-  readonly case_revision: number;
+  // Null on an entry that is not case-scoped.
+  readonly case_revision: number | null;
   readonly case_status: string;
   readonly generated_at: Instant;
   /** Always true: this endpoint never calls a model. */
@@ -618,7 +656,15 @@ export interface ArtifactResponse {
   readonly event_time: Instant | null;
   readonly parser_status: string;
   readonly parser_version: string;
-  readonly parser_metadata: Readonly<Record<string, unknown>>;
+  // Nullable. Declared non-null, and the endpoint sends `null` for every
+  // artifact in the seeded corpus, so `Object.keys(...)` threw "Cannot convert
+  // undefined or null to object" and all 25 artifact detail routes 500'd.
+  //
+  // `null` and `{}` are different facts and the UI renders them differently:
+  // null means no parser ever recorded metadata for this artifact, `{}` means a
+  // parser ran and recorded nothing. Collapsing them with `?? {}` would be the
+  // absence-is-not-emptiness mistake this codebase exists to avoid.
+  readonly parser_metadata: Readonly<Record<string, unknown>> | null;
   readonly content_blocks_summary?: readonly ContentBlockSummary[];
   readonly evidence_item_count: number;
   readonly linked_cases: readonly { readonly case_id: Uuid; readonly title: string }[];
@@ -650,6 +696,7 @@ export interface GroundedSentence {
 }
 
 export interface ActionDraft {
+  // An artifact that did not arrive by email has no subject line.
   readonly subject: string;
   readonly body: string;
   readonly claims: readonly GroundedSentence[];
@@ -713,7 +760,8 @@ export interface ActionStaleDetail {
   readonly changed_since: readonly {
     readonly kind: string;
     readonly headline: string;
-    readonly case_revision: number;
+    // Null on an entry that is not case-scoped.
+    readonly case_revision: number | null;
   }[];
   readonly state_proof_url: string;
 }
@@ -746,7 +794,9 @@ export interface TraceEdge {
 }
 
 export interface TraceResponse {
-  readonly trace_id: Uuid;
+  // Null when the request produced no trace -- an unauthenticated refusal is
+  // answered before tracing starts.
+  readonly trace_id: Uuid | null;
   readonly started_at: Instant;
   readonly finished_at: Instant | null;
   readonly duration_ms: number;
@@ -915,7 +965,9 @@ export interface ActionIntentListItem {
   readonly action_intent_id: Uuid;
   readonly case_id: Uuid;
   readonly case_title: string;
-  readonly counterparty_display_name: string;
+  // Null on a commitment whose counterparty is carried by the case rather than
+  // denormalised onto the row.
+  readonly counterparty_display_name: string | null;
   readonly action_type: string;
   readonly status: string;
   readonly recipient_masked: string;
