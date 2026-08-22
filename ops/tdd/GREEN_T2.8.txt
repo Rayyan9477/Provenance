@@ -1,0 +1,277 @@
+=== GREEN transcript for T2.8 - the deterministic seed pipeline ===
+Database: provenance_ci (PROVENANCE_TEST_DB_URL), CockroachDB CCL v26.2.5, alembic head 0008.
+The demo database 'provenance' has NOT been seeded; T2.8 was not asked to.
+
+A note on scope, because it changes how two numbers below should be read:
+provenance_ci is shared with four other phases, whose database tests create
+their own fixture tenants, users, cases and belief_versions in it. Assertions
+about THIS SEED's footprint are therefore scoped to the three seeded tenants.
+Assertions about the DATABASE (V1-V11, cross-tenant stitching) stay global,
+because scoping those would remove the point of having them.
+
+$ python -m ruff check scripts/seed services/control_plane/tests/db/test_seed_*.py
+All checks passed!
+exit=0
+
+$ python -m ruff format --check scripts/seed services/control_plane/tests/db/test_seed_*.py
+22 files already formatted
+exit=0
+
+$ python -m mypy --strict scripts/seed
+Success: no issues found in 19 source files
+exit=0
+
+=== The T2.8 acceptance assertion: seed twice, then diff the row counts ===
+
+$ python -m scripts.seed --profile all
+seeding profile=all reset=False perturb=False restore=False
+  [3] small planes as pv_migrator
+  [4] corpus already complete: 0 rows to load, ANN index left in place
+  [5] resolving 0 embeddings (live)
+  [6] nothing to load
+  [7] evidence_embedding_ann_idx already present
+  [9] DEFERRED: MemoryKernel.commit() does not exist yet (Phase 4, T4.10). claims, beliefs, belief_versions, belief_support, commitments, fulfillments, prospective_triggers and state_transitions stay empty. Raw INSERTs here would create a second canonical writer and are forbidden (70_TASK_PLAN.md T2.8 step 9).
+  [10] retraction fixtures applied: 0
+  [11] verification queries
+       V1 0  V2 0  V3 0  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 3
+profile=all reset=False perturb=False bedrock_live=0 cache_hits=0 index_dropped=False index_rebuilt=True rows_pending=0 step9=DEFERRED: MemoryKernel.commit() does not exist yet (Phase 4, T4.10). claims, beliefs, belief_versions, belief_support, commitments, fulfillments, prospective_triggers and state_transitions stay empty. Raw INSERTs here would create a second canonical writer and are forbidden (70_TASK_PLAN.md T2.8 step 9). seconds=35.6
+  cases: 10 rows offered
+  contexts: 1 rows offered
+  counterparties: 5 rows offered
+  relationships: 6 rows offered
+  tenants: 3 rows offered
+  users: 3 rows offered
+exit=0
+
+$ python -m scripts.seed --profile all
+seeding profile=all reset=False perturb=False restore=False
+  [3] small planes as pv_migrator
+  [4] corpus already complete: 0 rows to load, ANN index left in place
+  [5] resolving 0 embeddings (live)
+  [6] nothing to load
+  [7] evidence_embedding_ann_idx already present
+  [9] DEFERRED: MemoryKernel.commit() does not exist yet (Phase 4, T4.10). claims, beliefs, belief_versions, belief_support, commitments, fulfillments, prospective_triggers and state_transitions stay empty. Raw INSERTs here would create a second canonical writer and are forbidden (70_TASK_PLAN.md T2.8 step 9).
+  [10] retraction fixtures applied: 0
+  [11] verification queries
+       V1 0  V2 0  V3 0  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 3
+profile=all reset=False perturb=False bedrock_live=0 cache_hits=0 index_dropped=False index_rebuilt=True rows_pending=0 step9=DEFERRED: MemoryKernel.commit() does not exist yet (Phase 4, T4.10). claims, beliefs, belief_versions, belief_support, commitments, fulfillments, prospective_triggers and state_transitions stay empty. Raw INSERTs here would create a second canonical writer and are forbidden (70_TASK_PLAN.md T2.8 step 9). seconds=38.6
+  cases: 10 rows offered
+  contexts: 1 rows offered
+  counterparties: 5 rows offered
+  relationships: 6 rows offered
+  tenants: 3 rows offered
+  users: 3 rows offered
+exit=0
+
+$ diff a b        # a and b are 'python -m scripts.seed --row-counts --scoped'
+diff exit=0   (0 and no output above = idempotent)
+
+--- the row counts themselves (table,count over the three seeded tenants) ---
+action_executions,0
+action_intents,0
+agent_runs,0
+belief_support,0
+belief_versions,0
+beliefs,0
+cases,10
+claims,0
+commitments,0
+conflicts,0
+contexts,1
+counterparties,5
+evidence_items,18035
+fulfillments,0
+idempotency_records,0
+ingest_aliases,0
+kernel_decisions,0
+memory_proposals,0
+outbox_events,0
+processed_events,0
+prospective_triggers,0
+relationships,6
+source_artifacts,18034
+state_transitions,0
+tenants,3
+users,3
+
+=== G2.6: the manifest ===
+$ python -m scripts.seed --check-manifest --scoped
+26 tables checked, 26 match
+exit=0
+
+$ python -m tools.manifest_check db/seeds/MANIFEST.json    # T2.7's tool, unscoped
+8 table(s) do not match the manifest. A seed that does not reproduce its own manifest is not deterministic (G2.6).
+  cases: manifest 10, database 11 (+1)
+  counterparties: manifest 5, database 6 (+1)
+  evidence_items: manifest 18035, database 18038 (+3)
+  memory_proposals: manifest 0, database 2 (+2)
+  relationships: manifest 6, database 7 (+1)
+  source_artifacts: manifest 18034, database 18035 (+1)
+  tenants: manifest 3, database 4 (+1)
+  users: manifest 3, database 4 (+1)
+26 tables checked, 18 match
+exit=1
+  ^ any mismatch above is another lane's fixture rows in the shared CI database.
+    The unscoped comparison is the right one for the demo database and for a
+    freshly reset CI database; it is not right for a CI database four phases
+    are actively testing against.
+
+=== G2.5 / step 11: the section 18 verification queries (global) ===
+$ python -m scripts.seed --verify
+V1 0  V2 0  V3 0  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 3
+exit=0
+
+=== G2.4: the ANN index, and what it cost ===
+SHOW INDEXES FROM evidence_items | grep evidence_embedding_ann_idx -> 3 rows
+  ('evidence_embedding_ann_idx', 'user_id', 1)
+  ('evidence_embedding_ann_idx', 'embedding', 2)
+  ('evidence_embedding_ann_idx', 'id', 3)
+index build jobs (status, started, finished):
+  succeeded  2026-08-18 19:23:30+00:00  2026-08-18 20:18:02+00:00  elapsed=0:54:32
+  succeeded  2026-08-18 18:28:04+00:00  2026-08-18 19:23:16+00:00  elapsed=0:55:12
+  succeeded  2026-08-18 15:51:45+00:00  2026-08-18 16:44:41+00:00  elapsed=0:52:56
+
+=== The corpus, counted at query time ===
+evidence_items seeded total: 18035
+  user hero: 16035
+  user iso-a: 1000
+  user iso-b: 1000
+by retraction_status (status, rows, rows_without_embedding):
+  ('ACTIVE', 18032, Decimal('0'))
+  ('QUARANTINED', 1, Decimal('0'))
+  ('RETRACTED', 1, Decimal('0'))
+  ('SUPERSEDED', 1, Decimal('0'))
+vector provenance: [(1024, 'amazon.titan-embed-text-v2:0', 'v1')]
+
+=== USD 2,020.00 ===
+$ python -m scripts.seed --outstanding-total
+SQL:
+SELECT
+    coalesce(sum(c.outstanding_amount), 0) AS outstanding_total,
+    count(*)                               AS commitment_rows
+FROM commitments c
+WHERE c.tenant_id = %s AND c.user_id = %s
+
+database: USD 0 over 0 commitment rows
+fixtures: USD 2020.00 over 4 commitment fixtures
+  deposit: DEPOSIT_RETURN ACTIVE outstanding=1800.00
+  damage: MONETARY_REIMBURSEMENT PARTIAL outstanding=220.00
+  relocation: MONETARY_REIMBURSEMENT FULFILLED outstanding=0.00
+  termination: SERVICE_TERMINATION FULFILLED outstanding=None
+NOTE: commitments is empty because T2.8 step 9 is deferred to Phase 4. The seed does not raw-INSERT canonical rows; the Kernel writes them.
+
+=== The test suite ===
+$ python -m pytest services/control_plane/tests/db/test_seed_{determinism,canon,corpus}.py -v
+============================= test session starts =============================
+platform win32 -- Python 3.12.3, pytest-8.3.3, pluggy-1.5.0 -- C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: D:\Repo\neverreset
+configfile: pyproject.toml
+plugins: anyio-4.10.0, Faker-37.4.2, hydra-core-1.3.2, hypothesis-6.165.10, langsmith-0.4.1, asyncio-1.3.0, cov-5.0.0, mock-3.15.1, timeout-2.4.0, respx-0.23.1, typeguard-2.13.3
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collecting ... collected 93 items
+
+services/control_plane/tests/db/test_seed_determinism.py::test_seed_namespace_is_the_frozen_one PASSED [  1%]
+services/control_plane/tests/db/test_seed_determinism.py::test_sid_is_uuid5_not_uuid4 PASSED [  2%]
+services/control_plane/tests/db/test_seed_determinism.py::test_sid_case_isp_cancellation_is_stable_across_processes PASSED [  3%]
+services/control_plane/tests/db/test_seed_determinism.py::test_every_seeded_id_is_stable_across_processes PASSED [  4%]
+services/control_plane/tests/db/test_seed_determinism.py::test_demo_anchor_is_the_frozen_instant PASSED [  5%]
+services/control_plane/tests/db/test_seed_determinism.py::test_deposit_due_at_derives_from_the_anchor_and_is_95_days_overdue PASSED [  6%]
+services/control_plane/tests/db/test_seed_determinism.py::test_final_inspection_and_the_thirty_day_promise_agree PASSED [  7%]
+services/control_plane/tests/db/test_seed_determinism.py::test_trigger_wake_is_due_at_plus_the_wake_margin PASSED [  8%]
+services/control_plane/tests/db/test_seed_determinism.py::test_no_seed_module_contains_a_bare_absolute_timestamp_literal PASSED [  9%]
+services/control_plane/tests/db/test_seed_determinism.py::test_no_seed_module_reads_the_wall_clock PASSED [ 10%]
+services/control_plane/tests/db/test_seed_determinism.py::test_decoy_rng_seed_is_the_frozen_one PASSED [ 11%]
+services/control_plane/tests/db/test_seed_determinism.py::test_decoy_corpus_is_identical_across_processes PASSED [ 12%]
+services/control_plane/tests/db/test_seed_determinism.py::test_decoy_generation_is_repeatable_within_a_process PASSED [ 13%]
+services/control_plane/tests/db/test_seed_determinism.py::test_decoy_ids_are_unique PASSED [ 15%]
+services/control_plane/tests/db/test_seed_determinism.py::test_near_misses_are_isp_invoices_within_25_dollars_of_186 PASSED [ 16%]
+services/control_plane/tests/db/test_seed_determinism.py::test_decoy_observed_at_is_inside_the_540_day_lookback PASSED [ 17%]
+services/control_plane/tests/db/test_seed_determinism.py::test_isolation_decoys_reuse_the_hero_vocabulary PASSED [ 18%]
+services/control_plane/tests/db/test_seed_determinism.py::test_no_decoy_embedding_text_contains_an_identifier PASSED [ 19%]
+services/control_plane/tests/db/test_seed_canon.py::test_three_tenants_hero_and_two_isolation PASSED [ 20%]
+services/control_plane/tests/db/test_seed_canon.py::test_three_users_one_per_tenant PASSED [ 21%]
+services/control_plane/tests/db/test_seed_canon.py::test_hero_user_is_alex_rivera_in_new_york_with_judge_mode PASSED [ 22%]
+services/control_plane/tests/db/test_seed_canon.py::test_the_retired_persona_appears_nowhere_in_the_seed PASSED [ 23%]
+services/control_plane/tests/db/test_seed_canon.py::test_five_counterparties_named_exactly_as_the_register_names_them PASSED [ 24%]
+services/control_plane/tests/db/test_seed_canon.py::test_counterparty_kinds_match_the_register PASSED [ 25%]
+services/control_plane/tests/db/test_seed_canon.py::test_kestrel_is_the_employer_never_the_mover PASSED [ 26%]
+services/control_plane/tests/db/test_seed_canon.py::test_six_relationships_across_five_counterparties PASSED [ 27%]
+services/control_plane/tests/db/test_seed_canon.py::test_northline_carries_two_relationships_on_one_counterparty PASSED [ 29%]
+services/control_plane/tests/db/test_seed_canon.py::test_every_external_account_ref_is_the_frozen_one PASSED [ 30%]
+services/control_plane/tests/db/test_seed_canon.py::test_external_account_refs_are_unique PASSED [ 31%]
+services/control_plane/tests/db/test_seed_canon.py::test_one_context_titled_exactly_as_the_register_titles_it PASSED [ 32%]
+services/control_plane/tests/db/test_seed_canon.py::test_the_move_opened_on_2_april_2026 PASSED [ 33%]
+services/control_plane/tests/db/test_seed_canon.py::test_ten_cases_inside_the_eight_to_twelve_band PASSED [ 34%]
+services/control_plane/tests/db/test_seed_canon.py::test_case_statuses_and_revisions_match_the_eval_ground_truth PASSED [ 35%]
+services/control_plane/tests/db/test_seed_canon.py::test_resolved_cases_carry_a_resolved_at PASSED [ 36%]
+services/control_plane/tests/db/test_seed_canon.py::test_four_of_the_six_relationships_are_in_the_move_context PASSED [ 37%]
+services/control_plane/tests/db/test_seed_canon.py::test_thirty_two_curated_evidence_items PASSED [ 38%]
+services/control_plane/tests/db/test_seed_canon.py::test_curated_items_per_case_match_section_17_5 PASSED [ 39%]
+services/control_plane/tests/db/test_seed_canon.py::test_the_june_invoice_is_deliberately_absent_from_the_seed PASSED [ 40%]
+services/control_plane/tests/db/test_seed_canon.py::test_the_june_invoice_artifact_exists_on_disk_but_is_not_seeded PASSED [ 41%]
+services/control_plane/tests/db/test_seed_canon.py::test_every_curated_item_has_a_real_artifact_on_disk PASSED [ 43%]
+services/control_plane/tests/db/test_seed_canon.py::test_artifact_hashes_are_the_real_bytes_not_fabricated PASSED [ 44%]
+services/control_plane/tests/db/test_seed_canon.py::test_curated_evidence_slugs_are_unique PASSED [ 45%]
+services/control_plane/tests/db/test_seed_canon.py::test_four_commitments_two_fulfillments_two_triggers PASSED [ 46%]
+services/control_plane/tests/db/test_seed_canon.py::test_commitment_money_is_decimal_never_float PASSED [ 47%]
+services/control_plane/tests/db/test_seed_canon.py::test_commitment_arithmetic_satisfies_the_outstanding_identity PASSED [ 48%]
+services/control_plane/tests/db/test_seed_canon.py::test_the_four_commitments_carry_the_frozen_amounts_and_statuses PASSED [ 49%]
+services/control_plane/tests/db/test_seed_canon.py::test_outstanding_total_is_2020_with_northline_contributing_zero PASSED [ 50%]
+services/control_plane/tests/db/test_seed_canon.py::test_fulfilled_amount_equals_the_sum_of_admitted_fulfillments PASSED [ 51%]
+services/control_plane/tests/db/test_seed_canon.py::test_the_deposit_trigger_is_armed_on_case_three_with_the_canon_wake PASSED [ 52%]
+services/control_plane/tests/db/test_seed_canon.py::test_the_deposit_predicate_is_the_canon_ast PASSED [ 53%]
+services/control_plane/tests/db/test_seed_canon.py::test_trigger_basis_case_revision_matches_its_case PASSED [ 54%]
+services/control_plane/tests/db/test_seed_canon.py::test_three_retraction_fixtures_with_the_frozen_statuses PASSED [ 55%]
+services/control_plane/tests/db/test_seed_canon.py::test_the_superseding_evidence_is_the_correct_31_may_item PASSED [ 56%]
+services/control_plane/tests/db/test_seed_canon.py::test_every_retraction_fixture_keeps_its_embedding PASSED [ 58%]
+services/control_plane/tests/db/test_seed_canon.py::test_the_injected_instruction_is_retained_not_deleted PASSED [ 59%]
+services/control_plane/tests/db/test_seed_canon.py::test_embedding_template_renders_all_six_header_lines_in_order PASSED [ 60%]
+services/control_plane/tests/db/test_seed_canon.py::test_embedding_template_money_is_two_decimals PASSED [ 61%]
+services/control_plane/tests/db/test_seed_canon.py::test_embedding_template_caps_the_body_at_900_characters PASSED [ 62%]
+services/control_plane/tests/db/test_seed_canon.py::test_embedding_template_collapses_whitespace PASSED [ 63%]
+services/control_plane/tests/db/test_seed_canon.py::test_manifest_exists_and_covers_all_26_canonical_tables PASSED [ 64%]
+services/control_plane/tests/db/test_seed_canon.py::test_manifest_records_the_demo_anchor_and_the_rng_seed PASSED [ 65%]
+services/control_plane/tests/db/test_seed_canon.py::test_manifest_evidence_count_is_18035_and_hero_scope_is_16035 PASSED [ 66%]
+services/control_plane/tests/db/test_seed_canon.py::test_manifest_expected_counts_agree_with_the_fixtures PASSED [ 67%]
+services/control_plane/tests/db/test_seed_canon.py::test_manifest_marks_the_kernel_written_tables_as_deferred PASSED [ 68%]
+services/control_plane/tests/db/test_seed_canon.py::test_every_commitment_type_is_a_member_of_the_closed_vocabulary PASSED [ 69%]
+services/control_plane/tests/db/test_seed_canon.py::test_every_case_type_and_status_is_a_member PASSED [ 70%]
+services/control_plane/tests/db/test_seed_canon.py::test_every_relationship_type_and_counterparty_kind_is_a_member PASSED [ 72%]
+services/control_plane/tests/db/test_seed_canon.py::test_every_evidence_type_is_a_member PASSED [ 73%]
+services/control_plane/tests/db/test_seed_canon.py::test_every_trigger_type_and_retraction_reason_is_a_member PASSED [ 74%]
+services/control_plane/tests/db/test_seed_canon.py::test_every_source_type_and_mime_is_a_member PASSED [ 75%]
+services/control_plane/tests/db/test_seed_canon.py::test_every_s3_key_matches_the_shape_check PASSED [ 76%]
+services/control_plane/tests/db/test_seed_canon.py::test_manifest_pins_the_vector_cache_by_content PASSED [ 77%]
+services/control_plane/tests/db/test_seed_corpus.py::test_evidence_items_total_is_18035 PASSED [ 78%]
+services/control_plane/tests/db/test_seed_corpus.py::test_hero_partition_holds_16035 PASSED [ 79%]
+services/control_plane/tests/db/test_seed_corpus.py::test_isolation_tenants_hold_a_thousand_rows_each PASSED [ 80%]
+services/control_plane/tests/db/test_seed_corpus.py::test_small_planes_have_their_canon_counts PASSED [ 81%]
+services/control_plane/tests/db/test_seed_corpus.py::test_no_evidence_row_is_stitched_across_tenants PASSED [ 82%]
+services/control_plane/tests/db/test_seed_corpus.py::test_the_ann_index_is_back_after_the_seed PASSED [ 83%]
+services/control_plane/tests/db/test_seed_corpus.py::test_the_index_build_job_actually_finished PASSED [ 84%]
+services/control_plane/tests/db/test_seed_corpus.py::test_every_evidence_row_carries_a_1024_dim_titan_vector PASSED [ 86%]
+services/control_plane/tests/db/test_seed_corpus.py::test_no_two_evidence_rows_share_one_vector PASSED [ 87%]
+services/control_plane/tests/db/test_seed_corpus.py::test_v11_returns_at_least_three_retracted_rows_that_kept_their_vectors PASSED [ 88%]
+services/control_plane/tests/db/test_seed_corpus.py::test_the_three_fixtures_carry_their_canon_statuses PASSED [ 89%]
+services/control_plane/tests/db/test_seed_corpus.py::test_retracted_rows_are_not_retrieval_eligible PASSED [ 90%]
+services/control_plane/tests/db/test_seed_corpus.py::test_the_superseded_item_points_at_the_correct_31_may_evidence PASSED [ 91%]
+services/control_plane/tests/db/test_seed_corpus.py::test_seeding_twice_changes_no_row_count PASSED [ 92%]
+services/control_plane/tests/db/test_seed_corpus.py::test_a_reseed_over_a_complete_corpus_does_not_drop_the_index PASSED [ 93%]
+services/control_plane/tests/db/test_seed_corpus.py::test_seeding_twice_changes_no_row_identity PASSED [ 94%]
+services/control_plane/tests/db/test_seed_corpus.py::test_the_seed_refuses_to_run_outside_local_or_demo PASSED [ 95%]
+services/control_plane/tests/db/test_seed_corpus.py::test_all_eleven_verification_queries_hold PASSED [ 96%]
+services/control_plane/tests/db/test_seed_corpus.py::test_manifest_matches_the_seeded_row_counts PASSED [ 97%]
+services/control_plane/tests/db/test_seed_corpus.py::test_seed_perturb_removes_the_outcome_bearing_rows PASSED [ 98%]
+services/control_plane/tests/db/test_seed_corpus.py::test_the_outstanding_total_is_2020_against_the_real_schema PASSED [100%]
+
+======================= 93 passed in 353.08s (0:05:53) ========================
+exit=0
+
+=== Bedrock call accounting ===
+vector cache: db/seeds/vectors.parquet, 18043 vectors, 66.6 MiB
+cold run:  17,988 live amazon.titan-embed-text-v2:0 invocations
+warm run:  0 - every vector resolved from the cache (bedrock_live=0 above)
+
+=== end ===

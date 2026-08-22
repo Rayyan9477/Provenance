@@ -1,0 +1,7 @@
+# gate=G0.1 sha=291ef912e7d0341e51eac70d4f8b47f307221faf utc=2026-08-18T00:08:06Z exit=0
+# cmd=bash -c $'set -euo pipefail; \\\n  head -3 LICENSE; \\\n  actual=$(sha256sum LICENSE | cut -d" " -f1); \\\n  expected=$(grep -oE "[0-9a-f]{64}" ops/decisions/LICENSE_SHA.txt | head -1); \\\n  test -n "$expected"; \\\n  test "$actual" = "$expected"' 
+# started=2026-08-18T00:08:06Z finished=2026-08-18T00:08:06Z tree=dirty scrubbed-by=tools/scrub.py
+#
+
+                                 Apache License
+                           Version 2.0, January 2004

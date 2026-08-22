@@ -1,0 +1,27 @@
+T1.2 RED transcript — provenance_domain/transitions.py
+Captured 2026-08-17T23:53:09Z
+git HEAD: 62e3f1c
+
+$ ls packages/python/provenance_domain/src/provenance_domain/
+__init__.py
+__pycache__
+enums.py
+kernel
+
+(transitions.py does not exist yet — this run precedes the implementation)
+
+$ python -m pytest packages/python/provenance_domain/tests/test_transitions.py -q
+
+=================================== ERRORS ====================================
+_ ERROR collecting packages/python/provenance_domain/tests/test_transitions.py _
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_domain\tests\test_transitions.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_domain\tests\test_transitions.py:35: in <module>
+    from provenance_domain.transitions import (
+E   ModuleNotFoundError: No module named 'provenance_domain.transitions'
+=========================== short test summary info ===========================
+ERROR packages/python/provenance_domain/tests/test_transitions.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.17s
+exit=2

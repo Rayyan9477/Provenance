@@ -1,0 +1,16 @@
+# ops/gates/logs/ - scrubbed battery output, one file per exit assertion.
+#
+# Naming: <ID>.<sha8>.log, written by tools/gate.sh
+#   (quality/23_PHASE_GATES.md section 4, the ledger tree).
+#
+# These files are COMMITTED. They are scrubbed by tools/scrub.py before they are
+# written, and CI runs `gitleaks detect --source ops/gates` on every push
+# (section 2.2). A gate log that fails the scan blocks the merge, and the secret
+# it exposed is rotated before anything else happens.
+#
+# This file exists so the directory survives a clone while it is empty. Do not
+# delete it when the first log lands.
+#
+# Reading the directory:
+#   head -1 ops/gates/logs/*.log        every header at a glance
+#   grep -L 'exit=0' ops/gates/logs/*.log   exactly the assertions that failed

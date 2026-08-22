@@ -1,0 +1,84 @@
+[
+  {
+    "schema_version": "1.0",
+    "proposal_id": "c16bebd4-abbd-580a-a2e5-e818ebcdddaa",
+    "proposal_type": "INGESTION_INTERPRETATION",
+    "trace_id": "cbab3176-3ec0-4c75-ade1-42c06e6e6c54",
+    "agent_run_id": "6e4610ec-4c7f-4ccb-ba3b-04a0bf828ae7",
+    "user_id": "88f54715-2808-58e8-8591-93f515ee21ba",
+    "source_artifact_ids": [
+      "1566ac59-97d7-5666-9698-511c55ae07b1"
+    ],
+    "evidence_ids": [
+      "1a173874-9bf1-5a89-9a4d-e5ab8f07f9b5"
+    ],
+    "identity": {
+      "relationship_id": "adf6c545-dda2-5f65-bb2c-eb7e413ae75f",
+      "case_id": "7c1e894f-57ff-533c-8f9f-543a395e6c46",
+      "confidence": "0.9500",
+      "unresolved_candidates": [],
+      "resolved_by": "TIER_R_RESOLVER"
+    },
+    "claims": [
+      {
+        "local_id": "cl_1",
+        "claim_kind": "COMMITMENT_CLAIM",
+        "subject_type": "COUNTERPARTY",
+        "subject_id": null,
+        "subject_local_ref": "Harborview Property Management",
+        "predicate": "commitment.return_deposit",
+        "object_type": "MONEY",
+        "object_value": "1800.00",
+        "actor_type": "COUNTERPARTY",
+        "actor_ref": "Harborview Property Management",
+        "evidence_id": "1a173874-9bf1-5a89-9a4d-e5ab8f07f9b5",
+        "source_class": "PROVIDER_AGENT_WRITTEN",
+        "modality": "PROMISED_FUTURE",
+        "valid_from": null,
+        "valid_to": null,
+        "extraction_confidence": "1.0000"
+      }
+    ],
+    "commitments": [
+      {
+        "local_id": "cm_1",
+        "commitment_type": "DEPOSIT_RETURN",
+        "description": "Return security deposit of USD 1,800.00 in full with no deductions",
+        "obligor_type": "COUNTERPARTY",
+        "obligor_ref": "Harborview Property Management",
+        "beneficiary_type": "USER",
+        "beneficiary_ref": "Alex Rivera",
+        "committed": {
+          "amount": "1800.00",
+          "currency": "USD"
+        },
+        "due_at": null,
+        "due_condition": null,
+        "source_claim_local_id": "cl_1",
+        "source_claim_id": null,
+        "valid_from": null,
+        "valid_to": null,
+        "confidence": "1.0000"
+      }
+    ],
+    "belief_mutations": [],
+    "conflict_hints": [],
+    "trigger_mutations": [],
+    "requested_case_transition": null,
+    "requested_transition_reason_code": null,
+    "unresolved_questions": [],
+    "blocks_state_change": false,
+    "model": {
+      "schema_version": "1.0",
+      "provider": "gemini",
+      "model_id": "gemini-3.5-flash-lite",
+      "tier": "E",
+      "prompt_version": "pv-extract-1.1.0",
+      "graph_name": "ingestion_graph",
+      "graph_version": "1.0.0",
+      "extraction_schema_version": "1.0"
+    },
+    "idempotency_key": "pv-ingest-ddc346e0fd9159a3d090d292501624cea5e5daac",
+    "created_at": "2026-08-24T07:23:35.386251Z"
+  }
+]

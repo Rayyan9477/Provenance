@@ -1,0 +1,463 @@
+RED transcript — T2.1, T2.2, T2.3 (migrations 0001-0003)
+Captured: 2026-08-18T11:43:23Z
+Repository HEAD at capture: c2a0c05
+
+Tests were written FIRST. At this moment the repository contains only the tests:
+  ?? services/control_plane/tests/db/
+
+and NONE of the implementation files T2.1-T2.3 create (ls output below is the proof):
+  ls: cannot access 'alembic.ini': No such file or directory
+  ls: cannot access 'db/migrations/env.py': No such file or directory
+  ls: cannot access 'db/migrations/versions': No such file or directory
+
+Database of record for this lane: provenance_ci as pv_migrator, CockroachDB CCL v26.2.5.
+The 33 errors below are the session fixture failing 'alembic upgrade head' because
+alembic.ini does not exist yet. That is the correct RED cause.
+
+Command: python -m pytest services/control_plane/tests/db -m db --tb=short -rf
+================================================================================
+============================= test session starts =============================
+collected 60 items
+
+services\control_plane\tests\db\test_kernel_required.py EEEE             [  6%]
+services\control_plane\tests\db\test_migrations.py FFFFFFFFFFFFFEEEEEEEE [ 41%]
+EEEEEEEEEEEEEEEEFF                                                       [ 71%]
+services\control_plane\tests\db\test_retrieval_sql.py ............EEEEE  [100%]
+
+=================================== ERRORS ====================================
+_____ ERROR at setup of test_belief_cannot_be_canonical_without_grounding _____
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\pytest_asyncio\plugin.py:730: in pytest_fixture_setup
+    return (yield)
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+________ ERROR at setup of test_a_grounded_belief_version_is_accepted _________
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_ ERROR at setup of test_a_deterministic_derivation_may_carry_no_support_edges _
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+________ ERROR at setup of test_the_hero_disposition_is_representable _________
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_______ ERROR at setup of test_0001_creates_exactly_the_identity_tables _______
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+________ ERROR at setup of test_0002_creates_the_evidence_plane_tables ________
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_______ ERROR at setup of test_0003_creates_the_epistemic_plane_tables ________
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_____ ERROR at setup of test_no_table_outside_the_three_revisions_exists ______
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+___ ERROR at setup of test_primary_keys_are_uuid_without_a_database_default ___
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+________ ERROR at setup of test_timestamps_are_timestamptz_everywhere _________
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_______ ERROR at setup of test_confidence_columns_are_decimal_five_four _______
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+__ ERROR at setup of test_every_user_owned_table_carries_tenant_and_user_id ___
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+__ ERROR at setup of test_user_owned_tables_declare_the_composite_unique_key __
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_ ERROR at setup of test_every_foreign_key_into_user_owned_data_is_composite __
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_ ERROR at setup of test_cases_carries_revision_reopened_count_and_attention_level _
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+______ ERROR at setup of test_cases_vocabularies_match_the_domain_enums _______
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+______ ERROR at setup of test_cases_resolved_at_consistency_check_exists ______
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+______________ ERROR at setup of test_named_indexes_are_present _______________
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_____ ERROR at setup of test_source_artifacts_has_both_dedupe_constraints _____
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+____ ERROR at setup of test_evidence_embedding_is_a_1024_dimension_vector _____
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_____ ERROR at setup of test_evidence_vocabularies_match_the_domain_enums _____
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_ ERROR at setup of test_evidence_is_retrieval_eligible_is_generated_and_stored _
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+___ ERROR at setup of test_evidence_ann_index_exists_with_user_id_as_prefix ___
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_ ERROR at setup of test_belief_versions_epistemic_status_includes_confirmed_and_disputed _
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+________ ERROR at setup of test_belief_versions_grounding_check_exists ________
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+______ ERROR at setup of test_claims_unique_evidence_proposition_exists _______
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+__ ERROR at setup of test_belief_support_vocabularies_match_the_domain_enums __
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+______________ ERROR at setup of test_up_down_up_cycle_is_clean _______________
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_ ERROR at setup of test_ann_query_with_a_literal_vector_uses_the_vector_index _
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+__ ERROR at setup of test_ann_query_with_a_literal_vector_is_not_a_full_scan __
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_____ ERROR at setup of test_user_id_prefix_constrains_the_ann_partition ______
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+_ ERROR at setup of test_query_vector_as_a_subquery_silently_loses_the_index __
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+__________ ERROR at setup of test_canonical_predicate_is_executable ___________
+services\control_plane\tests\db\conftest.py:209: in migrated
+    pytest.fail(
+E   Failed: alembic upgrade head failed
+E   exit=4294967295
+E   --- stdout ---
+E   FAILED: No 'script_location' key found in configuration.
+E   
+E   --- stderr ---
+================================== FAILURES ===================================
+___________________________ test_alembic_ini_exists ___________________________
+services\control_plane\tests\db\test_migrations.py:265: in test_alembic_ini_exists
+    assert repo_paths.alembic_ini.is_file(), f"missing {repo_paths.alembic_ini}"
+E   AssertionError: missing D:\Repo\neverreset\alembic.ini
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = WindowsPath('D:/Repo/neverreset/alembic.ini').is_file
+E    +      where WindowsPath('D:/Repo/neverreset/alembic.ini') = RepoPaths(root=WindowsPath('D:/Repo/neverreset'), alembic_ini=WindowsPath('D:/Repo/neverreset/alembic.ini'), migration...ions/env.py'), revision_filenames=('0001_identity_aggregates.py', '0002_evidence_plane.py', '0003_epistemic_plane.py')).alembic_ini
+__________________ test_alembic_ini_carries_no_database_url ___________________
+services\control_plane\tests\db\test_migrations.py:275: in test_alembic_ini_carries_no_database_url
+    text = repo_paths.alembic_ini.read_text(encoding="utf-8")
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\alembic.ini'
+_______________ test_alembic_ini_sets_transaction_per_migration _______________
+services\control_plane\tests\db\test_migrations.py:286: in test_alembic_ini_sets_transaction_per_migration
+    text = repo_paths.alembic_ini.read_text(encoding="utf-8")
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\alembic.ini'
+_________________ test_env_py_reads_url_from_the_environment __________________
+services\control_plane\tests\db\test_migrations.py:294: in test_env_py_reads_url_from_the_environment
+    assert repo_paths.env_py.is_file(), f"missing {repo_paths.env_py}"
+E   AssertionError: missing D:\Repo\neverreset\db\migrations\env.py
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = WindowsPath('D:/Repo/neverreset/db/migrations/env.py').is_file
+E    +      where WindowsPath('D:/Repo/neverreset/db/migrations/env.py') = RepoPaths(root=WindowsPath('D:/Repo/neverreset'), alembic_ini=WindowsPath('D:/Repo/neverreset/alembic.ini'), migration...ions/env.py'), revision_filenames=('0001_identity_aggregates.py', '0002_evidence_plane.py', '0003_epistemic_plane.py')).env_py
+______________________ test_env_py_disables_autogenerate ______________________
+services\control_plane\tests\db\test_migrations.py:308: in test_env_py_disables_autogenerate
+    source = repo_paths.env_py.read_text(encoding="utf-8")
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\env.py'
+_________________ test_env_py_contains_no_embedded_credential _________________
+services\control_plane\tests\db\test_migrations.py:318: in test_env_py_contains_no_embedded_credential
+    source = repo_paths.env_py.read_text(encoding="utf-8")
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\env.py'
+_______________________ test_three_revision_files_exist _______________________
+services\control_plane\tests\db\test_migrations.py:326: in test_three_revision_files_exist
+    assert path.is_file(), f"missing revision file {path}"
+E   AssertionError: missing revision file D:\Repo\neverreset\db\migrations\versions\0001_identity_aggregates.py
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = WindowsPath('D:/Repo/neverreset/db/migrations/versions/0001_identity_aggregates.py').is_file
+________________ test_revision_chain_is_linear_and_unbranched _________________
+services\control_plane\tests\db\test_migrations.py:333: in test_revision_chain_is_linear_and_unbranched
+    source = path.read_text(encoding="utf-8")
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0001_identity_aggregates.py'
+_____________________ test_no_revision_mixes_ddl_and_dml ______________________
+services\control_plane\tests\db\test_migrations.py:361: in test_no_revision_mixes_ddl_and_dml
+    code = _executed_sql(path.read_text(encoding="utf-8"))
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0001_identity_aggregates.py'
+__________________ test_every_revision_implements_downgrade ___________________
+services\control_plane\tests\db\test_migrations.py:371: in test_every_revision_implements_downgrade
+    source = path.read_text(encoding="utf-8")
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0001_identity_aggregates.py'
+__________ test_every_revision_records_that_downgrade_is_local_only ___________
+services\control_plane\tests\db\test_migrations.py:386: in test_every_revision_records_that_downgrade_is_local_only
+    source = path.read_text(encoding="utf-8").lower()
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0001_identity_aggregates.py'
+___________ test_0002_docstring_records_the_import_into_limitation ____________
+services\control_plane\tests\db\test_migrations.py:399: in test_0002_docstring_records_the_import_into_limitation
+    source = (repo_paths.versions_dir / "0002_evidence_plane.py").read_text(encoding="utf-8")
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0002_evidence_plane.py'
+__________ test_0002_optional_active_ann_index_is_commented_out_only __________
+services\control_plane\tests\db\test_migrations.py:410: in test_0002_optional_active_ann_index_is_commented_out_only
+    source = (repo_paths.versions_dir / "0002_evidence_plane.py").read_text(encoding="utf-8")
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0002_evidence_plane.py'
+____________ test_revision_files_are_not_generated_by_autogenerate ____________
+services\control_plane\tests\db\test_migrations.py:749: in test_revision_files_are_not_generated_by_autogenerate
+    source = path.read_text(encoding="utf-8")
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0001_identity_aggregates.py'
+______________ test_migrations_directory_has_no_stray_revisions _______________
+services\control_plane\tests\db\test_migrations.py:760: in test_migrations_directory_has_no_stray_revisions
+    assert present == sorted(repo_paths.revision_filenames), f"unexpected revisions: {present}"
+E   AssertionError: unexpected revisions: []
+E   assert [] == ['0001_identi...mic_plane.py']
+E     
+E     Right contains 3 more items, first extra item: '0001_identity_aggregates.py'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED services/control_plane/tests/db/test_migrations.py::test_alembic_ini_exists
+FAILED services/control_plane/tests/db/test_migrations.py::test_alembic_ini_carries_no_database_url
+FAILED services/control_plane/tests/db/test_migrations.py::test_alembic_ini_sets_transaction_per_migration
+FAILED services/control_plane/tests/db/test_migrations.py::test_env_py_reads_url_from_the_environment
+FAILED services/control_plane/tests/db/test_migrations.py::test_env_py_disables_autogenerate
+FAILED services/control_plane/tests/db/test_migrations.py::test_env_py_contains_no_embedded_credential
+FAILED services/control_plane/tests/db/test_migrations.py::test_three_revision_files_exist
+FAILED services/control_plane/tests/db/test_migrations.py::test_revision_chain_is_linear_and_unbranched
+FAILED services/control_plane/tests/db/test_migrations.py::test_no_revision_mixes_ddl_and_dml
+FAILED services/control_plane/tests/db/test_migrations.py::test_every_revision_implements_downgrade
+FAILED services/control_plane/tests/db/test_migrations.py::test_every_revision_records_that_downgrade_is_local_only
+FAILED services/control_plane/tests/db/test_migrations.py::test_0002_docstring_records_the_import_into_limitation
+FAILED services/control_plane/tests/db/test_migrations.py::test_0002_optional_active_ann_index_is_commented_out_only
+FAILED services/control_plane/tests/db/test_migrations.py::test_revision_files_are_not_generated_by_autogenerate
+FAILED services/control_plane/tests/db/test_migrations.py::test_migrations_directory_has_no_stray_revisions
+================== 15 failed, 12 passed, 33 errors in 1.36s ===================

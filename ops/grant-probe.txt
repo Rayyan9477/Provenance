@@ -1,0 +1,45 @@
+== Provenance Phase 0 probe PB-4 -- view read / base-table deny ==
+run_at   : 2026-08-17T20:18:29Z
+question : does a role granted SELECT on a view alone read the view (executing with the
+           owner's table privileges) while being refused every base table?
+authority: docs/ops/41_RUNBOOK.md S3.4; re-asserted at G11.1 / G11.2 against agent_*_v1
+stakes   : this is the ONLY probe whose failure STOPS a phase. If views do not execute
+           with owner privileges here, the agent-safe view design does not hold as
+           written, PV_MCP_ENABLED goes false, and Phase 11 stops. Grants are never
+           weakened to make MCP work.
+secrets  : the probe role's password is generated in memory, never echoed, never written.
+
+-- SETUP (as the bootstrap user); nothing is granted on the base table
+CREATE TABLE
+INSERT 0 1
+NOTICE:  waiting for job(s) to complete: 1202348601286131713
+If the statement is canceled, jobs will continue in the background.
+CREATE VIEW
+CREATE ROLE
+NOTICE:  waiting for job(s) to complete: 1202348606997889025
+If the statement is canceled, jobs will continue in the background.
+GRANT
+GRANT
+GRANT
+
+-- PROBE (connected AS _pv_probe_reader)
+1. SELECT from the VIEW -- must SUCCEED:
+1
+2. SELECT from the BASE TABLE -- must be DENIED:
+ERROR:  user _pv_probe_reader does not have SELECT privilege on relation _pv_grant_base
+3. INSERT into the BASE TABLE -- must be DENIED:
+ERROR:  user _pv_probe_reader does not have INSERT privilege on relation _pv_grant_base
+
+-- CLEANUP (grants must be revoked BEFORE the role can be dropped)
+REVOKE
+NOTICE:  waiting for job(s) to complete: 1202348640551370753
+If the statement is canceled, jobs will continue in the background.
+REVOKE
+NOTICE:  waiting for job(s) to complete: 1202348642908274689
+If the statement is canceled, jobs will continue in the background.
+DROP VIEW
+NOTICE:  waiting for job(s) to complete: 1202348647539965953
+If the statement is canceled, jobs will continue in the background.
+DROP TABLE
+DROP ROLE
+residual probe roles: 0

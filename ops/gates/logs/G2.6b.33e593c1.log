@@ -1,0 +1,5 @@
+# gate=G2.6b sha=33e593c15d9edb0eb02e7e16edf3d1b1b2caa3c3 utc=2026-08-18T14:38:22Z exit=0
+# cmd=bash -c n=\$\(psql\ -At\ -d\ \'postgresql://[REDACTED-USER]:[REDACTED-SECRET]@rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257/provenance_ci\?sslmode=verify-full\'\ -c\ \"SELECT\ count\(\*\)\ FROM\ information_schema.role_table_grants\ WHERE\ grantee=\'pv_agent_reader\'\ AND\ table_name\ NOT\ LIKE\ \'agent\\_%\\_v1\'\;\"\ \|\ tr\ -d\ \'\\r\'\)\;\ echo\ \"non-view\ grants:\ \$n\"\;\ test\ \"\$n\"\ =\ 0 
+# started=2026-08-18T14:38:20Z finished=2026-08-18T14:38:22Z tree=dirty scrubbed-by=tools/scrub.py
+#
+non-view grants: 0

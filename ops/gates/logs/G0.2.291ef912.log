@@ -1,0 +1,5 @@
+# gate=G0.2 sha=291ef912e7d0341e51eac70d4f8b47f307221faf utc=2026-08-18T00:08:09Z exit=1
+# cmd=bash -c $'set -euo pipefail; \\\n  gh repo view --json visibility,licenseInfo \\\n    -q ".visibility + \\" \\" + .licenseInfo.spdxId" | tee /dev/stderr \\\n  | grep -Fxq "PUBLIC Apache-2.0"' 
+# started=2026-08-18T00:08:07Z finished=2026-08-18T00:08:09Z tree=dirty scrubbed-by=tools/scrub.py
+#
+PRIVATE 

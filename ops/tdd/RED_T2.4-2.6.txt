@@ -1,0 +1,147 @@
+....FFFFFFFF.F..F.F.FFF.FFF.FF......FFFFF.....FF.FFFF...F.........FFFFFF [ 57%]
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFF.FFFFF..................                    [100%]
+================================== FAILURES ===================================
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.CheckViolation: failed to satisfy CHECK constraint ((parser_status != 'PARSED':::STRING) OR (parser_version IS NOT NULL))
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.CheckViolation: failed to satisfy CHECK constraint ((parser_status != 'PARSED':::STRING) OR (parser_version IS NOT NULL))
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.CheckViolation: failed to satisfy CHECK constraint ((parser_status != 'PARSED':::STRING) OR (parser_version IS NOT NULL))
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.CheckViolation: failed to satisfy CHECK constraint ((parser_status != 'PARSED':::STRING) OR (parser_version IS NOT NULL))
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.CheckViolation: failed to satisfy CHECK constraint ((parser_status != 'PARSED':::STRING) OR (parser_version IS NOT NULL))
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "conflicts" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "conflicts" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "conflicts" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_mcp_boundary.py:209: AssertionError: pv_agent_reader cannot read: ['agent_active_beliefs_v1', 'agent_belief_lineage_v1', 'agent_case_context_v1', 'agent_evidence_retrieval_v1', 'agent_open_obligations_v1']
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "agent_evidence_retrieval_v1" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_mcp_boundary.py:284: AssertionError: pv_kernel_writer cannot INSERT into: ['belief_support', 'belief_versions', 'beliefs', 'cases', 'claims', 'commitments', 'conflicts', 'contexts', 'counterparties', 'evidence_items', 'fulfillments', 'kernel_decisions', 'outbox_events', 'prospective_triggers', 'relationships', 'state_transitions']
+D:\Repo\neverreset\services\control_plane\tests\db\test_mcp_boundary.py:322: AssertionError: assert ('memory_proposals', 'UPDATE') in set()
+D:\Repo\neverreset\services\control_plane\tests\db\test_mcp_boundary.py:347: AssertionError: the control plane may update exactly one canonical table (outbox_events, dispatcher status); it can currently update []
+D:\Repo\neverreset\services\control_plane\tests\db\test_mcp_boundary.py:361: AssertionError: pv_app_reader_writer cannot read: ['action_executions', 'action_intents', 'agent_runs', 'belief_support', 'belief_versions', 'beliefs', 'cases', 'claims', 'commitments', 'conflicts', 'contexts', 'counterparties', 'evidence_items', 'fulfillments', 'idempotency_records', 'ingest_aliases', 'kernel_decisions', 'memory_proposals', 'outbox_events', 'processed_events', 'prospective_triggers', 'relationships', 'source_artifacts', 'state_transitions', 'tenants', 'users']
+D:\Repo\neverreset\services\control_plane\tests\db\test_mcp_boundary.py:395: AssertionError: unexpected=[] missing=['action_executions', 'action_intents', 'agent_active_beliefs_v1', 'agent_belief_lineage_v1', 'agent_case_context_v1', 'agent_evidence_retrieval_v1', 'agent_open_obligations_v1', 'agent_runs', 'idempotency_records', 'kernel_decisions', 'memory_proposals', 'outbox_events', 'processed_events', 'prospective_triggers', 'source_artifacts', 'state_transitions']
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "agent_runs" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_mcp_boundary.py:435: AssertionError: agent_active_beliefs_v1 cannot be scoped: []
+D:\Repo\neverreset\services\control_plane\tests\db\test_mcp_boundary.py:477: AssertionError: agent_evidence_retrieval_v1 does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_mcp_boundary.py:498: AssertionError: agent_active_beliefs_v1 does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:520: AssertionError: missing revision file D:\Repo\neverreset\db\migrations\versions\0004_obligation_ledger.py
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0004_obligation_ledger.py'
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0004_obligation_ledger.py'
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0004_obligation_ledger.py'
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0004_obligation_ledger.py'
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:651: AssertionError: unexpected: []
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "conflicts" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:696: KeyError: 'confidence'
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:709: AssertionError: conflicts lacks tenant_id
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "action_intents" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "conflicts" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "action_executions" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:930: AssertionError: missing: ['commitments', 'conflicts', 'fulfillments', 'state_transitions']
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "conflicts" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "conflicts" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "conflicts" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "commitments" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "commitments" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "fulfillments" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "state_transitions" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "state_transitions" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1052: AssertionError: missing: ['kernel_decisions', 'memory_proposals']
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "kernel_decisions" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1089: AssertionError: kernel_decisions lacks transaction_opened
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "kernel_decisions" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "memory_proposals" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "memory_proposals" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1154: AssertionError: assert 'fk_belief_versions_kernel_decision' in 'CREATE TABLE public.belief_versions (\n\tid UUID NOT NULL,\n\ttenant_id UUID NOT NULL,\n\tuser_id UUID NOT NULL,\n\tb...rom IS NULL)) OR (valid_to > valid_from))\n) WITH (schema_locked = true) LOCALITY REGIONAL BY TABLE IN PRIMARY REGION;'
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1166: AssertionError: missing: ['prospective_triggers']
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1178: AssertionError: prospective_triggers lacks predicate_ast
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "prospective_triggers" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "prospective_triggers" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "prospective_triggers" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1243: AssertionError: missing: ['action_executions', 'action_intents']
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1257: AssertionError: action_intents lacks approval_draft_sha256
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "action_intents" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "action_intents" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "action_executions" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "action_executions" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1325: AssertionError: missing: ['agent_runs', 'idempotency_records', 'outbox_events', 'processed_events']
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "outbox_events" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "outbox_events" does not exist
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "processed_events" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1382: AssertionError: agent_runs lacks tool_calls
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py:117: psycopg.errors.UndefinedTable: relation "agent_runs" does not exist
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1410: AssertionError: assert 'trace_id' in {}
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1427: AssertionError: 13 base tables, expected 26: unexpected=[] missing=['action_executions', 'action_intents', 'agent_runs', 'commitments', 'conflicts', 'fulfillments', 'idempotency_records', 'kernel_decisions', 'memory_proposals', 'outbox_events', 'processed_events', 'prospective_triggers', 'state_transitions']
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1468: AssertionError: live-only=[] manifest-only=['action_executions', 'action_intents', 'agent_runs', 'commitments', 'conflicts', 'fulfillments', 'idempotency_records', 'kernel_decisions', 'memory_proposals', 'outbox_events', 'processed_events', 'prospective_triggers', 'state_transitions']
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1486: AssertionError: views are [], expected ['agent_active_beliefs_v1', 'agent_belief_lineage_v1', 'agent_case_context_v1', 'agent_evidence_retrieval_v1', 'agent_open_obligations_v1']
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1509: AssertionError: assert frozenset({'b...ntexts', ...}) == {'action_exec...beliefs', ...}
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\migrations\\versions\\0004_obligation_ledger.py'
+D:\Repo\neverreset\services\control_plane\tests\db\test_migrations.py:1532: AssertionError: unexpected revisions: ['0001_identity_aggregates.py', '0002_evidence_plane.py', '0003_epistemic_plane.py']
+=========================== short test summary info ===========================
+FAILED services/control_plane/tests/db/test_kernel_required.py::test_nothing_fulfilled_with_outstanding
+FAILED services/control_plane/tests/db/test_kernel_required.py::test_a_fully_paid_commitment_may_be_fulfilled
+FAILED services/control_plane/tests/db/test_kernel_required.py::test_the_outstanding_identity_cannot_be_violated
+FAILED services/control_plane/tests/db/test_kernel_required.py::test_over_payment_is_refused_rather_than_clamped
+FAILED services/control_plane/tests/db/test_kernel_required.py::test_one_evidence_item_cannot_be_admitted_twice
+FAILED services/control_plane/tests/db/test_kernel_required.py::test_the_same_contradiction_cannot_be_raised_twice_while_live
+FAILED services/control_plane/tests/db/test_kernel_required.py::test_conflict_sides_must_be_normalised_before_insert
+FAILED services/control_plane/tests/db/test_kernel_required.py::test_a_needs_human_conflict_carries_no_resolution
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_agent_reader_selects_every_agent_view
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_agent_reader_reads_a_view_it_has_no_base_table_for
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_kernel_writer_owns_the_canonical_write_path
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_kernel_writer_updates_memory_proposals_but_never_inserts_them
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_app_writer_touches_no_canonical_table_except_the_outbox_status
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_app_writer_reads_everything
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_ops_reader_reads_the_five_views_and_the_eleven_operational_tables
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_ops_reader_is_refused_a_write
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_every_agent_view_exposes_the_tenancy_pair
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_the_retrieval_view_filters_retractions_inside_the_view
+FAILED services/control_plane/tests/db/test_mcp_boundary.py::test_the_active_beliefs_view_excludes_retracted_versions
+FAILED services/control_plane/tests/db/test_migrations.py::test_eight_revision_files_exist
+FAILED services/control_plane/tests/db/test_migrations.py::test_revision_chain_is_linear_and_unbranched
+FAILED services/control_plane/tests/db/test_migrations.py::test_no_revision_mixes_ddl_and_dml
+FAILED services/control_plane/tests/db/test_migrations.py::test_every_revision_implements_downgrade
+FAILED services/control_plane/tests/db/test_migrations.py::test_every_revision_records_that_downgrade_is_local_only
+FAILED services/control_plane/tests/db/test_migrations.py::test_no_table_outside_the_migration_chain_exists
+FAILED services/control_plane/tests/db/test_migrations.py::test_primary_keys_are_uuid_without_a_database_default
+FAILED services/control_plane/tests/db/test_migrations.py::test_confidence_columns_are_decimal_five_four
+FAILED services/control_plane/tests/db/test_migrations.py::test_every_user_owned_table_carries_tenant_and_user_id
+FAILED services/control_plane/tests/db/test_migrations.py::test_user_owned_tables_declare_the_composite_unique_key
+FAILED services/control_plane/tests/db/test_migrations.py::test_every_foreign_key_into_user_owned_data_is_composite
+FAILED services/control_plane/tests/db/test_migrations.py::test_named_indexes_are_present
+FAILED services/control_plane/tests/db/test_migrations.py::test_0004_creates_the_obligation_ledger_tables
+FAILED services/control_plane/tests/db/test_migrations.py::test_conflicts_vocabularies_match_the_domain_enums
+FAILED services/control_plane/tests/db/test_migrations.py::test_conflicts_status_permits_open_and_needs_human
+FAILED services/control_plane/tests/db/test_migrations.py::test_conflicts_dedupe_and_side_order_constraints_exist
+FAILED services/control_plane/tests/db/test_migrations.py::test_commitments_money_checks_are_all_present
+FAILED services/control_plane/tests/db/test_migrations.py::test_commitments_vocabularies_match_the_domain_enums
+FAILED services/control_plane/tests/db/test_migrations.py::test_fulfillments_cannot_admit_one_evidence_twice
+FAILED services/control_plane/tests/db/test_migrations.py::test_state_transitions_vocabulary_matches_the_domain_enum
+FAILED services/control_plane/tests/db/test_migrations.py::test_state_transitions_reason_code_is_a_shaped_closed_code
+FAILED services/control_plane/tests/db/test_migrations.py::test_0005_creates_the_kernel_control_plane_tables
+FAILED services/control_plane/tests/db/test_migrations.py::test_kernel_decisions_records_every_outcome
+FAILED services/control_plane/tests/db/test_migrations.py::test_kernel_decisions_carries_transaction_opened
+FAILED services/control_plane/tests/db/test_migrations.py::test_kernel_decisions_noop_cannot_bump_the_revision
+FAILED services/control_plane/tests/db/test_migrations.py::test_memory_proposals_vocabularies_match_the_domain_enums
+FAILED services/control_plane/tests/db/test_migrations.py::test_memory_proposals_model_ids_are_the_canon_bedrock_ids
+FAILED services/control_plane/tests/db/test_migrations.py::test_the_deferred_foreign_keys_from_0003_are_closed
+FAILED services/control_plane/tests/db/test_migrations.py::test_0006_creates_prospective_triggers
+FAILED services/control_plane/tests/db/test_migrations.py::test_prospective_triggers_predicate_ast_is_serialized_jsonb
+FAILED services/control_plane/tests/db/test_migrations.py::test_prospective_triggers_fired_check_is_biconditional
+FAILED services/control_plane/tests/db/test_migrations.py::test_prospective_triggers_vocabularies_match_the_domain_enums
+FAILED services/control_plane/tests/db/test_migrations.py::test_prospective_triggers_reason_codes_are_the_closed_catalogue
+FAILED services/control_plane/tests/db/test_migrations.py::test_0007_creates_the_action_plane_tables
+FAILED services/control_plane/tests/db/test_migrations.py::test_action_intents_execution_needs_approval
+FAILED services/control_plane/tests/db/test_migrations.py::test_action_intents_approval_is_all_three_columns_or_none
+FAILED services/control_plane/tests/db/test_migrations.py::test_action_intents_vocabularies_match_the_domain_enums
+FAILED services/control_plane/tests/db/test_migrations.py::test_action_executions_permit_many_attempts_and_one_success
+FAILED services/control_plane/tests/db/test_migrations.py::test_action_executions_vocabulary_matches_the_domain_enum
+FAILED services/control_plane/tests/db/test_migrations.py::test_0008_creates_the_event_and_infrastructure_tables
+FAILED services/control_plane/tests/db/test_migrations.py::test_outbox_events_dedupes_on_aggregate_version_and_event_type
+FAILED services/control_plane/tests/db/test_migrations.py::test_outbox_events_vocabularies_match_the_domain_enums
+FAILED services/control_plane/tests/db/test_migrations.py::test_processed_events_primary_key_is_consumer_and_event
+FAILED services/control_plane/tests/db/test_migrations.py::test_agent_runs_column_is_tool_calls_not_mcp_tool_calls
+FAILED services/control_plane/tests/db/test_migrations.py::test_agent_runs_counterfactual_is_toolless_and_memory_off
+FAILED services/control_plane/tests/db/test_migrations.py::test_idempotency_records_carry_a_trace_id
+FAILED services/control_plane/tests/db/test_migrations.py::test_the_canonical_table_count_is_twenty_six
+FAILED services/control_plane/tests/db/test_migrations.py::test_live_tables_match_the_hand_written_manifest
+FAILED services/control_plane/tests/db/test_migrations.py::test_exactly_the_five_agent_views_exist
+FAILED services/control_plane/tests/db/test_migrations.py::test_up_down_up_cycle_is_clean
+FAILED services/control_plane/tests/db/test_migrations.py::test_revision_files_are_not_generated_by_autogenerate
+FAILED services/control_plane/tests/db/test_migrations.py::test_migrations_directory_has_no_stray_revisions
+71 failed, 54 passed in 746.64s (0:12:26)

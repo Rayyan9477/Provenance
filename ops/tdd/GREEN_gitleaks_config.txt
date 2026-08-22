@@ -1,0 +1,7 @@
+Positive controls for .gitleaks.toml
+captured 2026-08-17T23:43:36Z
+
+$ python -m pytest tools/tests/test_gitleaks_config.py -q
+...........                                                              [100%]
+11 passed in 3.34s
+exit=0

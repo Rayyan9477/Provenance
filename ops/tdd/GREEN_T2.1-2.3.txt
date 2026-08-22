@@ -1,0 +1,211 @@
+GREEN transcript — T2.1, T2.2, T2.3 (migrations 0001-0003)
+Captured: 2026-08-18T12:06:11Z
+Repository HEAD at capture: c2a0c05
+
+Implementation now present:
+  -rw-r--r-- 1 rayyan.a 1049089  2294 Aug 18 16:43 alembic.ini
+  -rw-r--r-- 1 rayyan.a 1049089  7057 Aug 18 16:46 db/migrations/env.py
+  -rw-r--r-- 1 rayyan.a 1049089  1064 Aug 18 16:44 db/migrations/script.py.mako
+  -rw-r--r-- 1 rayyan.a 1049089 16950 Aug 18 16:45 db/migrations/versions/0001_identity_aggregates.py
+  -rw-r--r-- 1 rayyan.a 1049089 17735 Aug 18 16:49 db/migrations/versions/0002_evidence_plane.py
+  -rw-r--r-- 1 rayyan.a 1049089 18042 Aug 18 16:52 db/migrations/versions/0003_epistemic_plane.py
+
+Database of record: provenance_ci as pv_migrator, CockroachDB CCL v26.2.5, us-east-1.
+The demo database 'provenance' was never touched; conftest.py raises on any DSN that
+does not name provenance_ci.
+
+Command: python -m pytest services/control_plane/tests/db -m db --tb=short -rf
+================================================================================
+============================= test session starts =============================
+collected 60 items
+
+services\control_plane\tests\db\test_kernel_required.py ....             [  6%]
+services\control_plane\tests\db\test_migrations.py ..................... [ 41%]
+..................                                                       [ 71%]
+services\control_plane\tests\db\test_retrieval_sql.py .................  [100%]
+
+======================= 60 passed in 571.61s (0:09:31) ========================
+
+================================================================================
+ALEMBIC REVERSIBILITY DRILL - ops/41_RUNBOOK.md section 4.1
+Target database: provenance_ci. The demo database 'provenance' was never touched.
+Started: 2026-08-18T12:25:13Z
+================================================================================
+current_database() = provenance_ci
+current_user       = pv_migrator
+version()          = CockroachDB CCL v26.2.5 (x86_64-pc-linux-gnu, built 2026/07/28 18:56:00, go1.25.5)
+
+$ alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+exit=0
+
+$ alembic current
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0003_epistemic_plane (head)
+exit=0
+
+--- cycle 1: downgrade base, upgrade head ---
+$ alembic downgrade base
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0003_epistemic_plane -> 0002_evidence_plane, 0003 — epistemic plane: claims, beliefs, belief versions, grounding edges.
+INFO  [alembic.runtime.migration] Running downgrade 0002_evidence_plane -> 0001_identity_aggregates, 0002 — evidence plane, including the ANN vector index.
+INFO  [alembic.runtime.migration] Running downgrade 0001_identity_aggregates -> , 0001 — identity and aggregates.
+exit=0
+
+$ alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_aggregates, 0001 — identity and aggregates.
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_aggregates -> 0002_evidence_plane, 0002 — evidence plane, including the ANN vector index.
+INFO  [alembic.runtime.migration] Running upgrade 0002_evidence_plane -> 0003_epistemic_plane, 0003 — epistemic plane: claims, beliefs, belief versions, grounding edges.
+exit=0
+
+--- cycle 2: downgrade base, upgrade head ---
+$ alembic downgrade base
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0003_epistemic_plane -> 0002_evidence_plane, 0003 — epistemic plane: claims, beliefs, belief versions, grounding edges.
+INFO  [alembic.runtime.migration] Running downgrade 0002_evidence_plane -> 0001_identity_aggregates, 0002 — evidence plane, including the ANN vector index.
+INFO  [alembic.runtime.migration] Running downgrade 0001_identity_aggregates -> , 0001 — identity and aggregates.
+exit=0
+
+$ alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_aggregates, 0001 — identity and aggregates.
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_aggregates -> 0002_evidence_plane, 0002 — evidence plane, including the ANN vector index.
+INFO  [alembic.runtime.migration] Running upgrade 0002_evidence_plane -> 0003_epistemic_plane, 0003 — epistemic plane: claims, beliefs, belief versions, grounding edges.
+exit=0
+
+$ alembic current
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0003_epistemic_plane (head)
+exit=0
+
+Finished: 2026-08-18T12:33:17Z
+
+================================================================================
+SCHEMA EVIDENCE - captured after the drill above, at head 0003_epistemic_plane
+================================================================================
+-- base tables in provenance_ci (13 from 0001-0003, plus alembic_version)
+   alembic_version
+   belief_support
+   belief_versions
+   beliefs
+   cases
+   claims
+   contexts
+   counterparties
+   evidence_items
+   ingest_aliases
+   relationships
+   source_artifacts
+   tenants
+   users
+
+-- SHOW INDEXES FROM evidence_items  (rows for evidence_embedding_ann_idx only)
+   table_name | index_name | non_unique | seq_in_index | column_name | definition | direction | storing | implicit | visible | visibility
+   evidence_items | evidence_embedding_ann_idx | True | 1 | user_id | user_id | ASC | False | False | True | 1.0
+   evidence_items | evidence_embedding_ann_idx | True | 2 | embedding | embedding | ASC | False | False | True | 1.0
+   evidence_items | evidence_embedding_ann_idx | True | 3 | id | id | ASC | False | True | True | 1.0
+
+   G2.4: seq_in_index = 1 is user_id. The ANN prefix column is user_id.
+
+-- EXPLAIN of the section 5.5 ANN shape with a LITERAL query vector
+   distribution: local
+   vectorized: true
+   
+   • project
+   │ columns: (id)
+   │
+   └── • top-k
+       │ columns: (column30, id)
+       │ estimated row count: 1
+       │ order: +column30
+       │ k: 40
+       │
+       └── • render
+           │ columns: (column30, id)
+           │ render column30: embedding <=> '[0.0125,0.0125, ... 1020 more identical components elided for readability ...]'
+           │ render id: id
+           │
+           └── • lookup join (inner)
+               │ columns: (id, user_id, embedding)
+               │ estimated row count: 1 (missing stats)
+               │ table: evidence_items@evidence_items_pkey
+               │ equality: (id) = (id)
+               │ equality cols are key
+               │ parallel
+               │
+               └── • vector search
+                     columns: (id)
+                     estimated row count: 1 (missing stats)
+                     table: evidence_items@evidence_embedding_ann_idx
+                     target count: 40
+                     prefix spans: /"\x00\x00\x00\x00\x00\x00@\x00\x80\x00\x00\x00\x00\x00\x00\x01"-/"\x00\x00\x00\x00\x00\x00@\x00\x80\x00\x00\x00\x00\x00\x00\x01"/PrefixEnd
+                     query vector: '[0.0125,0.0125, ... 1020 more identical components elided for readability ...]'
+
+-- D-06-001: the same query with the vector supplied as a SUBQUERY
+   distribution: local
+   vectorized: true
+   
+   • root
+   │ columns: (id)
+   │
+   ├── • project
+   │   │ columns: (id)
+   │   │
+   │   └── • top-k
+   │       │ columns: (column59, id)
+   │       │ estimated row count: 1
+   │       │ order: +column59
+   │       │ k: 40
+   │       │
+   │       └── • render
+   │           │ columns: (column59, id)
+   │           │ render column59: embedding <=> @S1
+   │           │ render id: id
+   │           │
+   │           └── • filter
+   │               │ columns: (id, user_id, embedding)
+   │               │ estimated row count: 1
+   │               │ filter: user_id = '00000000-0000-4000-8000-000000000001'
+   │               │
+   │               └── • scan
+   │                     columns: (id, user_id, embedding)
+   │                     estimated row count: 1 (100% of the table; stats collected 2 minutes ago)
+   │                     table: evidence_items@evidence_items_pkey
+   │                     spans: FULL SCAN
+   │
+   └── • subquery
+       │ id: @S1
+       │ original sql: (SELECT embedding FROM evidence_items WHERE id = '00000000-0000-4000-8000-0000000000ff')
+       │ exec mode: one row
+       │
+       └── • project
+           │ columns: (embedding)
+           │
+           └── • scan
+                 columns: (id, embedding)
+                 estimated row count: 1 (100% of the table; stats collected 2 minutes ago)
+                 table: evidence_items@evidence_items_pkey
+                 spans: /"\x00\x00\x00\x00\x00\x00@\x00\x80\x00\x00\x00\x00\x00\x00\xff"/0 /"\x00\x00\x00\x00\x00\x00@\x00\x80\x00\x00\x00\x00\x00\x00\xff"/2/1
+   
+   index recommendations: 1
+   1. type: index creation
+      SQL command: CREATE INDEX ON provenance_ci.public.evidence_items (user_id) STORING (embedding);
+
+-- G2.8: the exact database refusal for an ungrounded canonical belief version
+   INSERT INTO belief_versions (..., derivation_kind, support_edge_count)
+   VALUES (..., 'EVIDENCE_GROUNDED', 0);
+   python exception class : psycopg.errors.CheckViolation
+   SQLSTATE               : 23514   (check_violation)
+   diag.constraint_name   : ck_belief_versions_grounded
+   message                : failed to satisfy CHECK constraint ((derivation_kind = 'DETERMINISTIC_DERIVATION':::STRING) OR (support_edge_count >= 1:::INT8))
+   (rolled back; provenance_ci carries no fixture rows)
+
+Captured: 2026-08-18T12:33:51Z

@@ -1,0 +1,558 @@
+Provenance — close-proof counterfactual transcript, G-0 sweep
+=============================================================
+
+Authority: docs/EXECUTION/72_DEFECT_PROTOCOL.md section 7.4.
+
+  > A defect may be closed only by a test that would have caught it.
+
+WHY THIS FILE EXISTS INSTEAD OF `python -m tools.close_proof <id>` OUTPUT
+------------------------------------------------------------------------
+tools/close_proof.py implements section 7.4 mechanically: it checks out the fix
+commit into a scratch worktree, restores the PARENT's blobs for the non-test
+paths, runs the record's pytest node id, and requires a non-zero exit.
+
+Phase 0 was authored before this repository had commit discipline. Every Phase 0
+non-test fix landed in 62e3f1c27cb60997d54720f86f17a0957320196a, which is also
+the commit that CREATED each of those files. `git checkout 62e3f1c^ -- <path>`
+therefore has no blob to restore: the parent is c2a0c05, a docs-only commit. The
+mechanical counterfactual cannot run, and running it would print a tooling error
+rather than a verdict.
+
+The COUNTERFACTUAL ITSELF still can. Section 7.4's question is "does the named
+test distinguish the fixed system from the broken one", and the mechanical
+revert is one way to ask it, not the question. So each proof below neuters the
+fixed mechanism BY HAND in an isolated git worktree at HEAD, runs the named test
+there, and requires a non-zero exit. The neutering for each record is the one
+its own test docstring names under "Neuter to prove it", so the proof is
+repeatable by a reader rather than trusted.
+
+Every run is one of these two shapes and neither is weaker than the other in the
+respect that matters: the test is run against a tree in which the mechanism is
+absent, and it must go red.
+
+METHOD, EXACTLY
+---------------
+  1. git worktree add --detach <scratch>/wt HEAD
+  2. apply one neutering to one file in that worktree
+  3. python -m pytest -q <the record's Verifying assertion>
+  4. require a non-zero exit
+  5. git checkout -- <file>, then assert `git status --porcelain <file>` is empty
+
+Step 5 is asserted in code, not remembered: the driver raises if any file is not
+restored byte-for-byte. Nothing here touched the working tree of the repository.
+
+Three records are proved TWICE because their fix has two independent halves and
+either alone would be vacuous:
+
+  D-00-011   the exit_code check, and the S1..S10 id family      (11, 11b)
+  D-00-013   the sendto reach, and the credential unsetter       (13, 13b)
+  D-00-023   the version comparison, and the gate-0 call site    (23, 23b)
+
+READING A BLOCK
+---------------
+`close-proof <id>: test FAILED with the fix neutered (exit=N) - PASS` is the
+verdict. PASS means the test went red without the mechanism, which is what
+section 7.4 requires. A `FAIL` line would mean the named test passes without the
+fix and therefore does not catch the defect; there are none below, and four
+earlier attempts that did print FAIL were re-done with a faithful neutering
+rather than recorded — a neutering that does not actually remove the mechanism
+proves nothing, and neither does one that breaks the file so the test errors on
+collection instead of failing an assertion (section 7.1: a RED test must fail
+for the right reason).
+
+Generated: 2026-08-18 · worktree HEAD 8f101f486e20f77f1199c18a9087f5ed3d02a59a
+
+C:\Users\rayyan.a\AppData\Local\Temp\claude\d--Repo-neverreset\bd83625e-6b83-4392-952d-e5200433d36d\scratchpad\cf.py:126: SyntaxWarning: invalid escape sequence '\.'
+  PATHS_ALLOWLIST = """
+C:\Users\rayyan.a\AppData\Local\Temp\claude\d--Repo-neverreset\bd83625e-6b83-4392-952d-e5200433d36d\scratchpad\cf.py:221: SyntaxWarning: invalid escape sequence '\g'
+  case("D-00-009", sub("tools/scrub.py", 'replacement=r"\g<kw>=[REDACTED-SECRET]"',
+C:\Users\rayyan.a\AppData\Local\Temp\claude\d--Repo-neverreset\bd83625e-6b83-4392-952d-e5200433d36d\scratchpad\cf.py:222: SyntaxWarning: invalid escape sequence '\g'
+  'replacement=r"\g<kw>=\g<secret>"'),
+C:\Users\rayyan.a\AppData\Local\Temp\claude\d--Repo-neverreset\bd83625e-6b83-4392-952d-e5200433d36d\scratchpad\cf.py:232: SyntaxWarning: invalid escape sequence '\d'
+  'ident = r"(?:G\d+\.\d+[a-z]?|S\d+)"', 'ident = r"(?:G\d+\.\d+[a-z]?)"'),
+C:\Users\rayyan.a\AppData\Local\Temp\claude\d--Repo-neverreset\bd83625e-6b83-4392-952d-e5200433d36d\scratchpad\cf.py:232: SyntaxWarning: invalid escape sequence '\d'
+  'ident = r"(?:G\d+\.\d+[a-z]?|S\d+)"', 'ident = r"(?:G\d+\.\d+[a-z]?)"'),
+
+==========================================================================
+COUNTERFACTUAL D-00-008
+==========================================================================
+  neutered: pyproject.toml: replaced '"ruff==0.6.9",' -> '"ruff>=0.6,<1",'
+  --- pytest, mechanism neutered ----------------------------------------
+  E         Right contains one more item: 'ruff>=0.6,<1'
+  E         Use -v to get more diff
+  tools\tests\test_build_lane_guards.py:102: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_ruff_is_pinned_to_an_exact_version
+  1 failed in 0.42s
+  ----------------------------------------------------------------------
+  close-proof D-00-008: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-014
+==========================================================================
+  neutered: pyproject.toml: replaced 'testpaths = ["packages", "services", "agents", "tests", "tools"]' -> 'testpaths = ["packages", "services", "agents", "tests"]'
+  --- pytest, mechanism neutered ----------------------------------------
+  E       AssertionError: testpaths is ['packages', 'services', 'agents', 'tests']; `tools` is missing, so tools/tests/ is collected by no lane � not `make test`, not `make test-fast`, not CI. Twenty-eight tests that never run look identical to no tests.
+  E       assert 'tools' in ['packages', 'services', 'agents', 'tests']
+  tools\tests\test_build_lane_guards.py:133: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_testpaths_collects_the_tools_tree
+  1 failed in 0.42s
+  ----------------------------------------------------------------------
+  close-proof D-00-014: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-007
+==========================================================================
+  neutered: Makefile: replaced 'lint-imports' -> '$(PY) -m importlinter.cli lint-imports\n\tlint-imports'
+  --- pytest, mechanism neutered ----------------------------------------
+  E       AssertionError: `python -m importlinter.cli` appears as a live command in the lint recipe: ['\t$(PY) -m importlinter.cli lint-imports']. It exits 0 having evaluated zero contracts.
+  E       assert not ['\t$(PY) -m importlinter.cli lint-imports']
+  tools\tests\test_build_lane_guards.py:175: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_make_lint_refuses_the_import_linter_module_fallback
+  1 failed in 0.42s
+  ----------------------------------------------------------------------
+  close-proof D-00-007: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-016
+==========================================================================
+  neutered: Makefile: replaced 'test "$$rc" -ne 0 || exit 1; \\' -> 'test "$$rc" -ne 0; \\'
+  --- pytest, mechanism neutered ----------------------------------------
+  E           AssertionError: 'test "$$rc" -ne 0; \\' discards its own status. The recipe runs under `set -uo pipefail` without `-e`, so a bare `test` is a statement whose result nothing reads.
+  E           assert '|| exit 1' in '\t  test "$$rc" -ne 0; \\'
+  tools\tests\test_build_lane_guards.py:211: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_g0_7_exit_code_assertion_is_not_a_dead_statement
+  1 failed in 0.42s
+  ----------------------------------------------------------------------
+  close-proof D-00-016: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-025
+==========================================================================
+  neutered: Makefile: deleted 1 line(s) containing '$(GATE) G0.3b --'
+  --- pytest, mechanism neutered ----------------------------------------
+  E       assert 1 == 2
+  E        +  where 1 = len(['\t$(GATE) G0.3 -- gitleaks detect --source . --config .gitleaks.toml --redact --no-banner --exit-code 1'])
+  tools\tests\test_build_lane_guards.py:237: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_gate_0_runs_both_gitleaks_scans_with_the_project_config
+  1 failed in 0.44s
+  ----------------------------------------------------------------------
+  close-proof D-00-025: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-043
+==========================================================================
+  neutered: Makefile: replaced '$(GATE) G0.3b -- gitleaks detect --source ops --config .gitleaks.toml --redact --no-banner --no-git --exit-code 1' -> '$(GATE) G0.3b -- gitleaks detect --source ops/gates --config .gitleaks.toml --redact --no-banner --exit-code 1'
+  --- pytest, mechanism neutered ----------------------------------------
+  E           AssertionError: Makefile: G0.3b must scan ops/, not a subdirectory: '$(GATE) G0.3b -- gitleaks detect --source ops/gates --config .gitleaks.toml --redact --no-banner --exit-code 1'
+  E           assert '--source ops ' in '\t$(GATE) G0.3b -- gitleaks detect --source ops/gates --config .gitleaks.toml --redact --no-banner --exit-code 1 '
+  tools\tests\test_build_lane_guards.py:268: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_g0_3b_is_a_working_tree_scan_of_ops
+  1 failed in 0.43s
+  ----------------------------------------------------------------------
+  close-proof D-00-043: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-034
+==========================================================================
+  neutered: NOTICE: replaced 'graph orchestration for the ingestion and advocate graphs' -> 'graph orchestration for the Librarian, Registrar and Advocate graphs'
+  --- pytest, mechanism neutered ----------------------------------------
+  E       AssertionError: invented component names appear at ['NOTICE:41']. 00_IMPLEMENTATION_MAP.md section 5 names ingestion_graph.py and advocate_graph.py; section 4.1 names the Interpreter and Advocate graphs.
+  E       assert not ['NOTICE:41']
+  tools\tests\test_build_lane_guards.py:474: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_notice_attributes_langgraph_to_graphs_that_exist
+  1 failed in 0.44s
+  ----------------------------------------------------------------------
+  close-proof D-00-034: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-033
+==========================================================================
+  neutered: .gitignore: deleted 2 line(s) containing '.envrc'
+  --- pytest, mechanism neutered ----------------------------------------
+  E       assert 1 == 0
+  E        +  where 1 = CompletedProcess(args=['git', 'check-ignore', '-q', '.envrc'], returncode=1, stdout='', stderr='').returncode
+  tools\tests\test_build_lane_guards.py:438: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_gitignore_covers_the_credential_shapes[.envrc]
+  1 failed, 11 passed in 0.87s
+  ----------------------------------------------------------------------
+  close-proof D-00-033: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-015
+==========================================================================
+  neutered: tools/defect_lint.py: replaced 'if not ledger_exists:' -> 'if False:  # ledger_exists ignored'
+  --- pytest, mechanism neutered ----------------------------------------
+  E       assert 'no CARRIED_DEBT.md ledger exists' in "note: ops\\defects\\NO_SUCH_FILE.md does not exist yet. Section 9.2 creates it at the first gate that accepts a MINOR...SENT, which is not the same claim as 'the carried-debt ledger is empty'.\n0 carried items\ndefect_lint: 0 violations\n"
+  E        +  where "note: ops\\defects\\NO_SUCH_FILE.md does not exist yet. Section 9.2 creates it at the first gate that accepts a MINOR...SENT, which is not the same claim as 'the carried-debt ledger is empty'.\n0 carried items\ndefect_lint: 0 violations\n" = CompletedProcess(args=['C:\\Users\\rayyan.a\\AppData\\Local\\anaconda3\\python.exe', '-m', 'tools.defect_lint', '--deb...is not the same claim as 'the carried-debt ledger is empty'.\n0 carried items\ndefect_lint: 0 violations\n", stderr='').stdout
+  tools\tests\test_build_lane_guards.py:516: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_make_debt_distinguishes_a_missing_ledger_from_an_empty_one
+  1 failed in 0.52s
+  ----------------------------------------------------------------------
+  close-proof D-00-015: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-017
+==========================================================================
+  neutered: ops/defects/DEFECTS.md: replaced '| `D-00-042` | 0 | `L-VAC` | **BLOCKER(B4)** |' -> '| `D-00-042` | 0 | `L-VAC` | **BLOCKER** |'
+  --- pytest, mechanism neutered ----------------------------------------
+  E       assert 1 == 0
+  E        +  where 1 = CompletedProcess(args=['C:\\Users\\rayyan.a\\AppData\\Local\\anaconda3\\python.exe', '-m', 'tools.defect_lint'], retur...ed to match a malformed ledger asserts nothing, which is the L-VAC failure applied to the ledger itself.\n", stderr='').returncode
+  tools\tests\test_build_lane_guards.py:543: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_the_defect_ledger_passes_its_own_linter
+  1 failed in 0.55s
+  ----------------------------------------------------------------------
+  close-proof D-00-017: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-026
+==========================================================================
+  neutered: tools/gate.sh: replaced 'if [ "$CMD_SCRUB_STATUS" -ne 0 ] || [ -z "$CMD_DISPLAY" ]; then' -> 'if false; then'
+  --- pytest, mechanism neutered ----------------------------------------
+  E         
+  E       assert '# cmd=<UNAVAILABLE>' in '# gate=PROBE-CAPFAIL sha=8f101f486e20f77f1199c18a9087f5ed3d02a59a utc=2026-08-18T09:43:32Z exit=CAPTURE-FAILED\n# cmd...NOT an assertion result: re-run the assertion\n# after fixing the capture. Record it as NOT RUN in the phase ledger.\n'
+  tools\tests\test_build_lane_guards.py:603: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_gate_sh_takes_the_capture_failed_path_when_the_command_scrub_fails
+  1 failed in 1.11s
+  ----------------------------------------------------------------------
+  close-proof D-00-026: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-042
+==========================================================================
+  neutered: .gitleaks.toml: appended 253 bytes
+  --- pytest, mechanism neutered ----------------------------------------
+  E            +  where False = reported([], 'ops/cluster-probe.txt', line=1)
+  tools\tests\test_gitleaks_config.py:283: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_gitleaks_config.py::test_no_allowlist_uses_paths - As...
+  FAILED tools/tests/test_gitleaks_config.py::test_transcript_paths_are_scanned_not_skipped
+  2 failed in 0.77s
+  ----------------------------------------------------------------------
+  close-proof D-00-042: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-010
+==========================================================================
+  neutered: .gitleaks.toml: appended 253 bytes
+  --- pytest, mechanism neutered ----------------------------------------
+  E       assert not [(479, 'paths = [')]
+  tools\tests\test_gitleaks_config.py:256: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_gitleaks_config.py::test_transcript_paths_are_scanned_not_skipped
+  FAILED tools/tests/test_gitleaks_config.py::test_no_allowlist_uses_paths - As...
+  2 failed in 0.78s
+  ----------------------------------------------------------------------
+  close-proof D-00-010: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-038
+==========================================================================
+  neutered: .gitleaks.toml: appended 173 bytes
+  --- pytest, mechanism neutered ----------------------------------------
+  E       assert False
+  E        +  where False = reported([], 'ops/cluster-probe.txt', line=1)
+  tools\tests\test_build_lane_guards.py:391: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_a_secret_on_a_never_committed_line_is_still_reported
+  1 failed in 0.78s
+  ----------------------------------------------------------------------
+  close-proof D-00-038: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-041
+==========================================================================
+  neutered: .gitleaks.toml: replaced '8.30.' -> '8.21.'
+  --- pytest, mechanism neutered ----------------------------------------
+  E           AssertionError: .gitleaks.toml names no gitleaks version at or above 8.30.0; the versions it does name are [(8, 21, 0), (8, 21, 1), (8, 21, 2)]. Below the floor the allowlists are inert for every custom rule and nothing says so.
+  E           assert set()
+  tools\tests\test_build_lane_guards.py:328: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_the_gitleaks_version_floor_is_declared_consistently
+  1 failed in 0.42s
+  ----------------------------------------------------------------------
+  close-proof D-00-041: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-024
+==========================================================================
+  neutered: (no file change; environment neutered instead)
+  --- pytest, mechanism neutered ----------------------------------------
+  E       AssertionError: the gitleaks binary is not on PATH and is not at ~/bin/gitleaks.exe. G0.3, G0.3b and S8 all run it; without it the scan half of the secret-leak defence does not exist on this machine.
+  E       assert None is not None
+  tools\tests\test_build_lane_guards.py:352: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_the_gitleaks_binary_is_installed_and_meets_the_floor
+  1 failed in 0.42s
+  ----------------------------------------------------------------------
+  close-proof D-00-024: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-003
+==========================================================================
+  neutered: ops/bedrock-probe.txt: truncated 4059 bytes -> 200 bytes
+  --- pytest, mechanism neutered ----------------------------------------
+  E                  end
+  E       assert None is not None
+  tools\tests\test_phase0_probe_evidence.py:83: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_phase0_probe_evidence.py::test_pb5_records_a_real_invocation_for_both_tiers
+  1 failed in 0.40s
+  ----------------------------------------------------------------------
+  close-proof D-00-003: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-002
+==========================================================================
+  neutered: ops/bedrock-probe.txt: truncated 4059 bytes -> 200 bytes
+  --- pytest, mechanism neutered ----------------------------------------
+  E                  end
+  E       assert None is not None
+  tools\tests\test_phase0_probe_evidence.py:83: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_phase0_probe_evidence.py::test_pb5_records_a_real_invocation_for_both_tiers
+  1 failed in 0.41s
+  ----------------------------------------------------------------------
+  close-proof D-00-002: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-020
+==========================================================================
+  neutered: ops/probes/phase0-probe.ps1: replaced 'for tier, model_id in (("E", "us.anthropic.claude-haiku-4-5-20251001-v1:0"),' -> 'for tier, model_id in (("E", "anthropic.claude-haiku-4-5"),'
+  --- pytest, mechanism neutered ----------------------------------------
+  E            +    where <built-in method startswith of str object at 0x000001EA2367F9B0> = 'anthropic.claude-haiku-4-5'.startswith
+  tools\tests\test_phase0_probe_evidence.py:145: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_phase0_probe_evidence.py::test_the_probe_names_no_superseded_bare_anthropic_id[phase0-probe.ps1]
+  FAILED tools/tests/test_phase0_probe_evidence.py::test_pb5_probes_all_three_anthropic_tiers_through_inference_profiles
+  2 failed, 1 passed in 0.44s
+  ----------------------------------------------------------------------
+  close-proof D-00-020: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-021
+==========================================================================
+  neutered: ops/probes/phase0-probe.ps1: replaced "'(?i)(postgres(?:ql)?)://[^:/\\s@]+:[^@\\s]*@', '$1://[REDACTED-USER]:[REDACTED]@'" -> "'(?i)(postgres(?:ql)?)://([^:/\\s@]+):[^@\\s]*@', '$1://$2:[REDACTED]@'"
+  --- pytest, mechanism neutered ----------------------------------------
+  E           postgresql://[REDACTED-USER]:[REDACTED-SECRET]@h.example.com:26257/provenance
+  E         ?              ++++++++++++++++++++++
+  tools\tests\test_phase0_probe_evidence.py:240: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_phase0_probe_evidence.py::test_the_probe_scrubber_redacts_both_halves_of_the_userinfo
+  1 failed in 0.79s
+  ----------------------------------------------------------------------
+  close-proof D-00-021: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-022
+==========================================================================
+  neutered: ops/probes/PROBE_LEDGER.md: appended 68 bytes
+  --- pytest, mechanism neutered ----------------------------------------
+  E           AssertionError: C:\Users\rayyan.a\AppData\Local\Temp\claude\d--Repo-neverreset\bd83625e-6b83-4392-952d-e5200433d36d\scratchpad\wt\ops\probes\PROBE_LEDGER.md carries PB result rows again: ['| PB-1 | cluster reachable | PASS |', '| PB-2 | vector index | PASS |']. It is kept only as a redirect so that a habit pointing there lands on the reason.
+  E           assert not ['| PB-1 | cluster reachable | PASS |', '| PB-2 | vector index | PASS |']
+  tools\tests\test_phase0_probe_evidence.py:168: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_phase0_probe_evidence.py::test_there_is_exactly_one_probe_ledger
+  1 failed in 0.42s
+  ----------------------------------------------------------------------
+  close-proof D-00-022: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-005
+==========================================================================
+  neutered: ops/probes/phase0-probe.ps1: replaced 'if ($ExistingEvidence.Count -gt 0 -and -not $Force) {' -> 'if ($false) {'
+  --- pytest, mechanism neutered ----------------------------------------
+  E       assert 'REFUSING TO RUN' in '\n###############################################################################\n#  Provenance - Phase 0 capability... 1 -- at least one probe failed or did not run. Every failure above has a frozen fallback; take it, do not redesign.\n'
+  E        +  where '\n###############################################################################\n#  Provenance - Phase 0 capability... 1 -- at least one probe failed or did not run. Every failure above has a frozen fallback; take it, do not redesign.\n' = CompletedProcess(args=['C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.EXE', '-NoProfile', '-ExecutionPoli...st one probe failed or did not run. Every failure above has a frozen fallback; take it, do not redesign.\n', stderr='').stdout
+  tools\tests\test_phase0_probe_evidence.py:312: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_phase0_probe_evidence.py::test_the_probe_refuses_to_overwrite_existing_evidence
+  1 failed in 10.04s
+  ----------------------------------------------------------------------
+  close-proof D-00-005: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-006
+==========================================================================
+  neutered: ops/cluster-probe.txt: truncated 3444 bytes -> 120 bytes
+  --- pytest, mechanism neutered ----------------------------------------
+  E       assert 0 == 11
+  E        +  where 0 = len([])
+  tools\tests\test_phase0_probe_evidence.py:348: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_phase0_probe_evidence.py::test_the_g0_6_evidence_is_present_and_complete
+  1 failed in 0.41s
+  ----------------------------------------------------------------------
+  close-proof D-00-006: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-012
+==========================================================================
+  neutered: conftest.py: replaced '("socket", "gethostbyname"),' -> ''
+  --- pytest, mechanism neutered ----------------------------------------
+  >       with pytest.raises(socket_guard.error) as excinfo:
+  E       Failed: DID NOT RAISE <class 'conftest.NetworkAccessInUnitTestError'>
+  tests\test_socket_guard.py:125: Failed
+  =========================== short test summary info ===========================
+  FAILED tests/test_socket_guard.py::test_the_legacy_resolvers_are_refused[gethostbyname-args0]
+  1 failed, 3 passed in 0.47s
+  ----------------------------------------------------------------------
+  close-proof D-00-012: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-013
+==========================================================================
+  neutered: conftest.py: replaced '("socket.socket", "sendto"),' -> ''
+  --- pytest, mechanism neutered ----------------------------------------
+  >           with pytest.raises(socket_guard.error) as excinfo:
+  E           Failed: DID NOT RAISE <class 'conftest.NetworkAccessInUnitTestError'>
+  tests\test_socket_guard.py:101: Failed
+  =========================== short test summary info ===========================
+  FAILED tests/test_socket_guard.py::test_sendto_is_refused - Failed: DID NOT R...
+  1 failed, 1 passed in 0.39s
+  ----------------------------------------------------------------------
+  close-proof D-00-013: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-013b
+==========================================================================
+  neutered: conftest.py: replaced 'monkeypatch.delenv(name, raising=False)' -> 'pass'
+  --- pytest, mechanism neutered ----------------------------------------
+  E           assert 'AWS_ACCESS_KEY_ID' not in environ({'AI_AGENT': 'claude-code_2-1-233_agent', 'ALLUSERSPROFILE': 'C:\\ProgramData', 'APPDATA': 'C:\\Users\\rayyan....ntinel-AWS_PROFILE', 'AWS_REGION': 'sentinel-AWS_REGION', 'COCKROACH_DATABASE_URL': 'sentinel-COCKROACH_DATABASE_URL'})
+  E            +  where environ({'AI_AGENT': 'claude-code_2-1-233_agent', 'ALLUSERSPROFILE': 'C:\\ProgramData', 'APPDATA': 'C:\\Users\\rayyan....ntinel-AWS_PROFILE', 'AWS_REGION': 'sentinel-AWS_REGION', 'COCKROACH_DATABASE_URL': 'sentinel-COCKROACH_DATABASE_URL'}) = os.environ
+  tests\test_socket_guard.py:275: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tests/test_socket_guard.py::test_the_credential_unsetter_actually_removes_them
+  1 failed in 0.40s
+  ----------------------------------------------------------------------
+  close-proof D-00-013b: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-019
+==========================================================================
+  neutered: packages/python/provenance_contracts/src/provenance_contracts/settings.py: replaced 'raise SettingsValidationError(_redacted_validation_message(exc)) from None' -> 'raise SettingsValidationError(str(exc.errors())) from None'
+  --- pytest, mechanism neutered ----------------------------------------
+  E         
+  E         ...Full output truncated (4 lines hidden), use '-vv' to show
+  packages\python\provenance_contracts\tests\test_settings.py:277: AssertionError
+  =========================== short test summary info ===========================
+  FAILED packages/python/provenance_contracts/tests/test_settings.py::test_a_validation_error_carries_the_raw_environment_and_get_settings_drops_it
+  1 failed in 0.63s
+  ----------------------------------------------------------------------
+  close-proof D-00-019: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-009
+==========================================================================
+  neutered: tools/scrub.py: replaced 'replacement=r"\\g<kw>=[REDACTED-SECRET]"' -> 'replacement=r"\\g<kw>=\\g<secret>"'
+  --- pytest, mechanism neutered ----------------------------------------
+  E           PGPASSWORD=[REDACTED-SECRET] psql -h rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud -p 26257 -U pv_migrator -d provenance -c "SELECT 1"
+  E         ?            ++++++++++++++++
+  tools\tests\test_scrub.py:126: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_scrub.py::test_rule_redacts_the_secret_it_names[PGPASSWORD=[REDACTED-SECRET] ]
+  1 failed, 11 passed in 0.43s
+  ----------------------------------------------------------------------
+  close-proof D-00-009: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-011
+==========================================================================
+  neutered: .github/workflows/ci.yml: replaced 'if exit_code != "0":' -> 'if False:'
+  --- pytest, mechanism neutered ----------------------------------------
+  E       assert 0 != 0
+  E        +  where 0 = CompletedProcess(args=['C:\\Users\\rayyan.a\\AppData\\Local\\anaconda3\\python.exe', 'C:\\Users\\rayyan.a\\AppData\\Lo...3456789abcdef0123456789abcdef01234567; every PASS row has a log whose header reads exit=0 at this commit\n', stderr='').returncode
+  tools\tests\test_ci_evidence_check.py:111: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_ci_evidence_check.py::test_a_pass_row_whose_log_records_a_failure_is_rejected
+  1 failed in 0.50s
+  ----------------------------------------------------------------------
+  close-proof D-00-011: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-011b
+==========================================================================
+  neutered: .github/workflows/ci.yml: replaced 'ident = r"(?:G\\d+\\.\\d+[a-z]?|S\\d+)"' -> 'ident = r"(?:G\\d+\\.\\d+[a-z]?)"'
+  --- pytest, mechanism neutered ----------------------------------------
+  E        +  where 0 = CompletedProcess(args=['C:\\Users\\rayyan.a\\AppData\\Local\\anaconda3\\python.exe', 'C:\\Users\\rayyan.a\\AppData\\Lo...3456789abcdef0123456789abcdef01234567; every PASS row has a log whose header reads exit=0 at this commit\n', stderr='').returncode
+  tools\tests\test_ci_evidence_check.py:149: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_ci_evidence_check.py::test_a_forged_submission_row_is_rejected
+  FAILED tools/tests/test_ci_evidence_check.py::test_a_forged_row_in_the_submission_ledger_is_rejected
+  2 failed in 0.65s
+  ----------------------------------------------------------------------
+  close-proof D-00-011b: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-023
+==========================================================================
+  neutered: Makefile: replaced '>= (3, 82) else 1' -> '>= (3, 81) else 1'
+  --- pytest, mechanism neutered ----------------------------------------
+  E           assert (0 == 0) is False
+  E            +  where 0 = CompletedProcess(args=['C:\\Users\\rayyan.a\\AppData\\Local\\anaconda3\\python.exe', '-c', 'v="3.81".split("."); \\\n ...ise SystemExit(0 if (int(v[0]), int(v[1] if len(v)>1 else 0)) >= (3, 81) else 1)'], returncode=0, stdout='', stderr='').returncode
+  tools\tests\test_build_lane_guards.py:665: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_a_gate_battery_refuses_a_make_older_than_3_82
+  1 failed in 0.50s
+  ----------------------------------------------------------------------
+  close-proof D-00-023: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+COUNTERFACTUAL D-00-023b
+==========================================================================
+  neutered: Makefile: deleted 1 line(s) containing '$(call require_make_version)'
+  --- pytest, mechanism neutered ----------------------------------------
+  E        +    where <function search at 0x000001C7ABB3D440> = re.search
+  E        +    and   "                 ## G0.1..G0.7 - scaffold licence settings and cluster verification.\n\t$(call require_gate_sh)\n\t@p...nly the second. (D-00-005.)\n\t@printf '\\nG-0 battery complete. Record every result in ops/gates/PHASE_00.md.\\n'\n\n" = makefile_recipe('gate-0')
+  tools\tests\test_build_lane_guards.py:645: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tools/tests/test_build_lane_guards.py::test_a_gate_battery_refuses_a_make_older_than_3_82
+  1 failed in 0.42s
+  ----------------------------------------------------------------------
+  close-proof D-00-023b: test FAILED with the fix neutered (exit=1) - PASS
+
+==========================================================================
+SUMMARY
+==========================================================================
+  D-00-008: exit=1  PASS
+  D-00-014: exit=1  PASS
+  D-00-007: exit=1  PASS
+  D-00-016: exit=1  PASS
+  D-00-025: exit=1  PASS
+  D-00-043: exit=1  PASS
+  D-00-034: exit=1  PASS
+  D-00-033: exit=1  PASS
+  D-00-015: exit=1  PASS
+  D-00-017: exit=1  PASS
+  D-00-026: exit=1  PASS
+  D-00-042: exit=1  PASS
+  D-00-010: exit=1  PASS
+  D-00-038: exit=1  PASS
+  D-00-041: exit=1  PASS
+  D-00-024: exit=1  PASS
+  D-00-003: exit=1  PASS
+  D-00-002: exit=1  PASS
+  D-00-020: exit=1  PASS
+  D-00-021: exit=1  PASS
+  D-00-022: exit=1  PASS
+  D-00-005: exit=1  PASS
+  D-00-006: exit=1  PASS
+  D-00-012: exit=1  PASS
+  D-00-013: exit=1  PASS
+  D-00-013b: exit=1  PASS
+  D-00-019: exit=1  PASS
+  D-00-009: exit=1  PASS
+  D-00-011: exit=1  PASS
+  D-00-011b: exit=1  PASS
+  D-00-023: exit=1  PASS
+  D-00-023b: exit=1  PASS

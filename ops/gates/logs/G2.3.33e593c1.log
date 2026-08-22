@@ -1,0 +1,5 @@
+# gate=G2.3 sha=33e593c15d9edb0eb02e7e16edf3d1b1b2caa3c3 utc=2026-08-18T14:38:17Z exit=0
+# cmd=bash -c got=\$\(psql\ -At\ -d\ \'postgresql://[REDACTED-USER]:[REDACTED-SECRET]@rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257/provenance_ci\?sslmode=verify-full\'\ -c\ \"SELECT\ table_name\ FROM\ information_schema.views\ WHERE\ table_schema=\'public\'\ ORDER\ BY\ 1\;\"\ \|\ tr\ -d\ \'\\r\'\ \|\ paste\ -sd\,\)\;\ echo\ \"\$got\"\;\ test\ \"\$got\"\ =\ \'agent_active_beliefs_v1\,agent_belief_lineage_v1\,agent_case_context_v1\,agent_evidence_retrieval_v1\,agent_open_obligations_v1\' 
+# started=2026-08-18T14:38:14Z finished=2026-08-18T14:38:17Z tree=dirty scrubbed-by=tools/scrub.py
+#
+agent_active_beliefs_v1,agent_belief_lineage_v1,agent_case_context_v1,agent_evidence_retrieval_v1,agent_open_obligations_v1

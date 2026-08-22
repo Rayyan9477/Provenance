@@ -1,0 +1,30 @@
+# RED transcript — T1.5 (provenance_contracts: base, identity, ingestion, retrieval, resolution, predicates)
+# Captured BEFORE any of the six source modules existed.
+# Command: python -m pytest packages/python/provenance_contracts/tests/test_scalars.py packages/python/provenance_contracts/tests/test_retrieval_retraction.py -q
+# Source directory at capture time:
+#   __init__.py
+#   settings.py
+
+
+=================================== ERRORS ====================================
+_ ERROR collecting packages/python/provenance_contracts/tests/test_scalars.py _
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_contracts\tests\test_scalars.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_contracts\tests\test_scalars.py:66: in <module>
+    from provenance_contracts import base, identity, ingestion, predicates, resolution, retrieval
+E   ImportError: cannot import name 'base' from 'provenance_contracts' (D:\Repo\neverreset\packages\python\provenance_contracts\src\provenance_contracts\__init__.py)
+_ ERROR collecting packages/python/provenance_contracts/tests/test_retrieval_retraction.py _
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_contracts\tests\test_retrieval_retraction.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_contracts\tests\test_retrieval_retraction.py:46: in <module>
+    from provenance_contracts.ingestion import SourceLocator
+E   ModuleNotFoundError: No module named 'provenance_contracts.ingestion'
+=========================== short test summary info ===========================
+ERROR packages/python/provenance_contracts/tests/test_scalars.py
+ERROR packages/python/provenance_contracts/tests/test_retrieval_retraction.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!
+2 errors in 0.20s
+
+exit=2

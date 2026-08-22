@@ -1,0 +1,304 @@
+T13 GREEN transcript — Phase 13 CDK stacks (T13.1 through T13.5, authoring only)
+Captured 2026-08-18T18:55Z
+git HEAD c0168bd (working tree, uncommitted — the user owns git)
+Python 3.12.3 | aws-cdk-lib 2.265.0 | constructs 10.8.1 | jsii 1.139.0 | node v24.3.0
+ruff 0.6.9 | mypy 1.11.2 | gitleaks 8.30.1
+Region us-east-1 throughout. Cluster rayyandb, CockroachDB CCL v26.2.5, plan BASIC.
+
+WHAT THIS TRANSCRIPT IS, AND WHAT IT IS NOT
+-------------------------------------------
+This is an AUTHORING transcript. Nothing here has been deployed. No `cdk deploy`,
+no `cdk bootstrap`, no `aws` mutating call was run: creating AWS resources is the
+account owner's decision and it is billable. 70_TASK_PLAN.md section 20.1 marks
+T13.1-T13.5 authorable from Phase 1 onward, which is why they run now, ahead of
+Phases 8-10.
+
+Every G13.x assertion that names a deployed endpoint, a deployed service, or an
+alarm STATE is therefore NOT RUN and is not claimed. See the closing section.
+
+This task did NOT follow a literal RED-first sequence, and saying otherwise would
+be the kind of small checkable dishonesty the pack exists to prevent. The
+constructs and their assertions were authored in one pass, because a RED
+transcript for a CDK app is only "the module does not exist yet" and proves
+nothing about whether the assertions bite. The equivalent proof is the sabotage
+matrix in ops/tdd/SABOTAGE_T13.txt: twenty deliberate breakages, each with the
+test that must catch it, all twenty caught, suite restored green afterwards.
+
+TOOLING NOTE
+------------
+The AWS CDK CLI is NOT installed on this machine and is not in the npx cache:
+
+  $ npx --no-install cdk --version
+    npm error npx canceled due to missing packages and no YES option: ["cdk@2.1137.0"]
+
+  $ python -m aws_cdk --help
+    No module named aws_cdk.__main__; 'aws_cdk' is a package and cannot be
+    directly executed
+
+`cdk synth` is therefore replaced by the two things it actually does:
+`python app.py` (the exact command in cdk.json's `app` key, which is what the CLI
+shells out to) and `aws_cdk.assertions.Template.from_stack`, which additionally
+runs CDK's deployability validation. `cdk ls` is replaced by the stack inventory
+below. `aws-cdk-lib` and `constructs` were installed with pip; nothing was
+installed globally with npm.
+
+
+================ 1. Synthesis ================
+
+$ cd infra/cdk && CDK_OUTDIR=cdk.out python app.py
+  exit=0
+  (no warnings)
+
+$ ls cdk.out/*.template.json | wc -l
+  10
+
+Ten templates, 170 resources. `cdk ls` equivalent, with the dependency edges CDK
+derived — this IS the deploy order of 40_INFRA_IAC.md section 2.4, and it is
+acyclic:
+
+  PvFoundationStack          9 resources  depends_on=[]
+      Budgets::Budget x2, CloudWatch::Alarm x1, KMS::Alias x1, KMS::Key x1,
+      Logs::LogGroup x2, SNS::Topic x1, SNS::TopicPolicy x1
+  PvIdentityStack           12 resources  depends_on=[]
+      Cognito::UserPool x1, ::UserPoolClient x3, ::UserPoolDomain x1,
+      ::UserPoolGroup x1, ::UserPoolResourceServer x1, IAM::Policy x1,
+      IAM::Role x1, Lambda::Function x1, Lambda::Permission x1, Logs::LogGroup x1
+  PvDataStack               11 resources  depends_on=[PvFoundationStack]
+      ECR::Repository x2, S3::Bucket x2, S3::BucketPolicy x2, SSM::Parameter x1,
+      SecretsManager::Secret x4
+  PvMessagingStack          27 resources  depends_on=[]
+      Events::EventBus x1, Events::Rule x3, IAM::Policy x2, IAM::Role x2,
+      Lambda::Function x1, Logs::LogGroup x1, SQS::Queue x7, SQS::QueuePolicy x7,
+      Scheduler::ScheduleGroup x2, CloudwatchLogResourcePolicy x1
+  PvComputeStack            52 resources  depends_on=[PvDataStack,
+                                            PvFoundationStack, PvIdentityStack,
+                                            PvMessagingStack]
+      Events::Rule x2, IAM::Policy x8, IAM::Role x9,
+      Lambda::EventInvokeConfig x8, Lambda::EventSourceMapping x2,
+      Lambda::Function x8, Lambda::Permission x3, Logs::LogGroup x8,
+      SNS::Subscription x1, SNS::Topic x1, SNS::TopicPolicy x1,
+      Scheduler::Schedule x1
+  PvApiStack                12 resources  depends_on=[PvDataStack,
+                                            PvFoundationStack, PvIdentityStack,
+                                            PvMessagingStack]
+      AppRunner::AutoScalingConfiguration x1, ::ObservabilityConfiguration x1,
+      ::Service x1, IAM::Policy x3, IAM::Role x3, Lambda::Function x1,
+      SSM::Parameter x1, Custom::AWS x1
+  PvAgentStack               7 resources  depends_on=[PvApiStack, PvDataStack,
+                                            PvFoundationStack, PvIdentityStack]
+      IAM::Policy x2, IAM::Role x2, Lambda::Function x1, SSM::Parameter x1,
+      Custom::AWS x1
+  PvEmailStack               9 resources  depends_on=[PvComputeStack,
+                                            PvDataStack, PvFoundationStack,
+                                            PvMessagingStack]
+      Events::EventBusPolicy x1, Lambda::Permission x1, SES::ConfigurationSet x1,
+      ::ConfigurationSetEventDestination x1, ::EmailIdentity x3,
+      ::ReceiptRule x1, ::ReceiptRuleSet x1
+  PvWebStack                 5 resources  depends_on=[PvIdentityStack]
+      Amplify::App x1, Amplify::Branch x1, Amplify::Domain x1, IAM::Policy x1,
+      IAM::Role x1
+  PvObservabilityStack      26 resources  depends_on=[PvFoundationStack]
+      CloudWatch::Alarm x24, ::CompositeAlarm x1, ::Dashboard x1
+
+  TOTAL 170 resources across 10 stacks
+
+
+================ 2. Tests over the synthesised template ================
+
+$ python -m pytest infra/cdk/tests -q
+  ........................................................................ [ 23%]
+  ........................................................................ [ 47%]
+  ........................................................................ [ 71%]
+  ........................................................................ [ 94%]
+  ................                                                         [100%]
+  304 passed in 4.93s
+  exit=0
+
+304 assertions across 14 modules. None of them is "the stack synthesises" except
+one, which says so in its own docstring and exists as a smoke check.
+
+  test_app_topology.py               19  ten stacks, four deployment units, tags,
+                                         acyclic dependency graph
+  test_iam_least_privilege.py        16  no wildcard resource on a scopable
+                                         action; no wildcard action; PassRole
+                                         always narrowed; confusable service
+                                         trusts pinned to this account
+  test_no_secrets_or_account_ids.py  13  G0.3 and G13.6 at synth time
+  test_bedrock_model_ids.py          11  the Bedrock model id canon in IAM and in
+                                         configuration
+  test_foundation_stack.py            8  KMS retention, SES key grant, budgets
+  test_identity_stack.py             12  seven closed scopes, three clients,
+                                         forced PKCE, agent client cannot execute
+  test_data_stack.py                 13  append-only prefixes, SES-only inbound,
+                                         immutable ECR tags, empty secrets
+  test_messaging_stack.py            14  seven queues, five rules, redrive posture
+  test_compute_stack.py              30  worker sizing, retry posture, per-worker
+                                         absences
+  test_api_stack.py                  16  App Runner shape, both roles, the SSM
+                                         handshake
+  test_email_stack.py                12  receipt rule shape and action ORDER
+  test_agent_stack.py                13  AgentCore runtime, JWT authorizer, the
+                                         execution role's absences
+  test_web_stack.py                  18  WEB_COMPUTE, CSP origins, public-only env
+  test_observability_stack.py       109  24 alarms x thresholds/notBreaching/
+                                         actions/descriptions, composite, dashboard
+
+
+================ 3. Lint, format, types ================
+
+$ python -m ruff check infra/
+  All checks passed!
+
+$ python -m ruff format --check infra/
+  35 files already formatted
+
+$ cd infra/cdk && python -m mypy --strict provenance_infra app.py pv_cdk_testing.py
+  Success: no issues found in 19 source files
+
+`make lint` runs `ruff check .` and `ruff format --check .` over the whole tree;
+both are green with infra/ included. mypy --strict is not wired to infra/ by the
+Makefile (it checks the two shipped packages) but the package is fully typed and
+passes under the same flag.
+
+
+================ 4. G0.3 — no credential-shaped literal, no account id ==========
+
+$ gitleaks detect --source infra --config .gitleaks.toml --no-git --redact -v
+  INF scanned ~326293 bytes (326.29 KB) in 149ms
+  INF no leaks found
+
+Caches and build output were removed before the scan and are gitignored anyway
+(.gitignore:96 cdk.out/, :71 .mypy_cache/). The only findings in an earlier run
+were inside cdk.out/ and __pycache__/, both ignored; one was the literal string
+"Referrer-Policy" in the Amplify CSP header, which is a generic-api-key false
+positive rather than a secret.
+
+Asserted independently by the suite, against the templates rather than the source:
+
+  test_no_template_contains_a_literal_account_id
+      no bare twelve-digit run in any of the ten templates. Every account
+      reference renders as {"Ref": "AWS::AccountId"} because app.py synthesises
+      environment-agnostic when CDK_DEFAULT_ACCOUNT is unset.
+  test_no_template_contains_a_credential_shaped_literal
+      AKIA..., PEM headers, postgresql://user:pass@, aws_secret_access_key,
+      Bearer <token> — none present.
+  test_secrets_are_created_empty_with_only_their_key_names
+      all four secrets carry a JSON key SHAPE with empty values and no
+      SecretString. Values are written by ops/secrets-populate.sh.
+
+
+================ 5. Files created ================
+
+  infra/agentcore/Dockerfile                                  58
+  infra/agentcore/authorizer.json                              6
+  infra/agentcore/env.json                                    16
+  infra/agentcore/mcp.json                                    20
+  infra/cdk/app.py                                           135
+  infra/cdk/assets/pending_worker/handler.py                  25
+  infra/cdk/cdk.json                                          20
+  infra/cdk/provenance_infra/__init__.py                      14
+  infra/cdk/provenance_infra/alarms.py                       528
+  infra/cdk/provenance_infra/config.py                       361
+  infra/cdk/provenance_infra/props.py                        112
+  infra/cdk/provenance_infra/removal.py                       29
+  infra/cdk/provenance_infra/workers.py                      205
+  infra/cdk/provenance_infra/stacks/__init__.py               31
+  infra/cdk/provenance_infra/stacks/agent_stack.py           253
+  infra/cdk/provenance_infra/stacks/api_stack.py             505
+  infra/cdk/provenance_infra/stacks/compute_stack.py         554
+  infra/cdk/provenance_infra/stacks/data_stack.py            380
+  infra/cdk/provenance_infra/stacks/email_stack.py           208
+  infra/cdk/provenance_infra/stacks/foundation_stack.py      237
+  infra/cdk/provenance_infra/stacks/identity_stack.py        304
+  infra/cdk/provenance_infra/stacks/messaging_stack.py       306
+  infra/cdk/provenance_infra/stacks/observability_stack.py   185
+  infra/cdk/provenance_infra/stacks/web_stack.py             169
+  infra/cdk/pv_cdk_testing.py                                172
+  infra/cdk/tests/conftest.py                                 68
+  infra/cdk/tests/test_agent_stack.py                        229
+  infra/cdk/tests/test_api_stack.py                          261
+  infra/cdk/tests/test_app_topology.py                       166
+  infra/cdk/tests/test_bedrock_model_ids.py                  197
+  infra/cdk/tests/test_compute_stack.py                      310
+  infra/cdk/tests/test_data_stack.py                         214
+  infra/cdk/tests/test_email_stack.py                        187
+  infra/cdk/tests/test_foundation_stack.py                   141
+  infra/cdk/tests/test_iam_least_privilege.py                274
+  infra/cdk/tests/test_identity_stack.py                     194
+  infra/cdk/tests/test_messaging_stack.py                    242
+  infra/cdk/tests/test_no_secrets_or_account_ids.py          197
+  infra/cdk/tests/test_observability_stack.py                206
+  infra/cdk/tests/test_web_stack.py                          142
+                                                    total  7861
+
+
+================ 6. What the synthesis found that reading would not ============
+
+Two defects were caught by Template.from_stack and by nothing else. Both would
+have synthesised cleanly under `cdk synth` and then failed at deploy time.
+
+  a) PvMessagingStack held an intra-stack RESOURCE cycle:
+       WorkerDlqPolicy -> AdvocateRule -> AdvocateQueue -> AdvocateDlq
+         -> AdvocateQueue
+     The DLQ's redriveAllowPolicy named the source queue by GetAtt while the
+     queue's RedrivePolicy already named the DLQ. `python app.py` emitted the
+     template happily; Template.from_stack refused it with "Template is
+     undeployable". Fixed by building the source-queue ARN from the canonical
+     queue name, which is a contract value.
+
+  b) Two cross-STACK cycles, both from CDK writing a resource policy into the
+     stack that owns the resource rather than the stack that made the grant:
+       - EventBridge rule DLQs (rule in Compute, queue in Messaging)
+       - Secret.grantRead on a CMK-encrypted secret, which grants kms:Decrypt
+         through a ViaServicePrincipal and can only be expressed in the KEY's
+         resource policy (key in Foundation, readers in Compute and Api)
+     Both resolved and documented in the source as D-13-003 and D-13-010.
+
+
+================ 7. G13.x status, stated precisely ============================
+
+A synthesised template is not a deployed stack. Nothing below is claimed as
+passing that requires a running endpoint, a running service, or an alarm state.
+
+  G13.1  cdk diff --all reports no differences
+         NOT RUN. Requires a deployed stack to diff against. What is established
+         is that the app synthesises deterministically and that Template
+         validation accepts all ten templates.
+  G13.2  GET /v1/version returns the reviewed git_sha and 0008
+         NOT RUN. Requires a running service. Made POSSIBLE here: ECR tags are
+         IMMUTABLE, the App Runner image identifier is pinned to sha-<PV_GIT_SHA>,
+         BUILD_SHA and SCHEMA_REVISION are runtime variables, and
+         test_the_image_is_pinned_to_an_immutable_git_sha_tag asserts the pin.
+  G13.3  the demo URL is reachable from a second network
+         NOT RUN. Requires deploy plus DNS.
+  G13.4  the hero flow runs against the deployed stack
+         NOT RUN.
+  G13.5  the trace exists in CloudWatch with the expected spans
+         NOT RUN. The log groups exist in the templates; nothing has emitted a
+         span.
+  G13.6  no secret is a plaintext environment value
+         PARTIALLY ESTABLISHED, at synth time rather than after deploy. The three
+         keys the gate names (COCKROACH_DATABASE_URL,
+         COGNITO_AGENT_CLIENT_SECRET_ARN, MCP_AUTH_SECRET_ARN) are present in
+         RuntimeEnvironmentSecrets, and no RuntimeEnvironmentVariable matches
+         `://|AKIA|BEGIN ` other than six enumerated public origins. The gate's
+         own command reads `aws apprunner describe-service` and still has to be
+         run after deploy.
+  G13.7  alarms exist and are in OK
+         HALF ESTABLISHED. All 24 alarms exist under their catalogue names, with
+         asserted thresholds, and every one carries
+         treatMissingData=notBreaching — the setting that lets a quiet system
+         report OK instead of INSUFFICIENT_DATA. The four names the gate calls
+         out are present. The STATE half needs a deploy plus real traffic and is
+         NOT RUN.
+  G13.8  cold start is survivable
+         NOT RUN. minSize=1 is set, which is the mitigation; the measurement is
+         a deployed-stack measurement.
+  G13.9  the previous image runs against the head schema
+         NOT RUN and out of scope here: it is T13.6 and needs
+         tools/compatibility_smoke.py, which lives outside this builder's write
+         boundary.
+
+Also NOT RUN, and named so nobody assumes otherwise: every command in
+40_INFRA_IAC.md sections 11 and 14 that uses `ccloud`, and every command that
+uses `asm-exec`. Neither tool is installed on this machine.

@@ -1,0 +1,222 @@
+=== RED transcript — Phase 5 (T5.3) and Phase 6 (T6.1-T6.5) ===
+=== captured 2026-08-18T18:52:12Z at 33e593c ===
+
+--- unit + retrieval lane (no database) ---
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides1]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides2]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides3]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides4]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides5]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides6]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides7]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides8]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides9]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides10]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides11]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides12]
+FAILED tests/retrieval/test_embedding_template.py::test_query_template_is_byte_identical_to_the_seed_template[overrides13]
+FAILED tests/retrieval/test_identity.py::test_the_feature_strength_table_matches_the_spec
+FAILED tests/retrieval/test_identity.py::test_match_strength_is_the_maximum_and_never_the_sum
+FAILED tests/retrieval/test_identity.py::test_an_unknown_feature_name_is_refused
+FAILED tests/retrieval/test_identity.py::test_feature_count_is_carried_separately_from_strength
+FAILED tests/retrieval/test_identity.py::test_deterministic_signals_are_evaluated_before_vector_similarity
+FAILED tests/retrieval/test_identity.py::test_names_are_matched_exactly_and_never_fuzzily
+FAILED tests/retrieval/test_no_unscoped_sql.py::test_every_evidence_statement_binds_user_id
+FAILED tests/retrieval/test_no_unscoped_sql.py::test_every_evidence_statement_binds_tenant_id
+FAILED tests/retrieval/test_no_unscoped_sql.py::test_every_evidence_statement_filters_retraction_status
+FAILED tests/retrieval/test_rerank.py::test_contradicting_edges_count_double_in_the_grounding_term
+FAILED tests/retrieval/test_rerank.py::test_the_corroboration_bonus_is_capped
+FAILED tests/retrieval/test_rerank.py::test_negative_cosine_similarity_clamps_to_zero_and_is_not_rescaled
+FAILED tests/retrieval/test_rerank.py::test_temporal_credit_halves_over_one_half_life
+FAILED tests/retrieval/test_rerank.py::test_a_score_never_goes_negative - Att...
+FAILED tests/retrieval/test_rerank.py::test_tier_assignment_follows_the_spec_ladder
+FAILED tests/retrieval/test_rerank.py::test_a_domain_match_without_temporal_overlap_is_not_tier_one
+FAILED tests/retrieval/test_rerank.py::test_no_score_can_lift_a_lower_tier_above_a_higher_one
+FAILED tests/retrieval/test_rerank.py::test_no_candidate_at_all_is_unresolved_not_a_guess
+FAILED tests/retrieval/test_rerank.py::test_a_top_score_below_the_floor_abstains
+FAILED tests/retrieval/test_rerank.py::test_a_clear_winner_resolves - assert ...
+FAILED tests/retrieval/test_rerank.py::test_two_close_candidates_are_ambiguous_and_say_so
+FAILED tests/retrieval/test_rerank.py::test_the_abstention_floor_rises_when_the_embedding_is_unavailable
+FAILED tests/retrieval/test_temporal.py::test_the_default_window_is_the_lookback_widened_by_slack
+FAILED tests/retrieval/test_temporal.py::test_extracted_dates_widen_the_window_on_both_sides
+FAILED tests/retrieval/test_temporal.py::test_the_window_never_reaches_beyond_the_future_horizon
+FAILED tests/retrieval/test_temporal.py::test_an_ambiguous_numeric_date_widens_rather_than_picking_a_side
+FAILED tests/retrieval/test_temporal.py::test_candidate_case_lifespans_widen_the_window
+FAILED tests/retrieval/test_temporal.py::test_overlap_is_half_open - assert F...
+FAILED tests/retrieval/test_temporal.py::test_unknown_validity_is_included_never_excluded
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_grounding_carries_the_support_edges_under_that_name
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_lineage_carries_the_version_chain_under_that_name
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_the_gate_query_shape_is_what_g5_2_expects
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_a_merged_render_is_rejected
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_grounding_and_lineage_are_disjoint_id_spaces
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_a_canonical_belief_with_no_supports_edge_is_refused
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_an_evidence_edge_must_render_its_evidence
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_a_supersession_without_a_reason_code_is_refused
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_the_chain_only_moves_forward
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_retracted_evidence_is_rendered_with_its_status_badge
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_the_proof_hash_is_stable_across_two_renderings
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_a_memory_off_proof_is_empty_and_says_why
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_a_memory_off_proof_cannot_be_contaminated_with_canonical_state
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_no_chain_of_thought_key_appears_anywhere_in_the_proof
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_transitions_never_exceed_the_revision_they_describe
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_the_sabotage_hook_is_declared_and_reachable
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_build_belief_proof_calls_load_grounding_through_the_module_global
+75 failed, 10 passed, 18 deselected in 1.01s
+
+--- db lane ---
+            cur.execute(
+                "SELECT retraction_status, count(*) FROM evidence_items "
+                "WHERE user_id = %s AND retraction_status <> 'ACTIVE' GROUP BY 1 ORDER BY 1",
+                (user_id,),
+            )
+            states = {str(row[0]) for row in cur.fetchall()}
+        assert states == {"QUARANTINED", "RETRACTED", "SUPERSEDED"}
+>       assert predicates.EXCLUDED_STATUSES == frozenset(states)
+E       AttributeError: module 'services.control_plane.app.retrieval.predicates' has no attribute 'EXCLUDED_STATUSES'
+
+tests\retrieval\test_retraction_filtering.py:185: AttributeError
+________ test_superseded_evidence_is_excluded_and_never_down_weighted _________
+
+    def test_superseded_evidence_is_excluded_and_never_down_weighted() -> None:
+        """``CANONICAL_DECISIONS.md`` -> *Evidence and retrieval*, stated as code.
+    
+        There is no v1 code path that admits a superseded row with a reduced
+        weight. Down-weighting is the plausible-sounding alternative that keeps a
+        disowned correction in the prompt at 40% volume, and the refusal is what
+        stops someone adding it as a "softer" fix.
+        """
+>       assert predicates.retraction_mode() == "EXCLUDE"
+E       AttributeError: module 'services.control_plane.app.retrieval.predicates' has no attribute 'retraction_mode'. Did you mean: 'retraction_filter'?
+
+tests\retrieval\test_retraction_filtering.py:196: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/retrieval/test_ann_predicate.py::test_the_vector_index_exists - ...
+FAILED tests/retrieval/test_ann_predicate.py::test_the_shipped_statement_is_the_spec_statement
+FAILED tests/retrieval/test_ann_predicate.py::test_the_statement_binds_six_parameters_in_order
+FAILED tests/retrieval/test_ann_predicate.py::test_explain_of_the_production_query_names_the_index
+FAILED tests/retrieval/test_ann_predicate.py::test_the_plan_is_constrained_on_the_user_prefix
+FAILED tests/retrieval/test_ann_predicate.py::test_the_module_refuses_to_build_a_subquery_query_vector
+FAILED tests/retrieval/test_isolation.py::test_the_honeypot_is_rank_one_for_its_rightful_owner
+FAILED tests/retrieval/test_isolation.py::test_ann_never_returns_another_users_evidence
+FAILED tests/retrieval/test_isolation.py::test_the_tenant_predicate_holds_independently_of_the_prefix
+FAILED tests/retrieval/test_retraction_filtering.py::test_retracted_evidence_is_reachable_without_the_filter_positive_control
+FAILED tests/retrieval/test_retraction_filtering.py::test_no_retraction_fixture_survives_the_production_statement
+FAILED tests/retrieval/test_retraction_filtering.py::test_all_three_lifecycle_states_are_excluded_not_just_retracted
+FAILED tests/retrieval/test_retraction_filtering.py::test_superseded_evidence_is_excluded_and_never_down_weighted
+13 failed, 5 passed, 68 deselected in 39.54s
+
+=== RED, increment 2 — Stages A, E, H and the pipeline (T6.2, T6.4) ===
+=== captured 2026-08-18T19:04:20Z ===
+=== stubs in place: scope.py, relational.py, context.py, pipeline.py ===
+
+        """Two independent rules land on the same line of code.
+    
+        ``tools/txn_purity_lint.py`` forbids a network call inside a transaction
+        callback: the callback runs once per retry, so a model call inside it is
+        charged again on every attempt while locks are held. ``D-06-001`` forbids
+        computing the query vector inside the ranking statement, because a
+        correlated subquery silently full-scans. Both are satisfied by embedding
+        first and binding the result -- and this asserts the ordering rather than
+        trusting it.
+        """
+>       assert pipeline.EMBED_BEFORE_TRANSACTION is True
+E       AttributeError: module 'services.control_plane.app.retrieval.pipeline' has no attribute 'EMBED_BEFORE_TRANSACTION'
+
+tests\retrieval\test_pipeline_stages.py:322: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/retrieval/test_pipeline_stages.py::test_scope_comes_from_the_verified_principal
+FAILED tests/retrieval/test_pipeline_stages.py::test_the_session_posture_is_read_only_low_priority_and_never_stale
+FAILED tests/retrieval/test_pipeline_stages.py::test_a_principal_from_another_user_cannot_be_asserted_against_this_scope
+FAILED tests/retrieval/test_pipeline_stages.py::test_a_candidate_naming_a_different_relationships_identifier_is_pruned
+FAILED tests/retrieval/test_pipeline_stages.py::test_a_mismatched_embedding_version_is_pruned
+FAILED tests/retrieval/test_pipeline_stages.py::test_an_unbound_candidate_survives_as_vector_only
+FAILED tests/retrieval/test_pipeline_stages.py::test_an_identifier_the_user_has_never_seen_does_not_prune
+FAILED tests/retrieval/test_pipeline_stages.py::test_conflict_evidence_is_guaranteed_a_slot
+FAILED tests/retrieval/test_pipeline_stages.py::test_two_vector_only_slots_are_reserved
+FAILED tests/retrieval/test_pipeline_stages.py::test_conflict_evidence_is_never_reduced_below_one
+FAILED tests/retrieval/test_pipeline_stages.py::test_an_oversized_context_is_refused_rather_than_truncated
+FAILED tests/retrieval/test_pipeline_stages.py::test_every_drop_is_named - At...
+FAILED tests/retrieval/test_pipeline_stages.py::test_the_eight_stages_run_in_the_spec_order
+FAILED tests/retrieval/test_pipeline_stages.py::test_the_embedding_call_happens_before_the_transaction_opens
+14 failed, 2 passed in 0.70s
+=== RED, increment 3 — Stage F (grounding-graph expansion), T6.4 ===
+=== captured 2026-08-18T19:57:56Z ===
+=== stub in place: services/control_plane/app/retrieval/grounding.py ===
+=== every assertion carries a vacuity guard: an empty STATEMENTS table
+=== must fail rather than iterate over nothing and report success ===
+
+--- unit lane: tests/retrieval/test_grounding_expansion.py ---
+name = 'bind_lineage'
+
+    def __getattr__(name: str) -> Any:
+>       raise NotImplementedError(f"Stage F is not implemented: {name}")
+E       NotImplementedError: Stage F is not implemented: bind_lineage
+
+services\control_plane\app\retrieval\grounding.py:13: NotImplementedError
+=========================== short test summary info ===========================
+FAILED tests/retrieval/test_grounding_expansion.py::test_stage_f_issues_the_four_statements_section_11_1_names
+FAILED tests/retrieval/test_grounding_expansion.py::test_every_stage_f_statement_is_scoped_to_tenant_and_user
+FAILED tests/retrieval/test_grounding_expansion.py::test_the_grounding_evidence_statement_filters_retracted_rows
+FAILED tests/retrieval/test_grounding_expansion.py::test_the_spec_limits_are_the_shipped_limits
+FAILED tests/retrieval/test_grounding_expansion.py::test_days_past_due_is_computed_in_sql_and_never_by_the_model
+FAILED tests/retrieval/test_grounding_expansion.py::test_grounding_and_lineage_are_two_fields_under_two_names
+FAILED tests/retrieval/test_grounding_expansion.py::test_a_merged_grounding_and_lineage_render_is_refused
+FAILED tests/retrieval/test_grounding_expansion.py::test_a_lineage_row_cannot_be_loaded_as_a_grounding_edge
+FAILED tests/retrieval/test_grounding_expansion.py::test_contradicts_edges_sort_before_supports_and_qualifies
+FAILED tests/retrieval/test_grounding_expansion.py::test_within_one_relation_the_heavier_edge_comes_first
+FAILED tests/retrieval/test_grounding_expansion.py::test_a_null_weight_sorts_last_within_its_relation
+FAILED tests/retrieval/test_grounding_expansion.py::test_truncation_eats_qualifies_then_supports_and_never_contradicts
+FAILED tests/retrieval/test_grounding_expansion.py::test_truncating_to_zero_is_refused_rather_than_silently_emptying
+FAILED tests/retrieval/test_grounding_expansion.py::test_expansion_candidates_are_tier_two_with_no_vector_contribution
+FAILED tests/retrieval/test_grounding_expansion.py::test_a_contradicting_expansion_candidate_is_still_tier_two
+FAILED tests/retrieval/test_grounding_expansion.py::test_an_expansion_candidate_never_claims_an_identity_match
+FAILED tests/retrieval/test_grounding_expansion.py::test_at_most_three_cases_are_expanded
+FAILED tests/retrieval/test_grounding_expansion.py::test_evidence_already_returned_by_stage_d_is_not_refetched
+FAILED tests/retrieval/test_grounding_expansion.py::test_an_empty_exclusion_list_is_an_empty_array_and_never_null
+FAILED tests/retrieval/test_grounding_expansion.py::test_the_case_scoped_statements_share_one_parameter_shape
+FAILED tests/retrieval/test_grounding_expansion.py::test_the_lineage_binder_takes_belief_ids_not_version_ids
+21 failed in 0.54s
+
+--- db lane: tests/retrieval/test_grounding_sql.py ---
+    
+        A column the schema does not have raises ``UndefinedColumn`` here with the
+        name in the message, which is the fastest available route from "the spec
+        says ``ev.case_id``" to "the schema puts it on ``claims``".
+        """
+        tenant_id, user_id = hero_user
+>       assert len(grounding.STATEMENTS) == 6, (
+            "the vacuity guard, first: a loop over an empty statement table executes "
+            "nothing and passes forever, which is the shape of a lint that stopped "
+            "working rather than of a schema that agrees with the spec"
+        )
+E       AssertionError: the vacuity guard, first: a loop over an empty statement table executes nothing and passes forever, which is the shape of a lint that stopped working rather than of a schema that agrees with the spec
+E       assert 0 == 6
+E        +  where 0 = len({})
+E        +    where {} = grounding.STATEMENTS
+
+tests\retrieval\test_grounding_sql.py:64: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/retrieval/test_grounding_sql.py::test_every_stage_f_statement_executes_against_the_live_schema
+1 failed, 1 passed in 6.79s
+
+=== RED, increment 4 — the over-fetch shortfall note (section 9.3, test 18.6) ===
+=== captured 2026-08-18T20:08:36Z ===
+=== ann.overfetch_note does not exist ===
+=== the two 18.22 injection assertions are characterization of an existing
+=== guarantee and pass on arrival; they are marked as such in the report ===
+
+    def test_the_note_is_not_reachable_by_returning_more_than_was_fetched() -> None:
+        """A survivor count above the raw count is arithmetically impossible and
+        means the two numbers were measured at different points in the pipeline --
+        which would make every shortfall report meaningless."""
+        with pytest.raises(ValueError, match="(?i)cannot exceed"):
+>           ann.overfetch_note(raw_rows=10, surviving_rows=11)
+E           AttributeError: module 'services.control_plane.app.retrieval.ann' has no attribute 'overfetch_note'
+
+tests\retrieval\test_pipeline_stages.py:371: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/retrieval/test_pipeline_stages.py::test_a_full_over_fetch_that_still_underfills_is_reported
+FAILED tests/retrieval/test_pipeline_stages.py::test_a_short_ann_result_is_not_an_exhausted_over_fetch
+FAILED tests/retrieval/test_pipeline_stages.py::test_a_full_result_set_is_not_reported
+FAILED tests/retrieval/test_pipeline_stages.py::test_the_note_is_not_reachable_by_returning_more_than_was_fetched
+4 failed, 18 passed in 0.66s

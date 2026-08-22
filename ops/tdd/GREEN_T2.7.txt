@@ -1,0 +1,297 @@
+=== GREEN transcript - T2.7  db/verify.sql, make db-verify, tools/manifest_check.py ===
+date(UTC): 2026-08-18T15:05:01Z
+git sha:   33e593c
+python:    Python 3.12.3
+psql:      psql (PostgreSQL) 16.9
+cockroach: NOT INSTALLED - psql used instead; CockroachDB is wire compatible (deviation recorded in db/verify.sql)
+database:  provenance_ci, alembic head 0008_events_infrastructure
+
+--- files created ---
+  359 db/verify.sql
+  367 tools/manifest_check.py
+  268 tools/tests/test_manifest_check.py
+  685 services/control_plane/tests/db/test_verify_queries.py
+ 1679 total
+
+############ 1. TESTS ############
+
+$ python -m pytest tools/tests/test_manifest_check.py -q
+.................                                                        [100%]
+17 passed in 0.35s
+
+$ python -m pytest services/control_plane/tests/db/test_verify_queries.py -v --no-header -p no:cacheprovider
+============================= test session starts =============================
+collecting ... collected 12 items
+
+services/control_plane/tests/db/test_verify_queries.py::test_verify_sql_exists_and_is_one_statement PASSED [  8%]
+services/control_plane/tests/db/test_verify_queries.py::test_verify_sql_transcribes_every_spec_query_verbatim PASSED [ 16%]
+services/control_plane/tests/db/test_verify_queries.py::test_verify_sql_names_v11_as_the_positive_control_for_v10 PASSED [ 25%]
+services/control_plane/tests/db/test_verify_queries.py::test_verify_sql_failure_message_names_the_three_retraction_fixtures PASSED [ 33%]
+services/control_plane/tests/db/test_verify_queries.py::test_every_check_reports_what_it_examined PASSED [ 41%]
+services/control_plane/tests/db/test_verify_queries.py::test_summary_line_is_the_exact_string_g2_5_greps_for PASSED [ 50%]
+services/control_plane/tests/db/test_verify_queries.py::test_v1_through_v10_return_zero_rows PASSED [ 58%]
+services/control_plane/tests/db/test_verify_queries.py::test_v11_is_zero_and_vacuous_before_the_seed_and_at_least_three_after PASSED [ 66%]
+services/control_plane/tests/db/test_verify_queries.py::test_v11_counts_retraction_fixtures_and_they_keep_their_embeddings PASSED [ 75%]
+services/control_plane/tests/db/test_verify_queries.py::test_v10_returns_zero_while_retracted_rows_exist PASSED [ 83%]
+services/control_plane/tests/db/test_verify_queries.py::test_v10_retraction_filter_positive_control PASSED [ 91%]
+services/control_plane/tests/db/test_verify_queries.py::test_v11_under_three_on_a_populated_corpus_is_a_failure PASSED [100%]
+
+============================= 12 passed in 33.77s =============================
+
+############ 2. LINT AND TYPES ############
+
+$ python -m ruff check db tools services/control_plane/tests/db
+All checks passed!
+exit=0
+$ python -m ruff format --check <the three python files>
+3 files already formatted
+exit=0
+$ python -m mypy --strict tools/manifest_check.py
+Success: no issues found in 1 source file
+exit=0
+
+############ 3. THE V10 POSITIVE CONTROL (23_PHASE_GATES.md 23.7) ############
+
+One transaction: insert the three section 17.8 retraction fixtures beside one
+ACTIVE row, run V10 unmutated and then mutated, ROLLBACK. Nothing is committed.
+
+$ psql -f v10_positive_control.sql   (fixtures + M0/M1/M2 + db/verify.sql, rolled back)
+BEGIN
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 3
+--- M0: V10 exactly as specs/10_DATABASE_DDL.md section 18 writes it
+ v10_unmutated 
+---------------
+             0
+(1 row)
+
+--- M1: the retraction predicate REMOVED from the view V10 reads
+ v10_view_filter_removed 
+-------------------------
+                       3
+(1 row)
+
+--- M2: V10 own selection predicate removed (does V10 reach any row at all?)
+ v10_selection_removed 
+-----------------------
+                     1
+(1 row)
+
+--- V11 verbatim, with the fixtures present
+                  id                  | retraction_status | still_embedded 
+--------------------------------------+-------------------+----------------
+ 11111111-0000-4000-8000-00000000000b | SUPERSEDED        | t
+ 11111111-0000-4000-8000-00000000000c | RETRACTED         | t
+ 11111111-0000-4000-8000-00000000000d | QUARANTINED       | t
+(3 rows)
+
+--- db/verify.sql with the fixtures present
+                                                                          line                                                                           
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ CHECK V1 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions_evidence_grounded
+ CHECK V2 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions_evidence_grounded
+ CHECK V3 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions
+ CHECK V4 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_support
+ CHECK V5 returned=0 examined=0 expect=ZERO status=VACUOUS population=cases_with_ledger_rows
+ CHECK V6 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_and_proposal_pointers
+ CHECK V7 returned=0 examined=0 expect=ZERO status=VACUOUS population=commitments_with_committed_amount
+ CHECK V8 returned=0 examined=4 expect=ZERO status=HOLDS population=evidence_and_support_child_rows
+ CHECK V9 returned=0 examined=5 expect=ZERO status=HOLDS population=grants_held_by_pv_agent_reader
+ CHECK V10 returned=0 examined=1 expect=ZERO status=HOLDS population=rows_visible_in_agent_evidence_retrieval_v1
+ CHECK V11 returned=3 examined=4 expect=ATLEAST3 status=HOLDS population=evidence_items
+ SUMMARY V1 0  V2 0  V3 0  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 3
+ VERDICT PASS_PARTIAL V1-V10 returned zero and V11 returned 3, but these checks examined no rows and are therefore unproven: V1, V2, V3, V4, V5, V6, V7.
+(13 rows)
+
+ROLLBACK
+
+############ 4. make db-verify, ALL FOUR DATABASE STATES ############
+
+The recipe body was run verbatim as a shell script (the Makefile is Integrator-
+owned and was not edited). The only differences from the Makefile text are
+$$ -> $ and the SQL file path taken as $1 so a scenario can be substituted.
+
+--- 4a. empty database (the state of provenance_ci right now), default ---
+CHECK V1 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions_evidence_grounded
+CHECK V2 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions_evidence_grounded
+CHECK V3 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions
+CHECK V4 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_support
+CHECK V5 returned=0 examined=0 expect=ZERO status=VACUOUS population=cases_with_ledger_rows
+CHECK V6 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_and_proposal_pointers
+CHECK V7 returned=0 examined=0 expect=ZERO status=VACUOUS population=commitments_with_committed_amount
+CHECK V8 returned=0 examined=0 expect=ZERO status=VACUOUS population=evidence_and_support_child_rows
+CHECK V9 returned=0 examined=5 expect=ZERO status=HOLDS population=grants_held_by_pv_agent_reader
+CHECK V10 returned=0 examined=0 expect=ZERO status=VACUOUS population=rows_visible_in_agent_evidence_retrieval_v1
+CHECK V11 returned=0 examined=0 expect=ATLEAST3 status=VACUOUS population=evidence_items
+SUMMARY V1 0  V2 0  V3 0  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 0
+VERDICT VACUOUS_EMPTY_CORPUS evidence_items is empty, so V11 returning 0 is CORRECT here and V1-V10 returning zero proves nothing - no row was examined. Seed first (T2.8), which writes the three section 17.8 retraction fixtures isp-wrong-term-date, movers-350-claim and injected-instruction, then run this again.
+
+  db-verify FAILED: the corpus is empty, so V1-V10 returning zero proves nothing
+  and V11 returning 0 is correct rather than passing. Run `make seed` (T2.8) and
+  re-run. To acknowledge a deliberately pre-seed database, set PV_VERIFY_ALLOW_EMPTY=1;
+  it changes the exit status only, never the verdict text above.
+
+exit=2
+
+--- 4b. empty database, PV_VERIFY_ALLOW_EMPTY=1 ---
+SUMMARY V1 0  V2 0  V3 0  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 0
+VERDICT VACUOUS_EMPTY_CORPUS evidence_items is empty, so V11 returning 0 is CORRECT here and V1-V10 returning zero proves nothing - no row was examined. Seed first (T2.8), which writes the three section 17.8 retraction fixtures isp-wrong-term-date, movers-350-claim and injected-instruction, then run this again.
+
+  Exit 0 ONLY because PV_VERIFY_ALLOW_EMPTY=1. Nothing was examined; nothing was proved.
+exit=0
+
+--- 4c. seeded: 1 ACTIVE + the 3 retraction fixtures  -> expect V11 3, exit 0 ---
+CHECK V1 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions_evidence_grounded
+CHECK V2 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions_evidence_grounded
+CHECK V3 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions
+CHECK V4 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_support
+CHECK V5 returned=0 examined=0 expect=ZERO status=VACUOUS population=cases_with_ledger_rows
+CHECK V6 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_and_proposal_pointers
+CHECK V7 returned=0 examined=0 expect=ZERO status=VACUOUS population=commitments_with_committed_amount
+CHECK V8 returned=0 examined=4 expect=ZERO status=HOLDS population=evidence_and_support_child_rows
+CHECK V9 returned=0 examined=5 expect=ZERO status=HOLDS population=grants_held_by_pv_agent_reader
+CHECK V10 returned=0 examined=1 expect=ZERO status=HOLDS population=rows_visible_in_agent_evidence_retrieval_v1
+CHECK V11 returned=3 examined=4 expect=ATLEAST3 status=HOLDS population=evidence_items
+SUMMARY V1 0  V2 0  V3 0  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 3
+VERDICT PASS_PARTIAL V1-V10 returned zero and V11 returned 3, but these checks examined no rows and are therefore unproven: V1, V2, V3, V4, V5, V6, V7.
+exit=0
+
+--- 4d. underseeded: evidence present, NO retractions -> expect exit 1 ---
+CHECK V1 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions_evidence_grounded
+CHECK V2 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions_evidence_grounded
+CHECK V3 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions
+CHECK V4 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_support
+CHECK V5 returned=0 examined=0 expect=ZERO status=VACUOUS population=cases_with_ledger_rows
+CHECK V6 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_and_proposal_pointers
+CHECK V7 returned=0 examined=0 expect=ZERO status=VACUOUS population=commitments_with_committed_amount
+CHECK V8 returned=0 examined=1 expect=ZERO status=HOLDS population=evidence_and_support_child_rows
+CHECK V9 returned=0 examined=5 expect=ZERO status=HOLDS population=grants_held_by_pv_agent_reader
+CHECK V10 returned=0 examined=1 expect=ZERO status=HOLDS population=rows_visible_in_agent_evidence_retrieval_v1
+CHECK V11 returned=0 examined=1 expect=ATLEAST3 status=VIOLATED population=evidence_items
+SUMMARY V1 0  V2 0  V3 0  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 0
+VERDICT FAIL_V11_UNDERSEEDED V11 returned 0 over a corpus of 1 evidence rows; section 17.8 requires at least 3 retraction fixtures: isp-wrong-term-date (SUPERSEDED, EXTRACTION_ERROR), movers-350-claim (RETRACTED, USER_CORRECTION), injected-instruction (QUARANTINED, ADVERSARIAL_CONTENT). Below 3 means they were deleted instead of retracted, V10 is passing vacuously, and canon item C is untested.
+
+  db-verify FAILED. The verdict line above says which invariant and why.
+exit=1
+
+--- 4e. a forged support_edge_count (DDL risk 3)      -> expect V1 V2 V3 to fire ---
+CHECK V1 returned=1 examined=1 expect=ZERO status=VIOLATED population=belief_versions_evidence_grounded
+CHECK V2 returned=1 examined=1 expect=ZERO status=VIOLATED population=belief_versions_evidence_grounded
+CHECK V3 returned=1 examined=1 expect=ZERO status=VIOLATED population=belief_versions
+CHECK V4 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_support
+CHECK V5 returned=0 examined=0 expect=ZERO status=VACUOUS population=cases_with_ledger_rows
+CHECK V6 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_and_proposal_pointers
+CHECK V7 returned=0 examined=0 expect=ZERO status=VACUOUS population=commitments_with_committed_amount
+CHECK V8 returned=0 examined=4 expect=ZERO status=HOLDS population=evidence_and_support_child_rows
+CHECK V9 returned=0 examined=5 expect=ZERO status=HOLDS population=grants_held_by_pv_agent_reader
+CHECK V10 returned=0 examined=1 expect=ZERO status=HOLDS population=rows_visible_in_agent_evidence_retrieval_v1
+CHECK V11 returned=3 examined=4 expect=ATLEAST3 status=HOLDS population=evidence_items
+SUMMARY V1 1  V2 1  V3 1  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 3
+VERDICT FAIL_INVARIANT V1-V10 must return zero rows (10_DATABASE_DDL.md section 18). These did not: V1 returned 1 of 1 examined, V2 returned 1 of 1 examined, V3 returned 1 of 1 examined.
+
+  db-verify FAILED. The verdict line above says which invariant and why.
+exit=1
+
+############ 5. tools/manifest_check.py ############
+
+$ python -m tools.manifest_check db/seeds/MANIFEST.json    (T2.8 has not written it yet)
+db\seeds\MANIFEST.json does not exist.
+  db/seeds/MANIFEST.json is T2.8's deliverable (EXECUTION/70_TASK_PLAN.md, the seed pipeline). This check does not pass without it.
+  Expected shape:
+    {"seed_profile": "all",
+     "row_counts": {"tenants": 3, "evidence_items": 18035, ...}}
+  with one entry for every table in db/expected_tables.txt (26 of them).
+exit=2
+
+$ python -m tools.manifest_check <manifest expecting 0 rows in all 26 tables>   (live counts)
+26 tables checked, 26 match
+exit=0
+
+$ python -m tools.manifest_check <same manifest with evidence_items = 18035>
+1 table(s) do not match the manifest. A seed that does not reproduce its own manifest is not deterministic (G2.6).
+  evidence_items: manifest 18035, database 0 (-18035)
+26 tables checked, 25 match
+exit=1
+
+=== end of GREEN transcript ===
+
+############ 6. THE MAKEFILE TEXT ITSELF, RUN THROUGH make ############
+
+The Makefile is Integrator-owned and was NOT edited. The target body reported
+to the Integrator was pasted into a scratch makefile carrying the same
+SHELL/.SHELLFLAGS preamble as Makefile lines 31-32, and run:
+
+$ make --version | head -1
+GNU Make 4.4.1
+
+$ make -f <scratch makefile> db-verify        # provenance_ci is empty right now
+SUMMARY V1 0  V2 0  V3 0  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 0
+VERDICT VACUOUS_EMPTY_CORPUS evidence_items is empty, so V11 returning 0 is CORRECT here and V1-V10 returning zero proves nothing - no row was examined. Seed first (T2.8), which writes the three section 17.8 retraction fixtures isp-wrong-term-date, movers-350-claim and injected-instruction, then run this again.
+
+  db-verify FAILED: the corpus is empty, so V1-V10 returning zero proves nothing
+  and V11 returning 0 is correct rather than passing. Run `make seed` (T2.8) and
+  re-run. To acknowledge a deliberately pre-seed database, set PV_VERIFY_ALLOW_EMPTY=1.
+
+make: *** [C:/Users/rayyan.a/AppData/Local/Temp/claude/d--Repo-neverreset/bd83625e-6b83-4392-952d-e5200433d36d/scratchpad/Makefile.t27:23: db-verify] Error 2
+exit=2
+
+$ PV_VERIFY_ALLOW_EMPTY=1 make -f <scratch makefile> db-verify
+VERDICT VACUOUS_EMPTY_CORPUS evidence_items is empty, so V11 returning 0 is CORRECT here and V1-V10 returning zero proves nothing - no row was examined. Seed first (T2.8), which writes the three section 17.8 retraction fixtures isp-wrong-term-date, movers-350-claim and injected-instruction, then run this again.
+
+  Exit 0 ONLY because PV_VERIFY_ALLOW_EMPTY=1. Nothing was examined; nothing was proved.
+exit=0
+
+=== end of make proof ===
+
+############ 7. THE db-verify TARGET BODY FOR THE INTEGRATOR ############
+
+Paste this over the $(call unimplemented,2,...) stub at Makefile line 303-304.
+Recipe lines begin with a TAB. This is the exact text run in section 6 above.
+
+db-verify:              ## Run db/verify.sql - the V1..V11 verification queries.
+# specs/10_DATABASE_DDL.md section 18 and quality/23_PHASE_GATES.md G2.5.
+# db/verify.sql is ONE statement and computes its own verdict, so this target
+# parses, prints and maps to an exit status - it never decides an invariant.
+#   PASS / PASS_PARTIAL     0   PASS_PARTIAL names the checks that examined no rows
+#   FAIL_*                  1   an invariant returned rows, or V11 < 3 with a corpus
+#   VACUOUS_EMPTY_CORPUS    2   nothing was examined; V11 = 0 is correct and unproven.
+#                               PV_VERIFY_ALLOW_EMPTY=1 turns this into 0 for a
+#                               deliberately pre-seed database. It changes the exit
+#                               status only, never the verdict text.
+#   no VERDICT line         3   the file or the connection is broken
+# psql, not `cockroach sql`: the cockroach CLI is not installed on the build
+# machine and CockroachDB is wire compatible. `tr -d '\r'` because psql on
+# Windows emits CRLF.
+	@D="$${PV_VERIFY_URL:-}"; \
+	 if [ -z "$$D" ] && [ -f .env ]; then \
+	   D=$$(grep '^PROVENANCE_TEST_DB_URL=' .env | cut -d= -f2- | tr -d '\r\n' || true); \
+	 fi; \
+	 test -n "$$D" || { printf '\n  db-verify: no database URL. Set PV_VERIFY_URL, or PROVENANCE_TEST_DB_URL in .env.\n\n' >&2; exit 3; }; \
+	 if ! out=$$(psql -X -At -v ON_ERROR_STOP=1 -d "$$D" -f db/verify.sql | tr -d '\r'); then \
+	   printf '\n  db-verify: psql could not run db/verify.sql. The database must be at head first.\n\n' >&2; exit 3; \
+	 fi; \
+	 printf '%s\n' "$$out"; \
+	 code=$$(printf '%s\n' "$$out" | sed -n 's/^VERDICT \([A-Z0-9_]*\) .*/\1/p' | head -1); \
+	 case "$$code" in \
+	   PASS|PASS_PARTIAL) exit 0 ;; \
+	   FAIL_INVARIANT|FAIL_V11_UNDERSEEDED) \
+	     printf '\n  db-verify FAILED. The verdict line above says which invariant and why.\n\n' >&2; \
+	     exit 1 ;; \
+	   VACUOUS_EMPTY_CORPUS) \
+	     if [ "$${PV_VERIFY_ALLOW_EMPTY:-0}" = "1" ]; then \
+	       printf '\n  Exit 0 ONLY because PV_VERIFY_ALLOW_EMPTY=1. Nothing was examined; nothing was proved.\n\n' >&2; \
+	       exit 0; \
+	     fi; \
+	     printf '\n  db-verify FAILED: the corpus is empty, so V1-V10 returning zero proves nothing\n' >&2; \
+	     printf '  and V11 returning 0 is correct rather than passing. Run `make seed` (T2.8) and\n' >&2; \
+	     printf '  re-run. To acknowledge a deliberately pre-seed database, set PV_VERIFY_ALLOW_EMPTY=1.\n\n' >&2; \
+	     exit 2 ;; \
+	   *) \
+	     printf '\n  db-verify: db/verify.sql produced no VERDICT line. The file or the connection is broken.\n\n' >&2; \
+	     exit 3 ;; \
+	 esac
+
+=== end of target body ===

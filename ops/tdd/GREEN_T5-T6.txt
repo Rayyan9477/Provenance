@@ -1,0 +1,47 @@
+=== GREEN transcript — Phase 5 (T5.3) and Phase 6 (T6.1–T6.5) ===
+=== captured 2026-08-18T21:13:38Z at 33e593c ===
+=== Live Bedrock calls made by every run below: 0 ===
+=== (query vectors are READ from evidence_items.embedding, which the seed
+===  already paid for; db/seeds/vectors.parquet is the same key space.) ===
+
+--- 1. unit + retrieval lane (hermetic; no database, no network, no credentials) ---
+........................................................................ [ 52%]
+.................................................................        [100%]
+137 passed, 25 deselected in 0.74s
+
+--- 2. db lane: tests/retrieval (marked db) ---
+.........................                                                [100%]
+25 passed, 120 deselected in 73.30s (0:01:13)
+
+--- 3. pre-existing Phase 2 retrieval-SQL guard (T2.2), still green ---
+.................                                                        [100%]
+17 passed in 17.73s
+
+--- 4. G5.5 sabotage: state_proof.builder.load_grounding MUST go red ---
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_no_chain_of_thought_key_appears_anywhere_in_the_proof
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_transitions_never_exceed_the_revision_they_describe
+11 failed, 6 passed in 0.71s
+
+--- 5. G6.7 sabotage: retrieval.predicates.retraction_filter, unit lane ---
+=========================== short test summary info ===========================
+FAILED tests/retrieval/test_no_unscoped_sql.py::test_the_executed_ann_statement_filters_retraction_status
+FAILED tests/retrieval/test_retraction_layer3.py::test_the_statement_the_repository_executes_carries_the_predicate
+FAILED tests/retrieval/test_retraction_layer3.py::test_the_filter_is_idempotent
+FAILED tests/retrieval/test_retraction_layer3.py::test_the_filter_refuses_a_statement_it_cannot_place_the_predicate_in
+4 failed, 116 passed, 25 deselected in 0.88s
+
+--- 6. G6.7 sabotage against G6.3(c) itself, db lane ---
+    (the FAILED line below IS the gate assertion: 'sabotage the retraction
+     filter; G6.3(c) must go red')
+
+tests\retrieval\test_retraction_filtering.py:159: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/retrieval/test_retraction_filtering.py::test_no_retraction_fixture_survives_the_production_statement
+1 failed, 5 passed in 18.43s
+
+--- 7. lint, types, contracts, transaction purity ---
+All checks passed!
+30 files already formatted
+Success: no issues found in 15 source files
+Contracts: 5 kept, 0 broken.
+scanned 7 transaction callbacks, 0 network constructs found

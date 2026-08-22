@@ -1,0 +1,187 @@
+# gate=G2.1 sha=33e593c15d9edb0eb02e7e16edf3d1b1b2caa3c3 utc=2026-08-18T14:29:12Z exit=1
+# cmd=bash -c $'set -euo pipefail; \\\n  export COCKROACH_DATABASE_URL="$(grep "^PROVENANCE_TEST_DB_URL=" .env | cut -d= -f2- | tr -d "\\r\\n")"; \\\n  python -m alembic -c alembic.ini downgrade base; \\\n  python -m alembic -c alembic.ini upgrade head; \\\n  python -m alembic -c alembic.ini downgrade base; \\\n  python -m alembic -c alembic.ini upgrade head; \\\n  python -m alembic -c alembic.ini current' 
+# started=2026-08-18T14:16:27Z finished=2026-08-18T14:29:12Z tree=dirty scrubbed-by=tools/scrub.py
+#
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0008_events_infrastructure -> 0007_action_plane, 0008 — events, infrastructure, the five agent-safe views, and every grant.
+INFO  [alembic.runtime.migration] Running downgrade 0007_action_plane -> 0006_prospective_memory, 0007 — action plane: nothing leaves the system without a recorded approval.
+INFO  [alembic.runtime.migration] Running downgrade 0006_prospective_memory -> 0005_kernel_control, 0006 — prospective memory: the trigger that wakes months later.
+INFO  [alembic.runtime.migration] Running downgrade 0005_kernel_control -> 0004_obligation_ledger, 0005 — Kernel control plane, and the two foreign keys 0003 could not create.
+INFO  [alembic.runtime.migration] Running downgrade 0004_obligation_ledger -> 0003_epistemic_plane, 0004 — conflict, obligation and audit ledger.
+INFO  [alembic.runtime.migration] Running downgrade 0003_epistemic_plane -> 0002_evidence_plane, 0003 — epistemic plane: claims, beliefs, belief versions, grounding edges.
+INFO  [alembic.runtime.migration] Running downgrade 0002_evidence_plane -> 0001_identity_aggregates, 0002 — evidence plane, including the ANN vector index.
+INFO  [alembic.runtime.migration] Running downgrade 0001_identity_aggregates -> , 0001 — identity and aggregates.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_aggregates, 0001 — identity and aggregates.
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_aggregates -> 0002_evidence_plane, 0002 — evidence plane, including the ANN vector index.
+INFO  [alembic.runtime.migration] Running upgrade 0002_evidence_plane -> 0003_epistemic_plane, 0003 — epistemic plane: claims, beliefs, belief versions, grounding edges.
+INFO  [alembic.runtime.migration] Running upgrade 0003_epistemic_plane -> 0004_obligation_ledger, 0004 — conflict, obligation and audit ledger.
+INFO  [alembic.runtime.migration] Running upgrade 0004_obligation_ledger -> 0005_kernel_control, 0005 — Kernel control plane, and the two foreign keys 0003 could not create.
+INFO  [alembic.runtime.migration] Running upgrade 0005_kernel_control -> 0006_prospective_memory, 0006 — prospective memory: the trigger that wakes months later.
+INFO  [alembic.runtime.migration] Running upgrade 0006_prospective_memory -> 0007_action_plane, 0007 — action plane: nothing leaves the system without a recorded approval.
+INFO  [alembic.runtime.migration] Running upgrade 0007_action_plane -> 0008_events_infrastructure, 0008 — events, infrastructure, the five agent-safe views, and every grant.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0008_events_infrastructure -> 0007_action_plane, 0008 — events, infrastructure, the five agent-safe views, and every grant.
+INFO  [alembic.runtime.migration] Running downgrade 0007_action_plane -> 0006_prospective_memory, 0007 — action plane: nothing leaves the system without a recorded approval.
+INFO  [alembic.runtime.migration] Running downgrade 0006_prospective_memory -> 0005_kernel_control, 0006 — prospective memory: the trigger that wakes months later.
+INFO  [alembic.runtime.migration] Running downgrade 0005_kernel_control -> 0004_obligation_ledger, 0005 — Kernel control plane, and the two foreign keys 0003 could not create.
+INFO  [alembic.runtime.migration] Running downgrade 0004_obligation_ledger -> 0003_epistemic_plane, 0004 — conflict, obligation and audit ledger.
+INFO  [alembic.runtime.migration] Running downgrade 0003_epistemic_plane -> 0002_evidence_plane, 0003 — epistemic plane: claims, beliefs, belief versions, grounding edges.
+INFO  [alembic.runtime.migration] Running downgrade 0002_evidence_plane -> 0001_identity_aggregates, 0002 — evidence plane, including the ANN vector index.
+INFO  [alembic.runtime.migration] Running downgrade 0001_identity_aggregates -> , 0001 — identity and aggregates.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_aggregates, 0001 — identity and aggregates.
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_aggregates -> 0002_evidence_plane, 0002 — evidence plane, including the ANN vector index.
+INFO  [alembic.runtime.migration] Running upgrade 0002_evidence_plane -> 0003_epistemic_plane, 0003 — epistemic plane: claims, beliefs, belief versions, grounding edges.
+Traceback (most recent call last):
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\sqlalchemy\engine\base.py", line 1961, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\sqlalchemy\engine\default.py", line 944, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.InvalidName: no database or schema specified
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\__main__.py", line 4, in <module>
+    main(prog="alembic")
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\config.py", line 1001, in main
+    CommandLine(prog=prog).main(argv=argv)
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\config.py", line 991, in main
+    self.run_cmd(cfg, options)
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\config.py", line 925, in run_cmd
+    fn(
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\command.py", line 483, in upgrade
+    script.run_env()
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\script\base.py", line 551, in run_env
+    util.load_python_file(self.dir, "env.py")
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\util\pyfiles.py", line 116, in load_python_file
+    module = load_module_py(module_id, path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\util\pyfiles.py", line 136, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "D:\Repo\neverreset\db\migrations\env.py", line 178, in <module>
+    run_migrations_online()
+  File "D:\Repo\neverreset\db\migrations\env.py", line 170, in run_migrations_online
+    context.run_migrations()
+  File "<string>", line 8, in run_migrations
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\runtime\environment.py", line 946, in run_migrations
+    self.get_context().run_migrations(**kw)
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\runtime\migration.py", line 627, in run_migrations
+    step.migration_fn(**kw)
+  File "D:\Repo\neverreset\db\migrations\versions\0003_epistemic_plane.py", line 384, in upgrade
+    op.execute(statement)
+  File "<string>", line 8, in execute
+  File "<string>", line 3, in execute
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\operations\ops.py", line 2591, in execute
+    return operations.invoke(op)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\operations\base.py", line 441, in invoke
+    return fn(self, operation)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\operations\toimpl.py", line 240, in execute_sql
+    operations.migration_context.impl.execute(
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\ddl\impl.py", line 253, in execute
+    self._exec(sql, execution_options)
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\alembic\ddl\impl.py", line 246, in _exec
+    return conn.execute(construct, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\sqlalchemy\engine\base.py", line 1413, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\sqlalchemy\engine\base.py", line 1635, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\sqlalchemy\engine\base.py", line 1840, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\sqlalchemy\engine\base.py", line 1980, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\sqlalchemy\engine\base.py", line 2349, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\sqlalchemy\engine\base.py", line 1961, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\sqlalchemy\engine\default.py", line 944, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\site-packages\psycopg\cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+sqlalchemy.exc.ProgrammingError: (psycopg.errors.InvalidName) no database or schema specified
+[SQL: 
+CREATE TABLE claims (
+    id                    UUID          NOT NULL PRIMARY KEY,
+    tenant_id             UUID          NOT NULL,
+    user_id               UUID          NOT NULL,
+    case_id               UUID          NULL,
+    relationship_id       UUID          NULL,
+    subject_type          STRING        NOT NULL,
+    subject_id            UUID          NOT NULL,
+    predicate             STRING        NOT NULL,
+    object_type           STRING        NOT NULL,
+    object_json           JSONB         NOT NULL,
+    actor_type            STRING        NOT NULL,
+    actor_id              STRING        NULL,
+    evidence_id           UUID          NOT NULL,
+    claim_kind            STRING        NOT NULL,
+    valid_from            TIMESTAMPTZ   NULL,
+    valid_to              TIMESTAMPTZ   NULL,
+    authority_score       DECIMAL(5,4)  NULL,
+    extraction_confidence DECIMAL(5,4)  NOT NULL,
+    recorded_at           TIMESTAMPTZ   NOT NULL,
+    created_at            TIMESTAMPTZ   NOT NULL DEFAULT now(),
+
+    CONSTRAINT uq_claims_tenant_user_id UNIQUE (tenant_id, user_id, id),
+    CONSTRAINT uq_claims_evidence_proposition
+        UNIQUE (tenant_id, user_id, evidence_id, subject_type, subject_id, predicate),
+    CONSTRAINT ck_claims_kind CHECK (claim_kind IN (
+        'OBSERVATION', 'COUNTERPARTY_CLAIM', 'USER_CLAIM', 'COMMITMENT_CLAIM',
+        'POLICY_TERM', 'FULFILLMENT_CLAIM', 'CORRECTION', 'INFERENCE'
+    )),
+    CONSTRAINT ck_claims_subject_type CHECK (subject_type IN (
+        'RELATIONSHIP', 'CASE', 'COMMITMENT', 'COUNTERPARTY', 'USER', 'ARTIFACT',
+        'SERVICE'
+    )),
+    CONSTRAINT ck_claims_object_type CHECK (object_type IN (
+        'BOOLEAN', 'STRING', 'MONEY', 'QUANTITY', 'TIMESTAMP', 'DATE',
+        'INTERVAL', 'ENUM', 'IDENTIFIER', 'ADDRESS', 'STRUCT'
+    )),
+    CONSTRAINT ck_claims_actor_type CHECK (actor_type IN (
+        'COUNTERPARTY', 'USER', 'SYSTEM', 'THIRD_PARTY', 'UNKNOWN'
+    )),
+    CONSTRAINT ck_claims_inference_authority CHECK (
+        claim_kind <> 'INFERENCE' OR authority_score IS NULL OR authority_score <= 0.2000
+    ),
+    CONSTRAINT ck_claims_authority  CHECK (authority_score IS NULL
+                                           OR (authority_score >= 0 AND authority_score <= 1)),
+    CONSTRAINT ck_claims_confidence
+        CHECK (extraction_confidence >= 0 AND extraction_confidence <= 1),
+    CONSTRAINT ck_claims_validity
+        CHECK (valid_to IS NULL OR valid_from IS NULL OR valid_to > valid_from),
+    CONSTRAINT ck_claims_predicate_shape CHECK (predicate ~ '^[a-z][a-z0-9_]{1,63}$'),
+    CONSTRAINT fk_claims_user
+        FOREIGN KEY (tenant_id, user_id) REFERENCES users (tenant_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_claims_evidence
+        FOREIGN KEY (tenant_id, user_id, evidence_id)
+        REFERENCES evidence_items (tenant_id, user_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_claims_case
+        FOREIGN KEY (tenant_id, user_id, case_id)
+        REFERENCES cases (tenant_id, user_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_claims_relationship
+        FOREIGN KEY (tenant_id, user_id, relationship_id)
+        REFERENCES relationships (tenant_id, user_id, id) ON DELETE RESTRICT
+)
+]
+(Background on this error at: https://sqlalche.me/e/20/f405)

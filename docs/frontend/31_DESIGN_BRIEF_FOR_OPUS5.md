@@ -60,7 +60,7 @@ Freeze the token table early. Ask for token **additions** in later turns, never 
 
 ### 1.6 Two honesty notes before you paste
 
-- **Provisional display labels.** Three demo display names are canonical in our specifications and appear in the prompt as-is: the user **Alex Rivera**, the ISP **Northline Fiber**, and the landlord **Harborview Property Management**. Two are **not** yet canonical anywhere and appear in the prompt as provisional seed labels: the mover **Beltline Movers** and the employer **Kestrel Analytics**. If the seed specification later names them differently, they are a find-and-replace in the returned HTML and nothing more.
+- **Display labels are all canonical now.** All five are frozen in `CANONICAL_DECISIONS.md` → *Hero dataset canon* and seeded by `specs/10_DATABASE_DDL.md` §17.3: the user **Alex Rivera**, the ISP **Northline Fiber**, the landlord **Harborview Property Management**, the mover **Beltline Movers**, and the employer **Kestrel Analytics**. An earlier revision of this file described the last two as provisional and claimed the first three were canonical when the brief itself was using different invented names; that is corrected. **Kestrel is the employer, never the mover** — the earlier draft's "Kestrel Moving Co." would have produced a design attributing the USD 420 damage claim to the user's employer.
 - **Nothing is built.** The prompt describes a system that is fully specified and not yet implemented. It is written in the present tense because that is how you brief a designer, but do not let the returned deliverable be described anywhere as a screenshot of a running product.
 
 ---
@@ -182,7 +182,7 @@ That service period begins one day after a termination that the same company con
 ### 2.3 What the system does, step by step
 
 1. The forwarded email is stored byte-for-byte and identified by its content hash. Forwarding it twice produces one artifact, not two.
-2. Three immutable evidence items are lifted out of it, each anchored to the exact characters it came from — a `DATE_ASSERTION`, an `AMOUNT_ASSERTION`, and an `IDENTIFIER_ASSERTION` (`00_PRODUCT.md` §2.3).
+2. Three immutable evidence items are lifted out of it, each anchored to the exact characters it came from — a `DATE_ASSERTION`, an `AMOUNT_ASSERTION`, and an `IDENTIFIER_ASSERTION`.
 3. The account number **exact-matches** the stored account reference for the Northline Fiber relationship. This match is deterministic and happens *before* any similarity search is consulted. Similarity search then supplies additional candidates, advisory only.
 4. Retrieval over **16,035** of the user's own evidence records returns 20 candidates, narrowed to 7. Two records are excluded because they were retracted or superseded — retracted evidence keeps its text and its search index entry forever, but is never allowed to ground a new conclusion.
 5. The invoice is recorded as a **`COUNTERPARTY_CLAIM`**, not as a fact. The invoice arriving does not make $186 owed. It makes $186 **claimed**, by a party with a financial interest, about a period that begins the day after a termination that same party confirmed.
@@ -547,7 +547,7 @@ Every component with all its states: default, hover, focus-visible, active, disa
 
 At minimum:
 
-`AttentionChip` · `CaseHeader` · `CaseStatusBadge` · `ClaimAttribution` · `EvidenceCard` · `BeliefCard` · `GroundingList` (supports / contradicts / qualifies, with authority) · `LineageChain` · `ConflictPair` · `DerivationBlock` · `CommitmentMeter` (committed / fulfilled / outstanding) · `TimelineEntry` (all kinds from section 4.2) · `ActorTag` · `TimeRange` (valid time and record time) · `DraftReview` · `GroundedSentence` · `SupportReference` · `ApprovalBar` · `StalenessNotice` · `TraceNode` · `DatabaseToolCallRow` · `ModelCallRow` · `RetrievalStats` · `CounterfactualPanel` · `SafetyAssertionList` · `EmptyState` · `SkeletonBlock` · `ErrorState` · `ForbiddenState` · `FixtureModeBanner` (a permanent, unmissable banner shown whenever the system is running on fixture data rather than live processing — this is an honesty requirement and cannot be subtle).
+`AttentionChip` · `CaseHeader` · `CaseStatusBadge` · `ClaimAttribution` · `EvidenceCard` · `BeliefCard` · `GroundingList` (supports / contradicts / qualifies, with authority) · `LineageChain` · `ConflictPair` · `DerivationBlock` · `CommitmentMeter` (committed / fulfilled / outstanding) · `TimelineEntry` (all kinds from section 4.3) · `ActorTag` · `TimeRange` (valid time and record time) · `DraftReview` · `GroundedSentence` · `SupportReference` · `ApprovalBar` · `StalenessNotice` · `TraceNode` · `DatabaseToolCallRow` · `ModelCallRow` · `RetrievalStats` · `CounterfactualPanel` · `SafetyAssertionList` · `EmptyState` · `SkeletonBlock` · `ErrorState` · `ForbiddenState` · `FixtureModeBanner` (a permanent, unmissable banner shown whenever the system is running on fixture data rather than live processing — this is an honesty requirement and cannot be subtle).
 
 ### 7.3 Screens
 

@@ -1,0 +1,55 @@
+T3 RED transcript — Phase 3, database runtime and retry
+Captured 2026-08-18T11:50:51Z
+git HEAD c2a0c05 (working tree, uncommitted)
+Python 3.12.3, psycopg 3.3.4, CockroachDB CCL v26.2.5
+
+The five test files of T3.1-T3.4 exist -- tests/unit/test_retry_semantics.py,
+tests/db/{test_pool_and_roles,test_retry,test_repository_read_only}.py and
+tools/tests/test_txn_purity_lint.py, plus tests/db/conftest.py. The modules they
+import -- provenance_db.urls, provenance_db.pools, provenance_db.retry,
+provenance_db.repositories and tools/txn_purity_lint.py -- do not exist, so every
+one of the three collection roots fails to import. That is what RED looks like for
+a module nobody has written yet; the three errors below cover all five files,
+because the db conftest is what imports provenance_db.pools.
+
+The GREEN transcript is ops/tdd/GREEN_T3.txt and the G3.6 sabotage transcript is
+ops/tdd/SABOTAGE_T3.txt.
+
+$ git status --porcelain packages/python/provenance_db/src tools/txn_purity_lint.py
+  ?? packages/python/provenance_db/src/
+
+$ ls packages/python/provenance_db/src/provenance_db/
+  __init__.py
+  __pycache__
+  py.typed
+  repositories
+
+$ python -m pytest packages/python/provenance_db/tests tools/tests/test_txn_purity_lint.py -q
+
+=================================== ERRORS ====================================
+___________ ERROR collecting packages/python/provenance_db/tests/db ___________
+packages\python\provenance_db\tests\db\conftest.py:54: in <module>
+    from provenance_db.pools import SqlRole
+E   ModuleNotFoundError: No module named 'provenance_db.pools'
+_ ERROR collecting packages/python/provenance_db/tests/unit/test_retry_semantics.py _
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_db\tests\unit\test_retry_semantics.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_db\tests\unit\test_retry_semantics.py:43: in <module>
+    from provenance_db.retry import (
+E   ModuleNotFoundError: No module named 'provenance_db.retry'
+____________ ERROR collecting tools/tests/test_txn_purity_lint.py _____________
+ImportError while importing test module 'D:\Repo\neverreset\tools\tests\test_txn_purity_lint.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+tools\tests\test_txn_purity_lint.py:28: in <module>
+    from tools.txn_purity_lint import (
+E   ModuleNotFoundError: No module named 'tools.txn_purity_lint'
+=========================== short test summary info ===========================
+ERROR packages/python/provenance_db/tests/db - ModuleNotFoundError: No module...
+ERROR packages/python/provenance_db/tests/unit/test_retry_semantics.py
+ERROR tools/tests/test_txn_purity_lint.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 3 errors during collection !!!!!!!!!!!!!!!!!!!
+3 errors in 0.71s
+
+exit=2

@@ -1,0 +1,160 @@
+=== RED T4.6-T4.13 — captured before any implementation existed ===
+=== date: 2026-08-18T18:53:31Z ===
+
+--- hermetic unit lane + tools lane ---
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_the_receipt_status_follows_the_frozen_map[PENDING_HUMAN_REVIEW]
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_the_receipt_status_follows_the_frozen_map[REJECTED_INVALID_PROVENANCE]
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_the_receipt_status_follows_the_frozen_map[REJECTED_INVARIANT]
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_the_receipt_status_follows_the_frozen_map[REJECTED_SCHEMA]
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_the_receipt_status_follows_the_frozen_map[RETRYABLE_CONCURRENCY]
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_retry_exhaustion_enqueues_nothing_and_commits_nothing
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_a_rejection_receipt_describes_no_canonical_rows
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_hero_plan_is_accepted_with_a_conflict
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_hero_plan_writes_exactly_one_of_each_row
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_hero_conflict_is_a_value_conflict_needing_a_person
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_hero_case_goes_resolved_to_reopened_at_revision_thirteen
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_transition_row_names_the_canon_reason_code
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_outbox_event_is_case_reopened_at_the_new_revision
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_every_belief_version_carries_at_least_one_grounding_edge
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_grounding_edge_records_that_it_contradicts
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_rule_n1_the_belief_stores_the_canonical_predicate
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_new_version_supersedes_the_incumbent_by_id
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_a_replayed_proposal_is_a_noop_with_a_reason
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_marketing_email_does_not_reopen_the_case
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_a_claim_is_canonical_even_when_no_belief_moves
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_rule_r7_a_proposal_naming_a_foreign_case_is_refused
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_a_proposal_naming_no_case_is_refused
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_a_terminal_case_refuses_every_commit
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_an_illegal_requested_transition_is_refused_by_reason_code
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_a_claim_citing_evidence_the_proposal_did_not_declare_is_refused
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_flapping_guard_withholds_the_transition_but_keeps_the_evidence
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_an_empty_plan_is_a_canonical_noop
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_a_plan_with_only_a_claim_is_not_a_noop
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_every_row_id_in_the_plan_is_distinct
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_plan_is_frozen
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_two_identical_runs_produce_the_same_shape
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_declared_order_is_ddl_section_13
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_plan_is_executed_in_the_declared_order
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_decision_row_precedes_every_row_that_references_it
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_case_update_precedes_the_outbox_row
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_outbox_row_carries_the_post_increment_revision
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_case_update_carries_the_optimistic_predicate
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_a_noop_plan_writes_no_case_row_and_no_outbox_row
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_module_does_not_write_a_second_retry_loop
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_transaction_body_reaches_no_network
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_retry_exhaustion_performs_no_side_effect
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_uuids_are_generated_per_attempt_not_closed_over
+FAILED tools/tests/test_write_path_lint.py::test_the_canonical_table_set_is_not_empty
+FAILED tools/tests/test_write_path_lint.py::test_the_canonical_tables_are_the_ddl_section_12_kernel_writable_ones
+FAILED tools/tests/test_write_path_lint.py::test_every_rule_is_named - assert...
+FAILED tools/tests/test_write_path_lint.py::test_an_insert_outside_the_kernel_is_a_violation
+FAILED tools/tests/test_write_path_lint.py::test_an_update_outside_the_kernel_is_a_violation
+FAILED tools/tests/test_write_path_lint.py::test_a_delete_from_a_canonical_table_is_always_a_violation
+FAILED tools/tests/test_write_path_lint.py::test_the_same_statement_inside_the_kernel_is_counted_not_flagged
+FAILED tools/tests/test_write_path_lint.py::test_an_app_update_of_evidence_items_is_refused
+FAILED tools/tests/test_write_path_lint.py::test_an_app_update_of_memory_proposals_is_refused
+FAILED tools/tests/test_write_path_lint.py::test_the_dispatcher_may_update_outbox_events_but_not_insert
+FAILED tools/tests/test_write_path_lint.py::test_a_multiline_statement_is_found
+FAILED tools/tests/test_write_path_lint.py::test_case_and_whitespace_do_not_hide_a_write
+FAILED tools/tests/test_write_path_lint.py::test_the_repository_tree_is_clean_and_the_scan_was_not_vacuous
+FAILED tools/tests/test_write_path_lint.py::test_the_summary_prints_a_rule_count_and_a_violation_count
+FAILED tools/tests/test_write_path_lint.py::test_the_summary_reports_what_it_excluded
+FAILED tools/tests/test_write_path_lint.py::test_main_exits_one_when_a_violation_is_planted
+FAILED tools/tests/test_write_path_lint.py::test_a_missing_path_is_a_usage_error_not_a_silent_pass
+189 failed, 76 passed in 2.47s
+
+--- db lane, collection only (the commit path is unimplemented) ---
+services/control_plane/tests/db/test_kernel_hero.py::test_hero_isp_contradiction
+services/control_plane/tests/db/test_kernel_hero.py::test_visible_to_a_fresh_connection
+services/control_plane/tests/db/test_kernel_hero.py::test_the_belief_lineage_has_no_gap
+services/control_plane/tests/db/test_kernel_hero.py::test_cross_user_reference_rejected
+services/control_plane/tests/db/test_kernel_hero.py::test_evidence_belonging_to_another_user_is_refused
+services/control_plane/tests/db/test_kernel_hero.py::test_duplicate_proposal_noop
+services/control_plane/tests/db/test_kernel_hero.py::test_no_noop_decision_row_carries_a_null_reason_code
+services/control_plane/tests/db/test_kernel_hero.py::test_partial_fulfillment_atomic
+services/control_plane/tests/db/test_kernel_hero.py::test_nothing_is_fulfilled_while_money_is_outstanding
+services/control_plane/tests/db/test_kernel_hero.py::test_the_same_payment_evidence_cannot_be_admitted_twice
+services/control_plane/tests/db/test_kernel_hero.py::test_every_outcome_left_a_ledger_row
+services/control_plane/tests/db/test_kernel_hero.py::test_the_proposal_row_records_its_outcome
+services/control_plane/tests/db/test_kernel_hero.py::test_no_state_transition_carries_a_stale_revision
+services/control_plane/tests/db/test_kernel_hero.py::test_the_lane_is_pointed_at_the_ci_database
+
+14 tests collected in 0.56s
+
+
+================================================================
+ RED - the tests added during the T4.6-4.13 resume
+================================================================
+
+Three defects were found by running the Kernel against a real cluster,
+and each one got its test written and watched fail before the fix.
+The tests were appended to existing modules rather than new files, so
+the RED runs below are keyword-selected.
+
+----------------------------------------------------------------
+ (a) families._require_datetime accepted only a datetime object,
+     so the whole PAYMENT family was unreachable: object_value is
+     typed JsonValue on the way in and value_json is JSONB on the
+     way back, so paid_at is a string from both directions.
+----------------------------------------------------------------
+=== RED — families paid_at round-trip, 2026-08-18T20:37:32Z ===
+
+name = 'paid_at'
+
+    def _require_datetime(raw: object, name: str) -> datetime:
+        value = _field(raw, name)
+        if isinstance(value, datetime):
+            return value
+>       raise ValueCoercionError(
+            KernelReasonCode.SCHEMA_FIELD_MISSING, f"{name} is required for this family"
+        )
+E       services.control_plane.app.memory_kernel.families.ValueCoercionError: SCHEMA_FIELD_MISSING: paid_at is required for this family
+
+services\control_plane\app\memory_kernel\families.py:357: ValueCoercionError
+=========================== short test summary info ===========================
+FAILED services/control_plane/tests/kernel/test_families.py::test_paid_at_is_accepted_as_iso_8601_text
+1 failed, 4 passed, 57 deselected in 0.42s
+
+----------------------------------------------------------------
+ (b) 12_KERNEL_ALGORITHMS section 7.5 keys its unique-violation
+     table by PostgreSQL's auto-generated constraint names while
+     10_DATABASE_DDL declares explicit uq_* names, so the whole
+     mapping was dead and every 23505 became REJECTED_INVARIANT.
+     Then: uq_claims_evidence_proposition is not in section 7.5
+     at all, and it is the constraint that actually fires.
+----------------------------------------------------------------
+=== RED - 23505 constraint-name bridge, 2026-08-18T20:47:21Z ===
+
+>       ).reason_code is KernelReasonCode.FULFILLMENT_EVIDENCE_DUPLICATE
+E       AttributeError: module 'services.control_plane.app.memory_kernel.transaction' has no attribute 'mapped_unique_violation'. Did you mean: 'map_unique_violation'?
+
+services\control_plane\tests\kernel\test_transaction_shape.py:578: AttributeError
+______ test_an_unknown_constraint_is_an_invariant_breach_not_a_duplicate ______
+
+    def test_an_unknown_constraint_is_an_invariant_breach_not_a_duplicate() -> None:
+        """Fail closed. "This row already existed" and "this write was wrong" have
+        opposite consequences, so an unrecognised name is never guessed into a NOOP."""
+>       outcome = transaction.mapped_unique_violation("uq_something_nobody_mapped")
+E       AttributeError: module 'services.control_plane.app.memory_kernel.transaction' has no attribute 'mapped_unique_violation'. Did you mean: 'map_unique_violation'?
+
+services\control_plane\tests\kernel\test_transaction_shape.py:584: AttributeError
+=========================== short test summary info ===========================
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_every_alias_target_is_a_key_section_7_5_actually_defines
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_a_duplicate_payment_is_a_noop_and_not_an_invariant_breach
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_belief_version_race_is_still_classified_as_a_serialization_failure
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_an_unaliased_constraint_still_reaches_section_7_5_unchanged
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_an_unknown_constraint_is_an_invariant_breach_not_a_duplicate
+5 failed, 18 deselected in 0.79s
+
+=== RED - uq_claims_evidence_proposition, 2026-08-18T21:00:14Z ===
+
+    def test_no_schema_only_entry_shadows_a_name_section_7_5_already_maps() -> None:
+>       for name in transaction.SCHEMA_ONLY_VIOLATIONS:
+E       AttributeError: module 'services.control_plane.app.memory_kernel.transaction' has no attribute 'SCHEMA_ONLY_VIOLATIONS'
+
+services\control_plane\tests\kernel\test_transaction_shape.py:619: AttributeError
+=========================== short test summary info ===========================
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_a_re_admitted_claim_is_a_duplicate_not_an_invariant_breach
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_two_bridge_tables_are_disjoint
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_no_schema_only_entry_shadows_a_name_section_7_5_already_maps
+3 failed, 23 deselected in 0.81s

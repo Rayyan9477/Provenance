@@ -1,0 +1,96 @@
+== Provenance Phase 0 cluster probe ==
+run_at              : 2026-08-17T20:16:22Z
+cluster_id          : 4023638b-52be-42bd-9677-d3611c613477 (rayyandb, BASIC, AWS us-east-1)
+application_database: provenance
+client              : psql 16.9 over the Postgres wire protocol.
+                      The cockroach CLI is not installed; CockroachDB is wire-compatible and
+                      every statement below is server-side SQL, so the client is not load-bearing.
+authority           : docs/specs/10_DATABASE_DDL.md S1 (P1..P11); docs/ops/41_RUNBOOK.md S3
+scrubbing           : every line passed through a credential scrubber before being written
+note                : cleanup is headed '-- CLEANUP', not '-- P12', because G0.6 counts lines
+                      beginning '-- P' and requires exactly 11
+
+-- P1. Build and logical cluster version.
+CockroachDB CCL v26.2.5 (x86_64-pc-linux-gnu, built 2026/07/28 18:56:00, go1.25.5)
+
+-- P2. Vector-related cluster settings, and whether they can be enabled.
+variable|value
+feature.vector_index.enabled|true
+sql.defaults.vectorize|on
+(2 rows)
+SET CLUSTER SETTING
+feature.vector_index.enabled
+t
+(1 row)
+
+-- P3. Session-level ANN tuning knob.
+32
+
+-- P4. VECTOR type with a fixed dimension.
+CREATE TABLE
+
+-- P5. Distance operators.
+l2               2.8284271247461903
+cosine           0.2857142857142857
+inner_product    -10
+
+-- P6. Index syntax and operator class. Keep the FIRST that succeeds.
+variant A: CREATE VECTOR INDEX _pv_probe_a ON _pv_probe (k, v vector_cosine_ops);
+NOTICE:  waiting for job(s) to complete: 1202348241377296385
+If the statement is canceled, jobs will continue in the background.
+CREATE INDEX
+
+-- P7. Confirm what was created, including prefix ordering.
+index_name|column_name|seq_in_index
+_pv_probe_a|k|1
+_pv_probe_a|v|2
+_pv_probe_a|id|3
+(3 rows)
+
+-- P8. Multi-column prefix (needed for optional index variant R).
+CREATE TABLE
+NOTICE:  waiting for job(s) to complete: 1202348275180437505
+If the statement is canceled, jobs will continue in the background.
+CREATE INDEX
+
+-- P9. Row-level TTL, used by idempotency_records.
+CREATE TABLE
+
+-- P10. STORED computed columns.
+CREATE TABLE
+INSERT 0 2
+s|b
+ACTIVE|t
+RETRACTED|f
+(2 rows)
+
+-- P11. Column families alongside a VECTOR column.
+CREATE TABLE
+
+== PLANNER PROOF: is the index CHOSEN, or is it a full scan? ==
+G6.2 treats a FULL SCAN while the index exists as a FAILURE even when results are correct.
+INSERT 0 500
+ANALYZE
+
+RUN A -- query vector as a correlated SUBQUERY:
+│                 table: _pv_probe@_pv_probe_pkey
+│                 spans: FULL SCAN
+          table: _pv_probe@_pv_probe_pkey
+          spans: LIMITED SCAN
+
+RUN B -- identical query, query vector as a LITERAL:
+        │ table: _pv_probe@_pv_probe_pkey
+        └── • vector search
+              table: _pv_probe@_pv_probe_a
+              prefix spans: [/'00000000-0000-4000-8000-000000000001' - /'00000000-0000-4000-8000-000000000001']
+
+FINDING (defect D-06-001, in no specification): the ANN query vector must reach the
+planner as a literal or bound parameter. A correlated subquery silently produces a full
+scan -- correct results, no error, no warning. Survives ANALYZE; reproduced at 3 and 1024
+dimensions. Retrieval must embed first and pass the vector as a bound parameter.
+
+-- CLEANUP
+NOTICE:  waiting for job(s) to complete: 1202348372815380481
+If the statement is canceled, jobs will continue in the background.
+DROP TABLE
+residual probe tables: 0

@@ -1,0 +1,523 @@
+GREEN_T8 -- Phase 8, the control-plane API and auth surface
+================================================================================
+
+T8.1 - T8.8. Built: services/control_plane/app/api/{app,openapi,deps,responses}.py,
+app/api/routes/{system,memory,artifacts,actions,judge}.py,
+app/api/internal/routes.py, app/api/schemas/{__init__,public,internal}.py, and
+services/control_plane/app/main.py. Completed the surface that T1.5/T8.1-T8.4
+had already laid down (config, context, errors, idempotency, pagination, ports,
+auth/*), which could not be imported because api/app.py and api/openapi.py did
+not exist.
+
+THE SURFACE
+--------------------------------------------------------------------------------
+  31 public /v1 routes         specs/15_API_SPEC.md section 8.0's index, in full
+   1 public extra              GET /v1/judge-mode/agent-views (T8.7 acceptance)
+  13 internal /internal/v1     section 9.0's index, in full
+  45 paths in the exported OpenAPI 3.1.0 document
+
+THE SCOPING MECHANISM, IN ONE SENTENCE
+--------------------------------------------------------------------------------
+A caller-supplied user_id cannot reach a query because no query takes one:
+every public read/write port method's first positional parameter is an
+OwnerScope and every internal one's is a CapabilityBinding; the only factory
+for the first is deps.owner_scope(principal), which reads the users row keyed
+on the verified cognito_sub, and the only factory for the second is
+auth.capabilities.resolve_capability, which reads a server-side capability row.
+extra="forbid" on every request model is the second line, not the first.
+
+================================================================================
+THE PHASE 8 SUITE
+================================================================================
+
+  $ python -m pytest services/control_plane/tests/api services/control_plane/tests/auth -q
+  exit = 0
+
+....................s................................................... [ 24%]
+........................................................................ [ 49%]
+........................................................................ [ 74%]
+........................................................................ [ 98%]
+...                                                                      [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] services\control_plane\tests\api\test_adversarial_isolation.py:140: the seeded fixture returns a single page; nothing to replay
+290 passed, 1 skipped in 15.26s
+
+================================================================================
+THE WHOLE NON-DB LANE
+  The one failure is outside this task's boundary: G0.3b asserts that
+  `git ls-files ops/` is non-empty, and ops/ is untracked in this working
+  tree. It fails identically with Phase 8 reverted.
+================================================================================
+
+  $ python -m pytest -m "not db" -q
+  exit = 1 (one pre-existing failure, outside services/control_plane)
+
+........................................................................ [  3%]
+........................................................................ [  7%]
+........................................................................ [ 11%]
+........................................................................ [ 15%]
+........................................................................ [ 19%]
+...............s........................................................ [ 23%]
+........................................................................ [ 27%]
+........................................................................ [ 31%]
+........................................................................ [ 34%]
+........................................................................ [ 38%]
+........................................................................ [ 42%]
+........................................................................ [ 46%]
+........................................................................ [ 50%]
+........................................................................ [ 54%]
+........................................................................ [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 66%]
+........................................................................ [ 69%]
+........................................................................ [ 73%]
+...................................F.................................... [ 77%]
+........................................................................ [ 81%]
+........................................................................ [ 85%]
+........................................................................ [ 89%]
+........................................................................ [ 93%]
+........................................................................ [ 97%]
+.....................................................                    [100%]
+================================== FAILURES ===================================
+__________________ test_g0_3b_is_a_working_tree_scan_of_ops ___________________
+
+    def test_g0_3b_is_a_working_tree_scan_of_ops() -> None:
+        """D-00-043: G0.3b was `--source ops/gates` in git mode � the same scan as
+        G0.3, run twice.
+    
+        In git mode gitleaks scans the repository containing `--source` and ignores
+        the path, so the byte count was identical to the scan on the line above it.
+        `ops/` was also untracked, so no git-mode scan could have reached it anyway.
+    
+        Neuter to prove it: change G0.3b back to `--source ops/gates` without
+        `--no-git`, in the Makefile or in ci.yml, and this test goes red.
+        """
+        make_line = [
+            line
+            for line in makefile_recipe("gate-0").splitlines()
+            if "$(GATE) G0.3b" in line and not line.lstrip().startswith("#")
+        ]
+        assert len(make_line) == 1, f"expected exactly one G0.3b line, found {make_line}"
+        for where, line in (("Makefile", make_line[0]), ("ci.yml", _ci_g0_3b_line())):
+            assert (
+                "--source ops " in f"{line} "
+            ), f"{where}: G0.3b must scan ops/, not a subdirectory: {line.strip()!r}"
+            assert "--no-git" in line, (
+                f"{where}: G0.3b must be a WORKING-TREE scan. Without --no-git "
+                "gitleaks scans the repository containing --source and ignores the "
+                f"path entirely: {line.strip()!r}"
+            )
+    
+        tracked = subprocess.run(
+            ["git", "ls-files", "ops/"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+>       assert tracked.stdout.strip(), (
+            "`git ls-files ops/` is empty. The evidence directory is untracked, so "
+            "nothing restores a destroyed transcript and no git-mode scan can see it."
+        )
+E       AssertionError: `git ls-files ops/` is empty. The evidence directory is untracked, so nothing restores a destroyed transcript and no git-mode scan can see it.
+E       assert ''
+E        +  where '' = <built-in method strip of str object at 0x00007FFB6599AD00>()
+E        +    where <built-in method strip of str object at 0x00007FFB6599AD00> = ''.strip
+E        +      where '' = CompletedProcess(args=['git', 'ls-files', 'ops/'], returncode=0, stdout='', stderr='').stdout
+
+tools\tests\test_build_lane_guards.py:315: AssertionError
+=========================== short test summary info ===========================
+SKIPPED [1] services\control_plane\tests\api\test_adversarial_isolation.py:140: the seeded fixture returns a single page; nothing to replay
+FAILED tools/tests/test_build_lane_guards.py::test_g0_3b_is_a_working_tree_scan_of_ops
+1 failed, 1851 passed, 1 skipped, 207 deselected in 52.22s
+
+================================================================================
+THE ADVERSARIAL LANE
+  42 assertions in test_adversarial_isolation.py plus 16 new sweeping
+  properties in test_adversarial_sweep.py (T8b). RED for the new file is
+  in ops/tdd/RED_T8b.txt.
+================================================================================
+
+  $ python -m pytest -m "adversarial or isolation" -q
+  exit = 0
+
+....................s..........................................          [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] services\control_plane\tests\api\test_adversarial_isolation.py:140: the seeded fixture returns a single page; nothing to replay
+62 passed, 1 skipped, 1997 deselected in 28.69s
+
+================================================================================
+THE UNIT LANE FOR THIS PHASE
+================================================================================
+
+  $ python -m pytest services/control_plane/tests/api services/control_plane/tests/auth -q -m unit
+  exit = 0
+
+........................................................................ [ 31%]
+........................................................................ [ 62%]
+........................................................................ [ 93%]
+................                                                         [100%]
+232 passed, 59 deselected in 10.87s
+
+================================================================================
+RUFF, OVER THIS TASK'S BOUNDARY
+================================================================================
+
+  $ python -m ruff check <boundary> && python -m ruff format --check <boundary>
+  exit = 0
+
+All checks passed!
+49 files already formatted
+
+================================================================================
+MYPY --STRICT, OVER THIS TASK'S BOUNDARY
+================================================================================
+
+  $ python -m mypy --strict services/control_plane/app/api services/control_plane/app/auth services/control_plane/app/main.py
+  exit = 0
+
+Success: no issues found in 30 source files
+
+================================================================================
+IMPORT-LINTER (make lint's load-bearing step)
+================================================================================
+
+  $ python -c 'from importlinter.cli import lint_imports_command; lint_imports_command()'
+  exit = 0
+
+=============
+Import Linter
+=============
+
+
+---------
+Contracts
+---------
+
+Analyzed 146 files, 655 dependencies.
+-------------------------------------
+
+provenance_domain.kernel is pure KEPT
+provenance_domain does not depend on pydantic KEPT
+provenance_contracts performs no I/O KEPT
+the agent runtime cannot reach the canonical write path KEPT
+the Memory Kernel's decision modules are pure KEPT
+
+Contracts: 5 kept, 0 broken.
+
+================================================================================
+TRANSACTION PURITY (make lint's second half)
+================================================================================
+
+  $ python -m tools.txn_purity_lint services packages workers
+  exit = 0
+
+scanned 7 transaction callbacks, 0 network constructs found
+
+================================================================================
+WRITE-PATH LINT -- the Kernel is still the only canonical writer
+  The API surface added by this task contributes zero canonical write
+  statements. Every route submits a typed proposal through a port.
+================================================================================
+
+  $ python -m tools.write_path_lint
+  exit = 0
+
+write_path_lint: 5 rules, 0 violations
+scanned 114 python modules and 64 non-python source files; 14 canonical write statements, 14 of them in the Kernel
+canonical write statements found in 1 module: services/control_plane/app/memory_kernel
+    agents/: 0    workers/: 0    apps/web/: 0    packages/: 0
+excluded 64 test modules, and these trees:
+    scripts/       CI fixture loader; runs as pv_migrator, never in the request path
+    db/            migrations and seeds; owned by pv_migrator by construction
+    infra/         CDK; provisions the grants rather than issuing statements
+    tools/         lints and gates; opens no pool
+    **/tests/**    fixtures write rows directly, on purpose - counted below
+    rule W1-canonical-INSERT-is-kernel-only
+    rule W2-canonical-UPDATE-is-kernel-only
+    rule W3-canonical-DELETE-is-forbidden-everywhere
+    rule W4-evidence-and-proposal-INSERT-is-app-permitted
+    rule W5-outbox-UPDATE-is-dispatcher-permitted
+
+================================================================================
+THE G8 EXIT ASSERTIONS, AND WHERE EACH ONE IS PROVED
+================================================================================
+
+  G8.1  routes: 31 documented, 31 implemented, 0 drift
+        PARTIAL. The implementation half is proved here:
+          tests/api/test_openapi_surface.py -- 8 assertions, all green:
+            the documented public index has exactly 31 rows;
+            every one of the 31 is implemented;
+            every one of the 13 internal routes is implemented;
+            NO undocumented route is implemented (drift in both directions);
+            the export is OpenAPI 3.1 and names every route;
+            every keyed endpoint declares the Idempotency-Key parameter;
+            every request model forbids extra fields;
+            export_openapi() runs with no database, credential or network.
+        The gate's own commands cannot run: `services/control_plane/tools/
+        export_openapi.py` and `tools/spec_lint.py` do not exist. Both are
+        Integrator-owned and outside this task's boundary. `export_openapi(app)`
+        is the function that script calls, and it is green.
+
+  G8.2  workload token on /v1 -> 403 WORKLOAD_TOKEN_ON_PUBLIC_ROUTE
+        PASS. tests/auth/test_route_class.py::test_g8_2_a_workload_token_on_a_
+        public_route_is_403, ::test_g8_2_holds_for_the_worker_client_too, and
+        ::test_every_public_route_rejects_a_workload_token, which sweeps every
+        /v1 route the router exposes rather than a hand-listed sample.
+
+  G8.3  browser token on /internal/v1 -> 403
+        PASS, with a naming discrepancy recorded rather than resolved. The gate
+        text says BROWSER_TOKEN_ON_INTERNAL_ROUTE; 15_API_SPEC.md section 4.3's
+        catalogue -- which is the closed set clients branch on -- says
+        HUMAN_TOKEN_ON_INTERNAL_ROUTE, and that is what is implemented and
+        asserted. tests/auth/test_route_class.py::test_g8_3_a_browser_token_on_
+        an_internal_route_is_403 and ::test_the_route_class_check_is_mounted_on_
+        every_internal_route (all thirteen).
+
+  G8.4  cross-user read -> 404 CASE_NOT_FOUND, never 403
+        PASS. tests/api/test_adversarial_isolation.py::test_g8_4_* over nine
+        route templates, plus test_adversarial_sweep.py, which sweeps every GET
+        route the router exposes and additionally asserts the 404 bodies are
+        byte-identical to a genuinely-absent 404 rather than merely sharing a
+        code.
+
+  G8.5  a proposal cannot name an arbitrary user_id
+        PASS, with two naming discrepancies recorded rather than resolved. The
+        gate text says 403 CAPABILITY_SUBJECT_MISMATCH and 409 CAPABILITY_RETIRED;
+        section 4.3's catalogue has CAPABILITY_SCOPE_MISMATCH (403) and
+        CAPABILITY_CONSUMED (403), which are implemented and asserted.
+        tests/auth/test_capability_binding.py::test_g8_5_a_proposal_naming_
+        another_user_is_403 and ::test_g8_5_a_proposal_against_a_completed_run_
+        is_refused. The gate names the file tests/api/test_capability_binding.py;
+        it lives at services/control_plane/tests/auth/.
+
+  G8.6  replay is byte-identical; a body change is a 409
+        PASS, with a naming discrepancy recorded rather than resolved. The gate
+        text says IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_BODY; section 4.3 says
+        IDEMPOTENCY_CONFLICT, which is implemented and asserted.
+        tests/api/test_idempotency_records.py::test_g8_6_replay_is_byte_identical_
+        and_only_the_second_is_flagged asserts string equality of the KEY across
+        attempts first (section 23.10), then the identical body, then
+        Idempotency-Replayed: false / true.
+
+  G8.7  the trace id is present on failures
+        PASS. tests/api/test_error_envelope.py::test_g8_7_trace_id_is_present_on_
+        a_404_for_a_nonexistent_case, and on a 401 and an unhandled 500.
+
+  G8.8  PV_SABOTAGE=api.auth.route_class_check -> at least 2 FAILED, exit 1
+        PASS. Transcript below: 10 failed, exit 1. The AST assertion in
+        tests/auth/test_route_class.py::test_no_module_from_imports_route_class_
+        check is what makes this trustworthy -- a from-import anywhere in the
+        tree would copy the reference before PV_SABOTAGE rebinds it, and the
+        sabotage would report green for a check that no longer runs.
+
+================================================================================
+G8.8 TRANSCRIPT
+================================================================================
+
+  $ PV_SABOTAGE=api.auth.route_class_check python -m pytest       services/control_plane/tests/api services/control_plane/tests/auth -q
+
+....................s................................................... [ 24%]
+........................................................................ [ 49%]
+........................................................................ [ 74%]
+..........................................................FFF..FFFF.FF.. [ 98%]
+..F                                                                      [100%]
+================================== FAILURES ===================================
+_ test_a_workload_client_may_not_use_a_public_route[provenance-agent-runtime] _
+
+client = 'provenance-agent-runtime'
+
+    @pytest.mark.parametrize("client", ["provenance-agent-runtime", "provenance-workers"])
+    def test_a_workload_client_may_not_use_a_public_route(client: str) -> None:
+>       with pytest.raises(ApiError) as excinfo:
+E       Failed: DID NOT RAISE <class 'services.control_plane.app.api.errors.ApiError'>
+
+services\control_plane\tests\auth\test_route_class.py:40: Failed
+____ test_a_workload_client_may_not_use_a_public_route[provenance-workers] ____
+
+client = 'provenance-workers'
+
+    @pytest.mark.parametrize("client", ["provenance-agent-runtime", "provenance-workers"])
+    def test_a_workload_client_may_not_use_a_public_route(client: str) -> None:
+>       with pytest.raises(ApiError) as excinfo:
+E       Failed: DID NOT RAISE <class 'services.control_plane.app.api.errors.ApiError'>
+
+services\control_plane\tests\auth\test_route_class.py:40: Failed
+_______________ test_a_web_client_may_not_use_an_internal_route _______________
+
+    def test_a_web_client_may_not_use_an_internal_route() -> None:
+>       with pytest.raises(ApiError) as excinfo:
+E       Failed: DID NOT RAISE <class 'services.control_plane.app.api.errors.ApiError'>
+
+services\control_plane\tests\auth\test_route_class.py:48: Failed
+_______________ test_an_unknown_client_id_reaches_neither_class _______________
+
+    def test_an_unknown_client_id_reaches_neither_class() -> None:
+        for klass in (RouteClass.PUBLIC, RouteClass.INTERNAL):
+>           with pytest.raises(ApiError):
+E           Failed: DID NOT RAISE <class 'services.control_plane.app.api.errors.ApiError'>
+
+services\control_plane\tests\auth\test_route_class.py:61: Failed
+_____________ test_g8_2_a_workload_token_on_a_public_route_is_403 _____________
+
+client = <starlette.testclient.TestClient object at 0x000001C9581B8980>
+agent_bearer = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InB2LXRlc3Qta2lkLTEiLCJ0eXAiOiJKV1QifQ.eyJjbGllbnRfaWQiOiIyYWdlbnQwMDAwMDAwMDAwMDAwMDAwMD...0la2X0HGWM_lGgM40FU8YDBZw-w6F_y8ncLJ-oyPLhSW6AlmeT2RBz04b834h56oxUUxvHVF0X2pwFZP-xwSbTA9ApiHC5lzMbrMbTk3GssAQKpaq6hhvg'
+
+    def test_g8_2_a_workload_token_on_a_public_route_is_403(client, agent_bearer) -> None:
+        response = client.get(
+            f"/v1/cases/{fakes_mod.ALEX.case_id}",
+            headers={"Authorization": f"Bearer {agent_bearer}"},
+        )
+        assert response.status_code == 403
+        body = response.json()
+>       assert body["error"]["code"] == "WORKLOAD_TOKEN_ON_PUBLIC_ROUTE"
+E       AssertionError: assert 'USER_NOT_PROVISIONED' == 'WORKLOAD_TOK..._PUBLIC_ROUTE'
+E         
+E         - WORKLOAD_TOKEN_ON_PUBLIC_ROUTE
+E         + USER_NOT_PROVISIONED
+
+services\control_plane\tests\auth\test_route_class.py:77: AssertionError
+__________________ test_g8_2_holds_for_the_worker_client_too __________________
+
+client = <starlette.testclient.TestClient object at 0x000001C9587DCDA0>
+worker_bearer = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InB2LXRlc3Qta2lkLTEiLCJ0eXAiOiJKV1QifQ.eyJjbGllbnRfaWQiOiIzd29ya2VyMDAwMDAwMDAwMDAwMDAwMD...ljPyiGnCZoJaEbayn70DLjq0lCI1zktmuIOTeUV-LUWHJrlt136NsddzHld2GhuajdlxyWbHAWNtuXW5XAN-UGdcq3TwtioCX9g0Tm07CBCMpZ0bk082a0'
+
+    def test_g8_2_holds_for_the_worker_client_too(client, worker_bearer) -> None:
+        response = client.get(
+            f"/v1/cases/{fakes_mod.ALEX.case_id}",
+            headers={"Authorization": f"Bearer {worker_bearer}"},
+        )
+        assert response.status_code == 403
+>       assert response.json()["error"]["code"] == "WORKLOAD_TOKEN_ON_PUBLIC_ROUTE"
+E       AssertionError: assert 'INSUFFICIENT_SCOPE' == 'WORKLOAD_TOK..._PUBLIC_ROUTE'
+E         
+E         - WORKLOAD_TOKEN_ON_PUBLIC_ROUTE
+E         + INSUFFICIENT_SCOPE
+
+services\control_plane\tests\auth\test_route_class.py:87: AssertionError
+____________ test_g8_3_a_browser_token_on_an_internal_route_is_403 ____________
+
+client = <starlette.testclient.TestClient object at 0x000001C95836B050>
+auth_alex = {'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InB2LXRlc3Qta2lkLTEiLCJ0eXAiOiJKV1QifQ.eyJjbGllbnRfaWQiOiIxd2ViM...yUC32yiKiw44ys6x7quEdQCq0RBzGgTEqeLcS4N0QF74v9mzcNyZQ1Gx2RRd_dw_vYFFWgqcSkKAIXIw28PG1E7ghd_iIs1GAC4ZUuKuSyBdNHOciWp_0'}
+
+    def test_g8_3_a_browser_token_on_an_internal_route_is_403(client, auth_alex) -> None:
+        response = client.post("/internal/v1/memory/proposals", headers=auth_alex, json={})
+        assert response.status_code == 403
+        body = response.json()
+>       assert body["error"]["code"] == "HUMAN_TOKEN_ON_INTERNAL_ROUTE"
+E       AssertionError: assert 'INSUFFICIENT_SCOPE' == 'HUMAN_TOKEN_...NTERNAL_ROUTE'
+E         
+E         - HUMAN_TOKEN_ON_INTERNAL_ROUTE
+E         + INSUFFICIENT_SCOPE
+
+services\control_plane\tests\auth\test_route_class.py:94: AssertionError
+________ test_the_route_class_check_is_mounted_on_every_internal_route ________
+
+client = <starlette.testclient.TestClient object at 0x000001C957E7B920>
+auth_alex = {'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InB2LXRlc3Qta2lkLTEiLCJ0eXAiOiJKV1QifQ.eyJjbGllbnRfaWQiOiIxd2ViM...yUC32yiKiw44ys6x7quEdQCq0RBzGgTEqeLcS4N0QF74v9mzcNyZQ1Gx2RRd_dw_vYFFWgqcSkKAIXIw28PG1E7ghd_iIs1GAC4ZUuKuSyBdNHOciWp_0'}
+
+    def test_the_route_class_check_is_mounted_on_every_internal_route(client, auth_alex) -> None:
+        paths = [
+            ("POST", "/internal/v1/ingest/artifacts"),
+            ("GET", f"/internal/v1/agent-runs/{fakes_mod.ALEX.agent_run_id}"),
+            ("GET", f"/internal/v1/agent-runs/{fakes_mod.ALEX.agent_run_id}/artifact-content"),
+            ("POST", f"/internal/v1/agent-runs/{fakes_mod.ALEX.agent_run_id}/evidence"),
+            ("POST", f"/internal/v1/agent-runs/{fakes_mod.ALEX.agent_run_id}/retrieval"),
+            ("GET", f"/internal/v1/agent-runs/{fakes_mod.ALEX.agent_run_id}/state-proof"),
+            ("POST", "/internal/v1/memory/proposals"),
+            ("POST", "/internal/v1/advocacy/action-intents"),
+            ("POST", f"/internal/v1/agent-runs/{fakes_mod.ALEX.agent_run_id}/complete"),
+            ("POST", f"/internal/v1/triggers/{fakes_mod.ALEX.trigger_id}/evaluate"),
+            ("POST", f"/internal/v1/actions/{fakes_mod.ALEX.action_intent_id}/execute"),
+            ("POST", "/internal/v1/events/outbox/sweep"),
+            ("POST", "/internal/v1/events/deliveries"),
+        ]
+        assert len(paths) == 13
+        for method, path in paths:
+            response = client.request(method, path, headers=auth_alex, json={})
+            assert response.status_code == 403, path
+>           assert response.json()["error"]["code"] == "HUMAN_TOKEN_ON_INTERNAL_ROUTE", path
+E           AssertionError: /internal/v1/ingest/artifacts
+E           assert 'INSUFFICIENT_SCOPE' == 'HUMAN_TOKEN_...NTERNAL_ROUTE'
+E             
+E             - HUMAN_TOKEN_ON_INTERNAL_ROUTE
+E             + INSUFFICIENT_SCOPE
+
+services\control_plane\tests\auth\test_route_class.py:127: AssertionError
+______________ test_every_public_route_rejects_a_workload_token _______________
+
+client = <starlette.testclient.TestClient object at 0x000001C956C433B0>
+agent_bearer = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InB2LXRlc3Qta2lkLTEiLCJ0eXAiOiJKV1QifQ.eyJjbGllbnRfaWQiOiIyYWdlbnQwMDAwMDAwMDAwMDAwMDAwMD...JnmTmApbYN47qykg0nSKYkEP9Blx0MjpIHMBbIMnekU5-uC1C0LLFp4hy8r1nPUAPvyNVTelE-bY10sFPivM2G8S-cRR3z-bCw1FUjDtFjs60V0pce_QWQ'
+app = <fastapi.applications.FastAPI object at 0x000001C956C432C0>
+
+    def test_every_public_route_rejects_a_workload_token(client, agent_bearer, app) -> None:
+        headers = {"Authorization": f"Bearer {agent_bearer}"}
+        checked = 0
+        for route in app.routes:
+            path = getattr(route, "path", "")
+            methods = getattr(route, "methods", set()) - {"HEAD", "OPTIONS"}
+            if not path.startswith("/v1/") or path in {"/v1/healthz", "/v1/version"}:
+                continue
+            concrete = (
+                path.replace("{case_id}", str(fakes_mod.ALEX.case_id))
+                .replace("{belief_id}", str(fakes_mod.ALEX.belief_id))
+                .replace("{artifact_id}", str(fakes_mod.ALEX.artifact_id))
+                .replace("{action_intent_id}", str(fakes_mod.ALEX.action_intent_id))
+                .replace("{relationship_id}", str(fakes_mod.ALEX.case_id))
+                .replace("{trace_id}", str(fakes_mod.ALEX.trace_id))
+                .replace("{trigger_id}", str(fakes_mod.ALEX.trigger_id))
+                .replace("{counterfactual_id}", str(fakes_mod.ALEX.counterfactual_id))
+            )
+            for method in methods:
+                response = client.request(
+                    method,
+                    concrete,
+                    headers={**headers, "Idempotency-Key": "pv-route-class-00000"},
+                    json={},
+                )
+                assert response.status_code == 403, f"{method} {concrete}"
+>               assert (
+                    response.json()["error"]["code"] == "WORKLOAD_TOKEN_ON_PUBLIC_ROUTE"
+                ), f"{method} {concrete}"
+E               AssertionError: GET /v1/me
+E               assert 'USER_NOT_PROVISIONED' == 'WORKLOAD_TOK..._PUBLIC_ROUTE'
+E                 
+E                 - WORKLOAD_TOKEN_ON_PUBLIC_ROUTE
+E                 + USER_NOT_PROVISIONED
+
+services\control_plane\tests\auth\test_route_class.py:156: AssertionError
+_________________ test_route_class_check_signature_is_stable __________________
+
+    def test_route_class_check_signature_is_stable() -> None:
+        params = list(inspect.signature(route_class_mod.route_class_check).parameters)
+>       assert params[:2] == ["route_class", "app_client"]
+E       AssertionError: assert ['args', 'kwargs'] == ['route_class', 'app_client']
+E         
+E         At index 0 diff: 'args' != 'route_class'
+E         Use -v to get more diff
+
+services\control_plane\tests\auth\test_route_class.py:225: AssertionError
+=========================== short test summary info ===========================
+SKIPPED [1] services\control_plane\tests\api\test_adversarial_isolation.py:140: the seeded fixture returns a single page; nothing to replay
+FAILED services/control_plane/tests/auth/test_route_class.py::test_a_workload_client_may_not_use_a_public_route[provenance-agent-runtime]
+FAILED services/control_plane/tests/auth/test_route_class.py::test_a_workload_client_may_not_use_a_public_route[provenance-workers]
+FAILED services/control_plane/tests/auth/test_route_class.py::test_a_web_client_may_not_use_an_internal_route
+FAILED services/control_plane/tests/auth/test_route_class.py::test_an_unknown_client_id_reaches_neither_class
+FAILED services/control_plane/tests/auth/test_route_class.py::test_g8_2_a_workload_token_on_a_public_route_is_403
+FAILED services/control_plane/tests/auth/test_route_class.py::test_g8_2_holds_for_the_worker_client_too
+FAILED services/control_plane/tests/auth/test_route_class.py::test_g8_3_a_browser_token_on_an_internal_route_is_403
+FAILED services/control_plane/tests/auth/test_route_class.py::test_the_route_class_check_is_mounted_on_every_internal_route
+FAILED services/control_plane/tests/auth/test_route_class.py::test_every_public_route_rejects_a_workload_token
+FAILED services/control_plane/tests/auth/test_route_class.py::test_route_class_check_signature_is_stable
+10 failed, 280 passed, 1 skipped in 15.36s
+exit=1
+
+================================================================================
+G8.1 TRANSCRIPT (the implementation half)
+================================================================================
+
+  $ python -m pytest services/control_plane/tests/api/test_openapi_surface.py -q
+  exit = 0
+
+........                                                                 [100%]
+8 passed in 0.94s

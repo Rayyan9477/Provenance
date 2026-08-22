@@ -1,0 +1,33 @@
+# T1.3 RED — tests written before money.py / derivations.py / authority.py exist.
+# Recorded: 2026-08-17T23:54:37Z
+# Working tree: only the two new test files exist; the three source modules do not.
+
+$ ls packages/python/provenance_domain/src/provenance_domain/
+__init__.py
+__pycache__
+enums.py
+kernel
+
+$ python -m pytest packages/python/provenance_domain/tests/test_derivations.py packages/python/provenance_domain/tests/test_authority.py -q
+
+=================================== ERRORS ====================================
+_ ERROR collecting packages/python/provenance_domain/tests/test_derivations.py _
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_domain\tests\test_derivations.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_domain\tests\test_derivations.py:34: in <module>
+    from provenance_domain import derivations, money
+E   ImportError: cannot import name 'derivations' from 'provenance_domain' (D:\Repo\neverreset\packages\python\provenance_domain\src\provenance_domain\__init__.py)
+_ ERROR collecting packages/python/provenance_domain/tests/test_authority.py __
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_domain\tests\test_authority.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_domain\tests\test_authority.py:31: in <module>
+    from provenance_domain import authority
+E   ImportError: cannot import name 'authority' from 'provenance_domain' (D:\Repo\neverreset\packages\python\provenance_domain\src\provenance_domain\__init__.py)
+=========================== short test summary info ===========================
+ERROR packages/python/provenance_domain/tests/test_derivations.py
+ERROR packages/python/provenance_domain/tests/test_authority.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!
+2 errors in 0.25s
+exit=2

@@ -1,0 +1,19 @@
+# T1.4 RED — test_invariants.py written before invariants.py, tools/invariant_map_check.py
+# and INVARIANTS.md exist. Recorded: 2026-08-18T00:22:18Z
+# A RED transcript written after the code existed is fabricated evidence.
+
+$ python -m pytest packages/python/provenance_domain/tests/test_invariants.py -q
+
+=================================== ERRORS ====================================
+_ ERROR collecting packages/python/provenance_domain/tests/test_invariants.py _
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_domain\tests\test_invariants.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_domain\tests\test_invariants.py:49: in <module>
+    from provenance_domain import invariants, money, transitions
+E   ImportError: cannot import name 'invariants' from 'provenance_domain' (D:\Repo\neverreset\packages\python\provenance_domain\src\provenance_domain\__init__.py)
+=========================== short test summary info ===========================
+ERROR packages/python/provenance_domain/tests/test_invariants.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.41s
+exit=2

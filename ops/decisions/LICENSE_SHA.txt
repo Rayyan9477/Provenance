@@ -1,0 +1,46 @@
+LICENSE integrity record
+Assertion G0.1 - "Apache-2.0 licence present and is actually Apache-2.0"
+quality/23_PHASE_GATES.md section 6; task T0.2 in EXECUTION/70_TASK_PLAN.md
+
+The `make gate-0` target reads the FIRST 64-character hexadecimal string in this
+file and compares it against `sha256sum LICENSE`. Keep it on the line below.
+Do not reorder this file.
+
+sha256  cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  LICENSE
+
+Size:              11358 bytes
+Line endings:      LF
+Source:            https://www.apache.org/licenses/LICENSE-2.0.txt
+Retrieved:         2026-08-17T18:53Z, by `curl` from the build machine
+Recorded at commit c2a0c05 (T0.2; LICENSE itself is uncommitted at this point)
+
+Verification performed
+----------------------
+1. The canonical text was fetched from apache.org over TLS and hashed:
+   cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30, 11358 bytes.
+2. An independent copy of the same file already present on the build machine
+   (an unrelated repository's LICENSE) hashed identically, so the digest does
+   not rest on a single retrieval.
+3. `LICENSE` in this repository was then compared byte-for-byte with the fetched
+   file using `cmp`, which reported no difference. The file is the canonical
+   text, unmodified: no reformatting, no filled-in copyright placeholder, no
+   line-ending conversion.
+
+Note on the leading blank line
+------------------------------
+The canonical apache.org file begins with a single empty line, so `head -3
+LICENSE` prints:
+
+    <blank>
+                                     Apache License
+                               Version 2.0, January 2004
+
+Both header lines G0.1 names are present. Deleting that blank line to make them
+land on lines 1 and 2 would change the SHA-256 and fail this assertion. If the
+LICENSE file is ever edited for any reason, the correct action is to re-fetch
+the canonical text rather than to update this digest: the digest is the control,
+not the record.
+
+The copyright placeholder in the APPENDIX ("Copyright [yyyy] [name of copyright
+owner]") is intentionally left as shipped. This project's copyright line lives in
+NOTICE, per section 4(d) of the licence.

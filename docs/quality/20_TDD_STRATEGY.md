@@ -268,15 +268,15 @@ Counts are targets for the completed build, not aspirations. A layer under its c
 
 | # | Layer | Marker | Tests | Wall clock | Needs DB | Needs AWS | Runs on |
 |---|---|---|---|---|---|---|---|
-| L1 | Unit — domain, kernel algorithms, contracts, predicate evaluator, authority, idempotency, dedupe | `unit` | **317** | ~9 s | no | no | every commit |
+| L1 | Unit — domain, kernel algorithms, contracts, predicate evaluator, authority, idempotency, dedupe | `unit` | **392** | ~9 s | no | no | every commit |
 | L2 | Database integration — transactions, write skew, retry, constraints, vector isolation | `db` | **96** | ~150 s | yes | no | every commit |
 | L3 | Agent contract — recorded structured outputs, schema validation, provenance rejection, graph topology | `contract` | **58** | ~28 s | no | no | every commit |
-| L4 | Live-model eval — extraction, resolution, attention, drafting against gates | `live_model` | **14** gate tests over 62 scenarios | ~11 min | yes | yes (Bedrock) | nightly + pre-submission |
+| L4 | Live-model eval — extraction, resolution, attention, drafting against gates | `live_model` | **14** gate tests over 51 scenarios | ~11 min | yes | yes (Bedrock) | nightly + pre-submission |
 | L5 | Retrieval eval — ranking, abstention, isolation, retraction | `retrieval` | **22** | ~95 s (5 static are `unit`) | yes | Titan for 6 of them | every commit (16) / nightly (6) |
 | L6 | End-to-end hero flow — artifact → kernel → advocate → approval → execution | `e2e` | **9** | ~4 min | yes | sinks only | merge to main + pre-submission |
 | L7 | Adversarial — prompt injection, forged provenance, tenant crossing, capability probing | `adversarial` | **24** | ~40 s | yes | no | every commit |
 | L8 | Concurrency and idempotency — serialization, duplicate delivery, replay | `concurrency` | **11** | ~70 s (soak: ~6 min) | yes | no | every commit (short) / nightly (soak) |
-| | **Total** | | **551** | | | | |
+| | **Total** | | **626** | | | | |
 
 ### 3.2 Why the pyramid is this shape
 
@@ -294,7 +294,7 @@ provenance/
 │
 ├── packages/python/provenance_domain/
 │   ├── src/provenance_domain/
-│   └── tests/                              # L1 — 155 tests
+│   └── tests/                              # L1 — 230 tests
 │       ├── conftest.py                     # KernelConfig fixture, frozen clock
 │       ├── test_enums.py                              #  9
 │       ├── test_transitions.py                        # 38
@@ -365,7 +365,7 @@ provenance/
 │       ├── normalise.py  golden.py  seeds.py  sinks.py  clock.py
 │
 └── evals/
-    ├── datasets/memory_cases.jsonl         # 62 scenarios
+    ├── datasets/memory_cases.jsonl         # 51 scenarios
     ├── fixtures/model/                     # recorded cassettes — §13
     ├── memory/  retrieval/  extraction/  adversarial/
     └── run.py                              # L4 harness — §9
@@ -495,7 +495,9 @@ def as_role(seeded_db):
 
 ## 5. Layer 1 — unit tests
 
-317 tests, zero infrastructure. Every one of them is a direct transcription of a numbered rule in `11_CONTRACTS.md`, `12_KERNEL_ALGORITHMS.md`, or `16_TRIGGER_DSL.md`.
+392 tests, zero infrastructure: 230 in `provenance_domain` (93 domain and state machines + 137 kernel algorithms), 44 in `provenance_contracts`, 14 in `provenance_db/tests/unit`, 104 in `services/control_plane/tests/unit`. Every one of them is a direct transcription of a numbered rule in `11_CONTRACTS.md`, `12_KERNEL_ALGORITHMS.md`, or `16_TRIGGER_DSL.md`.
+
+> **Arithmetic note (corrected 2026-08-17).** Earlier revisions of this document stated 155 for `provenance_domain` and 317 for L1, which contradicted the per-file counts enumerated in §3.3 and the section headers in §5.1 (93) and §5.2 (137). The enumerated per-file counts are authoritative: `provenance_domain` is **230**, L1 is **392**, and the suite total is **626**, not 551. A gate that asserts a test count against a wrong figure fails on arrival, so the arithmetic matters more than it looks.
 
 ### 5.1 Domain and state machines (`provenance_domain/tests/`, 93 tests)
 
@@ -1712,7 +1714,7 @@ def test_proposal_containing_a_fabricated_evidence_id_never_leaves_the_graph():
 
 ## 9. Layer 4 — live-model eval
 
-14 gate tests over the 62-scenario corpus in `evals/datasets/memory_cases.jsonl`. Marked `live_model`; never run on a commit; costs real money.
+14 gate tests over the 51-scenario corpus in `evals/datasets/memory_cases.jsonl`. Marked `live_model`; never run on a commit; costs real money.
 
 | Gate | Metric | Threshold | Source |
 |---|---|---|---|
@@ -2208,13 +2210,13 @@ Nothing in `provenance_domain/kernel/` is ever added to `omit`. A PR that does i
 
 **R4 — Golden-file tests can become rubber stamps.** **Decision:** `--golden-update` is refused in CI; every kernel golden change requires a `Fixture-Change-Justification` trailer, a readable diff, the named sabotage proving the old expectation can fail, and a second reviewer when available. In a solo build, the phase reviewer must run from fresh context and sign the mutation result.
 
-**R5 — The counts in §3.1 are estimates, and estimates become targets.** 317 unit tests is a projection from the number of numbered rules in the specs, not a measurement. If the real number lands at 240, there is a strong pull to pad with low-value tests to hit the figure. *Mitigation:* the per-file breakdown in §3.3 makes shortfalls attributable to a specific spec section rather than to a global number, and §15's mutation thresholds are the real quality gate — padding raises coverage and does not raise mutation kill rate. *Residual risk:* moderate.
+**R5 — The counts in §3.1 are estimates, and estimates become targets.** 392 unit tests is a projection from the number of numbered rules in the specs, not a measurement. If the real number lands at 300, there is a strong pull to pad with low-value tests to hit the figure. The 2026-08-17 arithmetic correction in §5 is itself evidence of the hazard: three separate totals had been carried forward without anyone re-adding the per-file column. *Mitigation:* the per-file breakdown in §3.3 makes shortfalls attributable to a specific spec section rather than to a global number, and §15's mutation thresholds are the real quality gate — padding raises coverage and does not raise mutation kill rate. *Residual risk:* moderate.
 
 **R6 — Database fixture clone speed is unverified.** **Decision:** Phase 0 benchmarks template restore before fixture implementation. If it exceeds the gate budget, the commit lane uses `hero-lite` with 500 decoys and the full 18,000-row corpus remains in nightly retrieval; isolation always retains the cross-tenant honeypot.
 
 **R7 — L4 gates cannot fail a commit, so model regressions ship silently for up to a day.** Extraction and resolution quality are measured nightly. A prompt change merged at 10:00 that drops date F1 from 0.96 to 0.88 is invisible until 02:00. *Mitigation:* any PR touching `agents/runtime/prompts/**` requires a manual `live_model` run recorded in the PR body, enforced by a CODEOWNERS check on the prompt directory. *Residual risk:* real. The alternative — a nondeterministic gate on the commit path — is worse.
 
-**R8 — The eval corpus is 62 scenarios and every threshold in §9 is calibrated against it.** Sixty-two labelled scenarios yields roughly a ±7-point confidence interval on any rate. A contradiction-recall gate of 0.90 is therefore not distinguishable from 0.84 or 0.96. *Mitigation:* thresholds are stated as floors to clear rather than scores to optimise, and per-scenario diffs are in the report so a regression is attributable to a named case rather than to a moved average. *Residual risk:* high and unavoidable within the hackathon window. The honest framing for a judge: the gates are declared and the corpus is checked in; the corpus is small.
+**R8 — The eval corpus is 51 scenarios and every threshold in §9 is calibrated against it.** Fifty-one labelled scenarios yields roughly a ±8-point confidence interval on any rate. A contradiction-recall gate of 0.90 is therefore not distinguishable from 0.82 or 0.98. *Mitigation:* thresholds are stated as floors to clear rather than scores to optimise, and per-scenario diffs are in the report so a regression is attributable to a named case rather than to a moved average. *Residual risk:* high and unavoidable within the hackathon window. The honest framing for a judge: the gates are declared and the corpus is checked in; the corpus is small.
 
 **R9 — Cassette staleness must include the schema.** **Decision:** every cassette key and header includes `system_sha256`, `schema_sha256`, `prompt_version`, and `model_id`; drift in any field invalidates the cassette. There is no legacy cassette format in v1.
 

@@ -1,0 +1,35 @@
+GREEN — predicate-family registry reconciled to 12_KERNEL_ALGORITHMS.md section 2.1
+Captured 2026-08-18T16:13:47Z
+
+BEFORE (section 5.2's 8-entry map):
+  authority_for('amount_due',        PROVIDER_SYSTEM_NOTICE) = 0.1000   <- unmapped floor
+  authority_for('invoice_total',     PROVIDER_SYSTEM_NOTICE) = 0.1000   <- unmapped floor
+  authority_for('service_cancelled', PROVIDER_SYSTEM_NOTICE) = 0.1000   <- unmapped floor
+
+AFTER (the 19-name union; section 2.1's 16 plus 3 retained aliases):
+  amount_due                 BALANCE            0.9000
+  amount_outstanding         OUTSTANDING        0.7200
+  balance_owed               BALANCE            0.9000
+  billing_period_covered     SERVICE_STATUS     0.8800
+  commitment_revoked         COMMITMENT_STATUS  0.5500
+  commitment_status          COMMITMENT_STATUS  0.5500
+  commitment_withdrawn       COMMITMENT_STATUS  0.5500
+  deposit_outstanding        OUTSTANDING        0.7200
+  invoice_total              BALANCE            0.9000
+  payment_not_received       PAYMENT            0.7000
+  payment_received           PAYMENT            0.7000
+  payment_sent               PAYMENT            0.7000
+  promise_retracted          COMMITMENT_STATUS  0.5500
+  refund_outstanding         OUTSTANDING        0.7200
+  reimbursement_outstanding  OUTSTANDING        0.7200
+  service_active             SERVICE_STATUS     0.8800
+  service_cancelled          SERVICE_STATUS     0.8800
+  service_suspended          SERVICE_STATUS     0.8800
+  service_terminated         SERVICE_STATUS     0.8800
+
+predicates still at the unmapped floor: NONE
+
+$ python -m pytest packages/python/provenance_domain/tests/test_authority.py -q
+..................                                                       [100%]
+18 passed in 0.33s
+exit=0

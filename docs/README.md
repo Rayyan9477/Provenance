@@ -1,8 +1,57 @@
 # Provenance — Documentation Index and Authority
 
-Status: planning complete v1.1  
-Implementation status: not started  
-Last reconciled: 2026-08-17
+Status: planning complete v1.1, **partially superseded by the 2026-08-24 pivot**  
+Implementation status: substantial; see `STATUS.md` at the repository root  
+Last reconciled: 2026-08-17 · pivot recorded 2026-08-24
+
+> ## Read this before trusting any document below
+>
+> This pack was written for the CockroachDB × AWS hackathon. On 2026-08-24 the
+> project pivoted to the **All Things Agentic Hackathon** (Gemini, a Google agent
+> framework, Cloud Run). The pack is 55,000 lines and was **not** rewritten
+> wholesale — that would have consumed the remaining schedule and introduced more
+> drift than it removed. Instead the change is recorded in one authoritative place
+> and the rest is labelled.
+>
+> **`CANONICAL_DECISIONS.md` → *Gemini model id canon* outranks every other
+> document in this repository, including this index.** Where any document below
+> disagrees with it, that document is wrong.
+>
+> ### Rewritten for the pivot — current
+>
+> | Document | What changed |
+> |---|---|
+> | `CANONICAL_DECISIONS.md` | New *Gemini model id canon* section |
+> | `ARCHITECTURE.md` §3, §8.3, §17.1 | Hackathon alignment, agent framework, deployment topology |
+> | `implementation/00_IMPLEMENTATION_MAP.md` §1, §2, §4, §12 | Frozen decisions, deployment units, the SDK-session prohibition |
+> | `/README.md`, `/.env.example`, `docs/diagrams/` | Written after the pivot; judge-facing |
+>
+> ### Not rewritten — read with the substitutions below
+>
+> Everything else, and most heavily `ops/40_INFRA_IAC.md` (198 AWS references) and
+> `ops/41_RUNBOOK.md`. The **substance** of these documents — the DDL, the contracts,
+> the kernel algorithms, the retrieval pipeline, the trigger DSL, the gate batteries
+> — is sponsor-neutral and still correct. What is stale is the *provider* naming:
+>
+> | Reads | Now means |
+> |---|---|
+> | LangGraph / AgentCore Runtime | the `google-genai` SDK, in-process on Cloud Run |
+> | `us.anthropic.claude-opus-4-6-v1` (Tier R) | `gemini-3.7-flash` |
+> | `us.anthropic.claude-haiku-4-5-…` (Tier E) | `gemini-3.5-flash-lite` |
+> | `amazon.titan-embed-text-v2:0`, 1024 dims, `v1` | `gemini-embedding-2`, 1536 dims, `v2` |
+> | Cognito | identity provider selected by `PV_PLATFORM` |
+> | S3 / SES / EventBridge / SQS / Textract | Cloud Storage / deferred / in-process dispatcher / Gemini native multimodal |
+> | App Runner / Amplify | Cloud Run |
+>
+> **No Gemini id above has been invoked.** Every one is transcribed from
+> documentation, which is exactly the state the previous canon was in when all four
+> of *its* ids turned out to be un-invocable. `ops/probes/gemini_probe.py` is what
+> settles them; until its transcript exists in `ops/gemini-probe.txt` they are
+> candidates, not decisions.
+>
+> **`ARCHITECTURE.md` §25 remains superseded** on separate grounds — it specifies a
+> microservice tree that `00_IMPLEMENTATION_MAP.md` §4.2 rejects. That predates the
+> pivot and is unrelated to it.
 
 This repository is the implementation-ready design pack for **Provenance**, formerly called NeverReset. It contains product, architecture, contract, algorithm, quality, and delivery specifications. It does not contain application code and does not claim that any runtime behavior has been implemented or validated.
 
@@ -34,6 +83,17 @@ This repository is the implementation-ready design pack for **Provenance**, form
 24. `EXECUTION_PLAN.md` — delivery sequence, ownership, dependencies, and stop conditions.
 25. `PLANNING_READINESS.md` — objective-to-contract traceability and the final documentation-only readiness ledger.
 26. `implementation/` — concise implementation-oriented restatements and coding-agent handoff.
+
+### Execution layer
+
+These four sit between the gates and the specs, and are read at build time rather than design time.
+
+27. `EXECUTION/70_TASK_PLAN.md` — **the task authority.** 16 phases decomposed into tasks and sub-tasks, each with owning specs, deliverable paths, test-first obligation, acceptance criterion, the gate assertions it feeds, dependencies, and parallel-safety.
+28. `EXECUTION/71_AGENT_WORKFLOW.md` — the five agent roles, the eight-step per-phase loop, the six Bug Hunter lenses with their attack patterns, pasteable dispatch briefs, and context-isolation rules.
+29. `EXECUTION/72_DEFECT_PROTOCOL.md` — **the lens-id and severity authority.** Defect record schema, triage, fix-and-reverify, carried-debt ledger, and the anti-gaming rules.
+30. `frontend/33_DESIGN_PROTOTYPE_PROMPT.md` — **the standalone visual-design commission.** Its entire contents are pasted into a separate session; it deliberately contains no repository reference of any kind. Supersedes `frontend/31_DESIGN_BRIEF_FOR_OPUS5.md` §3 as the prompt that is actually sent; `31_` remains the repo-facing rationale for why the brief is shaped as it is.
+
+Operational evidence lives outside `docs/`, in `ops/` — probe transcripts, the vector-index variant decision, the signed gate ledgers, and `ops/defects/DEFECTS.md`.
 
 ## Authority rules
 

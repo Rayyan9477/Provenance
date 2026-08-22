@@ -1,0 +1,7 @@
+# gate=G2.4 sha=33e593c15d9edb0eb02e7e16edf3d1b1b2caa3c3 utc=2026-08-18T14:38:19Z exit=0
+# cmd=bash -c psql\ -At\ -d\ \'postgresql://[REDACTED-USER]:[REDACTED-SECRET]@rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257/provenance_ci\?sslmode=verify-full\'\ -c\ \"SELECT\ column_name\,\ seq_in_index\ FROM\ \[SHOW\ INDEXES\ FROM\ evidence_items\]\ WHERE\ index_name=\'evidence_embedding_ann_idx\'\ ORDER\ BY\ seq_in_index\;\"\ \|\ tr\ -d\ \'\\r\'\ \|\ tee\ /dev/stderr\ \|\ head\ -1\ \|\ grep\ -q\ \'\^user_id\' 
+# started=2026-08-18T14:38:17Z finished=2026-08-18T14:38:19Z tree=dirty scrubbed-by=tools/scrub.py
+#
+user_id|1
+embedding|2
+id|3

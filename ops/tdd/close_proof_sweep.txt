@@ -1,0 +1,241 @@
+Provenance — close-proof sweep, G-0 round 1
+===========================================
+
+Run: 2026-08-18. Reviewer context, independent of the builders.
+Scope: docs/EXECUTION/72_DEFECT_PROTOCOL.md sections 4.1, 5.2, 7.4, 11.3.
+Tree:  8f101f486e20f77f1199c18a9087f5ed3d02a59a (T1.4), working tree.
+
+WHAT THIS SWEEP DID
+-------------------
+28 records moved AWAITING_REVERIFY -> CLOSED, each with a full 40-character fix
+SHA, a runnable verifying assertion, and a close-proof line produced by an actual
+run. Every one of the 32 counterfactual runs behind those closes is recorded in
+ops/tdd/CLOSE_PROOF_COUNTERFACTUALS.txt with the neutering it applied, the pytest
+output it produced, and its exit code. None was written from memory.
+
+The open BLOCKER, D-00-042, is closed. Its counterfactual re-added the deleted
+allowlist C as a `paths` entry over ops/cluster-probe.txt and the gate logs; both
+named tests went red and gitleaks stopped reporting a planted DSN in a file that
+carries no redaction marker anywhere in it.
+
+BUCKETS
+-------
+  A  provable now, a test already existed        28   all 28 CLOSED
+  B  provable, test written by this sweep         1   D-00-023 - proved, still not CLOSED
+  C  not provable                                14   1 fixed-but-unprovable (D-00-040)
+                                                      plus 13 never fixed, for which a
+                                                      close-proof is not the missing thing
+  D  resolved by events                           3   D-00-006 and D-00-024 CLOSED,
+                                                      D-00-023 not
+
+  The buckets overlap where the record does. D-00-023 is resolved by events, got
+  a test written here, and its counterfactual passed twice - and it still does
+  not close, because the second half of its own Closes-when clause (a GNU Make
+  row in ops/41_RUNBOOK.md section 1) is unmet and lives under docs/, outside
+  this sweep's write boundary. Closing on the half that was provable is exactly
+  the move section 7.4 exists to prevent.
+
+  The 13 in bucket C that were never fixed are OPEN, not AWAITING_REVERIFY:
+  D-00-004 (disposition fixed by the brief, untouched), D-00-018, D-00-027,
+  D-00-028, D-00-029, D-00-030, D-00-031, D-00-032, D-00-035, D-00-036,
+  D-00-037, D-00-039, D-06-001.
+
+WHY NO `python -m tools.close_proof <id>` OUTPUT APPEARS BELOW
+--------------------------------------------------------------
+Phase 0 was authored before this repository had commit discipline. Every Phase 0
+non-test fix landed in 62e3f1c27cb60997d54720f86f17a0957320196a, which is also
+the commit that CREATED the file it fixed, so `git checkout 62e3f1c^ -- <path>`
+has no blob to restore: the parent is c2a0c05, a docs-only commit. The mechanical
+counterfactual cannot run and would print a tooling error rather than a verdict.
+
+The counterfactual itself still can, and did. Section 7.4's question is whether
+the named test distinguishes the fixed system from the broken one; the mechanical
+revert is one way to ask it, not the question. Each proof neuters the mechanism
+by hand in an isolated worktree at HEAD, runs the named test there, and requires
+a non-zero exit - using the neutering that the test's own docstring names, so a
+reader can repeat it. Every Close-proof field in the ledger says which of the two
+shapes produced it. No record claims a mechanical close-proof that was not run.
+
+WHAT THIS SWEEP DID NOT DO
+--------------------------
+It did not re-fix anything. Where a fix looks wrong or incomplete it is reported
+to the Integrator as a finding, because re-fixing during a verification sweep
+destroys the independence the sweep exists to provide.
+
+It did not touch D-00-004 (its disposition is a Phase-15 disclosure obligation),
+D-00-039 (still open and still real), or anything under packages/, docs/,
+ops/gates/, the Makefile, .gitleaks.toml, or the two defect tools.
+
+THREE THINGS THE INTEGRATOR MUST DO BEFORE THIS IS EVIDENCE
+------------------------------------------------------------
+1. tools/tests/test_build_lane_guards.py, test_ci_evidence_check.py and
+   test_phase0_probe_evidence.py are UNTRACKED. 24 of the 28 closes name a node
+   id in one of those three files. Until they are committed the verifying
+   assertions this ledger cites do not exist at any commit, and
+   `python -m tools.close_proof --all` would be checking files git has never
+   seen. Commit them.
+2. ops/tdd/CLOSE_PROOF_COUNTERFACTUALS.txt is the evidence behind every
+   Close-proof line, and is likewise untracked.
+3. Nine records D-01-001..D-01-009 were merged from the G-1 inbox. They are
+   phase 1 and TRIAGED, and they raise the ledger-wide OPEN MAJOR count from 11
+   to 20. They do not block G-0 under section 4.3, which rejects a report for an
+   open BLOCKER or MAJOR "against its own phase" - but note that the count line
+   below does NOT filter by phase even when --phase is passed, so the G-0 report
+   has to say which of the 20 are phase 0. Eleven are.
+
+===========================================================================
+$ python -m tools.defect_lint
+===========================================================================
+note: D:\Repo\neverreset\ops\defects\REJECTED.md does not exist yet. Section 8.1 creates it at the first triage round that rejects a finding; there is nothing to validate until then, so this is a note and not a violation.
+note: D:\Repo\neverreset\ops\defects\CARRIED_DEBT.md does not exist yet. Section 9.2 creates it at the first gate that accepts a MINOR. The carried-debt ledger is ABSENT, which is not the same claim as 'the carried-debt ledger is empty'.
+defect_lint: 0 violations
+
+===========================================================================
+$ python -m tools.defect_lint --report --phase 0
+===========================================================================
+note: D:\Repo\neverreset\ops\defects\REJECTED.md does not exist yet. Section 8.1 creates it at the first triage round that rejects a finding; there is nothing to validate until then, so this is a note and not a violation.
+note: D:\Repo\neverreset\ops\defects\CARRIED_DEBT.md does not exist yet. Section 9.2 creates it at the first gate that accepts a MINOR. The carried-debt ledger is ABSENT, which is not the same claim as 'the carried-debt ledger is empty'.
+ops/defects/DEFECTS.md - 42 record(s), phase 0, grouped by status
+
+OPEN (12)
+  D-00-004  MAJOR(M1)      L-DRIFT          Tier R target (Opus 5) denied; shipping on Opus 4.6, which carries a Phase-15 disclosure obligation
+      owning file: packages/python/provenance_contracts/src/provenance_contracts/settings.py
+  D-00-018  MAJOR(M3)      L-DRIFT          extra="forbid" does not reject an undeclared environment variable, as §12.11 claims
+      owning file: packages/python/provenance_contracts/src/provenance_contracts/settings.py
+  D-00-027  MAJOR(M3)      L-VAC            make does not run under PowerShell and T0.7's both-shells transcript does not exist
+      owning file: docs/ops/41_RUNBOOK.md
+  D-00-028  MAJOR(M3)      L-DRIFT          D-00-001 was never filed and T0.3's seven pack-level discrepancies are absent
+      owning file: ops/defects/DEFECTS.md
+  D-00-029  MAJOR(M3)      L-DRIFT          ops/cluster-provision.txt and ops/decisions/CLUSTER.md are named deliverables that do not exist
+      owning file: ops/cluster-provision.txt
+  D-00-030  MAJOR(M3)      L-DRIFT          ops/probes/phase0-probe.sh does not exist although T0.3 requires both stubs from the start
+      owning file: ops/probes/phase0-probe.sh
+  D-00-031  MAJOR(M3)      L-DRIFT          .pre-commit-config.yaml and gitleaks.yml are absent and the deviation is unrecorded
+      owning file: .github/workflows/ci.yml
+  D-00-032  MINOR(m1)      L-VAC            The arn-account-id scrub rule is entirely subsumed by bare-account-id
+      owning file: tools/scrub.py
+  D-00-035  MINOR(m1)      L-VAC            sabotage_guard --min-count 0 reports a missing file as a false numeric comparison
+      owning file: tools/sabotage_guard.py
+  D-00-036  MINOR(m1)      L-RENDER         tools/defect_lint.py never scrubs a reproduction although §5.1 requires it
+      owning file: tools/defect_lint.py
+  D-00-037  MINOR(m1)      L-RENDER         The real SQL username and cluster FQDN are committed to a repository that becomes public
+      owning file: ops/probes/README.md
+  D-00-039  MAJOR(M2)      L-VAC            Workspace packages are not installable with plain pip install -e; inter-package deps pinned ==1.0.0 resolve against PyPI
+      owning file: packages/python/
+
+AWAITING_REVERIFY (2)
+  D-00-023  MAJOR(M2)      L-VAC            .SHELLFLAGS is inert on GNU Make 3.81, the only make on the build machine
+      owning file: ./Makefile
+  D-00-040  MAJOR(M3)      L-DRIFT          Bedrock identifier form is provider-dependent and mirror-imaged; one uniform rule cannot call both families
+      owning file: docs/CANONICAL_DECISIONS.md
+
+CLOSED (28)
+  D-00-002  MAJOR(M3)      L-DRIFT          Every frozen Anthropic model id was un-invocable; Bedrock requires inference-profile ids
+      owning file: docs/CANONICAL_DECISIONS.md
+  D-00-003  MAJOR(M2)      L-VAC            PB-5 invocation never executed; access unproven
+      owning file: ops/bedrock-probe.txt
+  D-00-005  MAJOR(M1)      L-VAC            make probe truncates committed evidence before any connectivity check
+      owning file: ops/probes/phase0-probe.ps1
+  D-00-006  MAJOR(M1)      L-DRIFT          Phase 0 evidence destroyed; the probe ledger asserts PASS against empty transcripts
+      owning file: ops/PROBE_LEDGER.md
+  D-00-007  MAJOR(M2)      L-VAC            make lint's import-linter fallback exits 0 having evaluated zero contracts
+      owning file: ./Makefile
+  D-00-008  MAJOR(M1)      L-VAC            Unpinned ruff makes ruff format --check . return a different verdict by install date
+      owning file: pyproject.toml
+  D-00-009  MAJOR(M1)      L-RENDER         tools/scrub.py had no rule for five credential shapes this build emits
+      owning file: tools/scrub.py
+  D-00-010  MAJOR(M2)      L-RENDER         gitleaks allowlist C excused any gate-log line carrying a redaction marker
+      owning file: .gitleaks.toml
+  D-00-011  MAJOR(M2)      L-VAC            The CI evidence check never opened a log and ignored the whole S1..S10 family
+      owning file: .github/workflows/ci.yml
+  D-00-012  MAJOR(M1)      L-VAC            The unit-lane guard did not block gethostbyname; a unit test resolved a real host
+      owning file: conftest.py
+  D-00-013  MAJOR(M2)      L-VAC            Three guard mechanisms had no test that fails when the mechanism is deleted
+      owning file: tests/test_socket_guard.py
+  D-00-014  MAJOR(M2)      L-DRIFT          testpaths excluded tools/, so T0.3's 28 declared tests were never collected
+      owning file: pyproject.toml
+  D-00-015  MAJOR(M2)      L-VAC            make debt printed 0 carried items and exited 0 with no ledger file to read
+      owning file: tools/defect_lint.py
+  D-00-016  MAJOR(M2)      L-VAC            G0.7's exit-code assertion is a dead statement; the gate can fail on only one of its two claims
+      owning file: ./Makefile
+  D-00-017  MAJOR(M3)      L-DRIFT          The defect ledger failed its own linter, which §11.3 makes a binding gate precondition
+      owning file: ops/defects/DEFECTS.md
+  D-00-019  MAJOR(M1)      L-RENDER         ValidationError.errors() renders the raw environment, credentials in plaintext
+      owning file: packages/python/provenance_contracts/src/provenance_contracts/settings.py
+  D-00-020  MAJOR(M3)      L-DRIFT          PB-5 probed the superseded bare anthropic.claude-* ids
+      owning file: ops/probes/phase0-probe.ps1
+  D-00-021  MAJOR(M3)      L-RENDER         The probe scrubber preserved the userinfo *user*, which tools/scrub.py deliberately redacts
+      owning file: ops/probes/phase0-probe.ps1
+  D-00-022  MAJOR(M3)      L-DRIFT          Two probe ledgers existed at two paths with contradictory verdicts
+      owning file: ops/probes/PROBE_LEDGER.md
+  D-00-024  MAJOR(M2)      L-RENDER         gitleaks is not installed, so G0.3 cannot run and tools/scrub.py is the only filter
+      owning file: ./Makefile
+  D-00-025  MAJOR(M3)      L-RENDER         make gate-0 ran one of the two scans .gitleaks.toml declares G0.3 to be
+      owning file: ./Makefile
+  D-00-026  MAJOR(M2)      L-VAC            tools/gate.sh did not check the scrubber's status on the command line
+      owning file: tools/gate.sh
+  D-00-033  MINOR(m1)      L-RENDER         .gitignore missed evals/reports/*.json, six credential shapes, and spelled lib64/ as lib60/
+      owning file: .gitignore
+  D-00-034  MINOR(m1)      L-DRIFT          NOTICE attributes LangGraph to two graphs that appear nowhere in the design pack
+      owning file: ./NOTICE
+  D-00-038  MINOR(m1)      L-RENDER         Allowlist C's never committed regex was the only one requiring no redaction marker
+      owning file: .gitleaks.toml
+  D-00-041  MAJOR(M2)      L-VAC            On gitleaks 8.21.x every top-level allowlist is ignored for custom rules, so the pv-* rules ran unallowlisted
+      owning file: ./.gitleaks.toml
+  D-00-042  BLOCKER(B4)    L-VAC            allowlist.paths is a whole-file skip; eight files including the probe transcripts were never scanned
+      owning file: ./.gitleaks.toml
+  D-00-043  MAJOR(M2)      L-VAC            G0.3b was the same scan run twice and could not see ops/, which was untracked
+      owning file: ./Makefile
+
+OPEN BLOCKER: 0  OPEN MAJOR: 20  OPEN MINOR: 4  CARRIED: 0  REJECTED: 0
+defect_lint: 0 violations
+
+===========================================================================
+$ python -m tools.close_proof --all
+  Not required by the brief. Run as an independent check that every CLOSED
+  row names an assertion pytest can actually collect, and that every
+  Close-proof field reads PASS.
+===========================================================================
+28 CLOSED record(s)
+
+  D-00-002: ok   tools/tests/test_phase0_probe_evidence.py::test_pb5_records_a_real_invocation_for_both_tiers: collected by pytest
+  D-00-002: ok   packages/python/provenance_contracts/tests/test_settings.py::test_bare_anthropic_chat_model_id_is_rejected: collected by pytest
+  D-00-003: ok   tools/tests/test_phase0_probe_evidence.py::test_pb5_records_a_real_invocation_for_both_tiers: collected by pytest
+  D-00-005: ok   tools/tests/test_phase0_probe_evidence.py::test_the_probe_refuses_to_overwrite_existing_evidence: collected by pytest
+  D-00-006: ok   tools/tests/test_phase0_probe_evidence.py::test_the_g0_6_evidence_is_present_and_complete: collected by pytest
+  D-00-007: ok   tools/tests/test_build_lane_guards.py::test_make_lint_refuses_the_import_linter_module_fallback: collected by pytest
+  D-00-008: ok   tools/tests/test_build_lane_guards.py::test_ruff_is_pinned_to_an_exact_version: collected by pytest
+  D-00-009: ok   tools/tests/test_scrub.py::test_rule_redacts_the_secret_it_names: collected by pytest
+  D-00-009: ok   tools/tests/test_scrub.py::test_every_rule_has_at_least_one_leak_case: collected by pytest
+  D-00-010: ok   tools/tests/test_gitleaks_config.py::test_transcript_paths_are_scanned_not_skipped: collected by pytest
+  D-00-010: ok   tools/tests/test_gitleaks_config.py::test_repo_ops_directory_is_clean: collected by pytest
+  D-00-011: ok   tools/tests/test_ci_evidence_check.py::test_a_pass_row_whose_log_records_a_failure_is_rejected: collected by pytest
+  D-00-011: ok   tools/tests/test_ci_evidence_check.py::test_a_forged_row_in_the_submission_ledger_is_rejected: collected by pytest
+  D-00-012: ok   tests/test_socket_guard.py::test_the_legacy_resolvers_are_refused: collected by pytest
+  D-00-012: ok   tests/test_socket_guard.py::test_every_blocked_reach_is_actually_patched: collected by pytest
+  D-00-013: ok   tests/test_socket_guard.py::test_sendto_is_refused: collected by pytest
+  D-00-013: ok   tests/test_socket_guard.py::test_the_credential_unsetter_actually_removes_them: collected by pytest
+  D-00-014: ok   tools/tests/test_build_lane_guards.py::test_testpaths_collects_the_tools_tree: collected by pytest
+  D-00-015: ok   tools/tests/test_build_lane_guards.py::test_make_debt_distinguishes_a_missing_ledger_from_an_empty_one: collected by pytest
+  D-00-016: ok   tools/tests/test_build_lane_guards.py::test_g0_7_exit_code_assertion_is_not_a_dead_statement: collected by pytest
+  D-00-017: ok   tools/tests/test_build_lane_guards.py::test_the_defect_ledger_passes_its_own_linter: collected by pytest
+  D-00-019: ok   packages/python/provenance_contracts/tests/test_settings.py::test_a_validation_error_carries_the_raw_environment_and_get_settings_drops_it: collected by pytest
+  D-00-020: ok   tools/tests/test_phase0_probe_evidence.py::test_the_probe_names_no_superseded_bare_anthropic_id: collected by pytest
+  D-00-020: ok   tools/tests/test_phase0_probe_evidence.py::test_pb5_probes_all_three_anthropic_tiers_through_inference_profiles: collected by pytest
+  D-00-021: ok   tools/tests/test_phase0_probe_evidence.py::test_the_probe_scrubber_redacts_both_halves_of_the_userinfo: collected by pytest
+  D-00-022: ok   tools/tests/test_phase0_probe_evidence.py::test_there_is_exactly_one_probe_ledger: collected by pytest
+  D-00-024: ok   tools/tests/test_build_lane_guards.py::test_the_gitleaks_binary_is_installed_and_meets_the_floor: collected by pytest
+  D-00-025: ok   tools/tests/test_build_lane_guards.py::test_gate_0_runs_both_gitleaks_scans_with_the_project_config: collected by pytest
+  D-00-026: ok   tools/tests/test_build_lane_guards.py::test_gate_sh_takes_the_capture_failed_path_when_the_command_scrub_fails: collected by pytest
+  D-00-033: ok   tools/tests/test_build_lane_guards.py::test_gitignore_covers_the_credential_shapes: collected by pytest
+  D-00-033: ok   tools/tests/test_build_lane_guards.py::test_the_named_eval_baseline_is_not_ignored: collected by pytest
+  D-00-034: ok   tools/tests/test_build_lane_guards.py::test_notice_attributes_langgraph_to_graphs_that_exist: collected by pytest
+  D-00-038: ok   tools/tests/test_build_lane_guards.py::test_a_secret_on_a_never_committed_line_is_still_reported: collected by pytest
+  D-00-041: ok   tools/tests/test_build_lane_guards.py::test_the_gitleaks_version_floor_is_declared_consistently: collected by pytest
+  D-00-041: ok   tools/tests/test_gitleaks_config.py::test_binary_meets_the_version_floor: collected by pytest
+  D-00-042: ok   tools/tests/test_gitleaks_config.py::test_no_allowlist_uses_paths: collected by pytest
+  D-00-042: ok   tools/tests/test_gitleaks_config.py::test_transcript_paths_are_scanned_not_skipped: collected by pytest
+  D-00-043: ok   tools/tests/test_build_lane_guards.py::test_g0_3b_is_a_working_tree_scan_of_ops: collected by pytest
+  D-00-043: ok   tools/tests/test_gitleaks_config.py::test_working_tree_scan_of_ops_detects_a_planted_credential: collected by pytest
+
+close_proof --all: 0 failure(s)

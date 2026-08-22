@@ -1,0 +1,6 @@
+# gate=G0.6 sha=291ef912e7d0341e51eac70d4f8b47f307221faf utc=2026-08-18T00:08:33Z exit=0
+# cmd=bash -c set\ -euo\ pipefail\;\ test\ -s\ ops/cluster-probe.txt\;\ n=\$\(grep\ -c\ \"\^--\ P\"\ ops/cluster-probe.txt\)\;\ echo\ \"--\ P\ headers:\ \$n\"\;\ test\ \"\$n\"\ =\ \"11\"\;\ v=\$\(grep\ -cE\ \"\^VARIANT:\ \(A\|B\|C\)\$\"\ ops/decisions/VECTOR_INDEX_VARIANT.md\)\;\ echo\ \"VARIANT\ lines:\ \$v\"\;\ test\ \"\$v\"\ =\ \"1\" 
+# started=2026-08-18T00:08:32Z finished=2026-08-18T00:08:33Z tree=dirty scrubbed-by=tools/scrub.py
+#
+-- P headers: 11
+VARIANT lines: 1

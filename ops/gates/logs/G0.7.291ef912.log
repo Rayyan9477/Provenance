@@ -1,0 +1,5 @@
+# gate=G0.7 sha=291ef912e7d0341e51eac70d4f8b47f307221faf utc=2026-08-18T00:08:34Z exit=0
+# cmd=bash -c set\ -uo\ pipefail\;\ out=\$\(env\ -i\ PATH=\"\$PATH\"\ python\ -c\ \"from\ provenance_contracts.settings\ import\ Settings\;\ Settings\(\)\"\ 2\>\&1\)\;\ rc=\$\?\;\ printf\ \"exit=%s\\n\"\ \"\$rc\"\;\ test\ \"\$rc\"\ -ne\ 0\ \|\|\ exit\ 1\;\ printf\ \"%s\"\ \"\$out\"\ \|\ grep\ -q\ \"COCKROACH_DATABASE_URL\" 
+# started=2026-08-18T00:08:33Z finished=2026-08-18T00:08:34Z tree=dirty scrubbed-by=tools/scrub.py
+#
+exit=1

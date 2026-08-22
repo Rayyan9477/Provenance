@@ -1,0 +1,13 @@
+G0.3 evidence — after the allowlist rewrite
+captured 2026-08-17T23:43:34Z   gitleaks 8.30.1
+
+$ gitleaks detect --source . --config .gitleaks.toml --redact --no-banner --exit-code 1
+[90m4:43AM[0m [32mINF[0m [1m1 commits scanned.[0m
+[90m4:43AM[0m [32mINF[0m [1mscanned ~2751832 bytes (2.75 MB) in 330ms[0m
+[90m4:43AM[0m [32mINF[0m [1mno leaks found[0m
+exit=0
+
+$ gitleaks detect --source ops --config .gitleaks.toml --redact --no-banner --no-git --exit-code 1
+[90m4:43AM[0m [32mINF[0m [1mscanned ~310530 bytes (310.53 KB) in 136ms[0m
+[90m4:43AM[0m [32mINF[0m [1mno leaks found[0m
+exit=0

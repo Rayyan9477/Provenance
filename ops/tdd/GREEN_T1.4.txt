@@ -1,0 +1,21 @@
+T1.4 GREEN — invariants, INVARIANTS.md, invariant_map_check, sabotage matrix
+Captured 2026-08-18T09:18:36Z   git HEAD: e2a242c
+
+$ python -m pytest packages/python/provenance_domain/tests/test_invariants.py -q
+.....................                                                    [100%]
+21 passed in 0.37s
+exit=0
+
+$ python -m tools.invariant_map_check
+invariant_map_check: packages/python/provenance_domain/INVARIANTS.md
+  Evidence is append-only   MAPPED
+  Beliefs are revisable     MAPPED
+  State is transactional    MAPPED
+  Actions are permissioned  MAPPED
+  Grounding                 MAPPED
+5 invariants, 5 mapped, 0 UNPROVEN
+exit=0
+
+$ python -m tools.sabotage_guard --count
+sabotage matrix entries: 1
+exit=0

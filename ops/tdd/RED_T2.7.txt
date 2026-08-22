@@ -1,0 +1,444 @@
+=== RED transcript - T2.7 (db/verify.sql, make db-verify, tools/manifest_check.py) ===
+date(UTC): 2026-08-18T14:50:12Z
+git sha: 33e593c
+python: Python 3.12.3
+
+--- state on disk before implementation: neither deliverable exists ---
+ls: cannot access 'db/verify.sql': No such file or directory
+ls: cannot access 'tools/manifest_check.py': No such file or directory
+ls: cannot access 'db/seeds/MANIFEST.json': No such file or directory
+
+$ python -m pytest tools/tests/test_manifest_check.py -q
+
+=================================== ERRORS ====================================
+_____________ ERROR collecting tools/tests/test_manifest_check.py _____________
+ImportError while importing test module 'D:\Repo\neverreset\tools\tests\test_manifest_check.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+tools\tests\test_manifest_check.py:36: in <module>
+    from tools.manifest_check import (
+E   ModuleNotFoundError: No module named 'tools.manifest_check'
+=========================== short test summary info ===========================
+ERROR tools/tests/test_manifest_check.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.39s
+exit=2
+
+$ python -m pytest services/control_plane/tests/db/test_verify_queries.py -q
+FFFFFFFFFF.F                                                             [100%]
+================================== FAILURES ===================================
+_________________ test_verify_sql_exists_and_is_one_statement _________________
+
+    def test_verify_sql_exists_and_is_one_statement() -> None:
+        """One statement, so psql and psycopg run identical bytes.
+    
+        ``make db-verify`` reads the verdict out of this file's own output. If the
+        file were a script of eleven separate statements, the target would have to
+        reconstruct the verdict itself and the two would drift.
+        """
+>       assert VERIFY_SQL.is_file(), f"{VERIFY_SQL} does not exist"
+E       AssertionError: D:\Repo\neverreset\db\verify.sql does not exist
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = WindowsPath('D:/Repo/neverreset/db/verify.sql').is_file
+
+services\control_plane\tests\db\test_verify_queries.py:402: AssertionError
+____________ test_verify_sql_transcribes_every_spec_query_verbatim ____________
+
+    def test_verify_sql_transcribes_every_spec_query_verbatim() -> None:
+        """Every statement in DDL section 18 appears in ``db/verify.sql`` unchanged.
+    
+        ``T2.7`` says "transcribe V1-V11 from section 18 verbatim". A hand-rewritten
+        predicate is how a verification query stops verifying what the spec says and
+        starts verifying what the implementer remembered.
+        """
+>       file_sql = _normalize_sql(VERIFY_SQL.read_text(encoding="utf-8"))
+
+services\control_plane\tests\db\test_verify_queries.py:414: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/verify.sql'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\verify.sql'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+__________ test_verify_sql_names_v11_as_the_positive_control_for_v10 __________
+
+    def test_verify_sql_names_v11_as_the_positive_control_for_v10() -> None:
+        """Section 23.7: the pair must be stated in writing, next to the query.
+    
+        "Any new 'expect zero' query must arrive with its pair, named
+        ``*_positive_control``, and the reviewer checks for the pair before reading
+        the result." A reviewer reading ``db/verify.sql`` must find the pairing
+        without holding the gate document open beside it.
+        """
+>       text = VERIFY_SQL.read_text(encoding="utf-8")
+
+services\control_plane\tests\db\test_verify_queries.py:431: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/verify.sql'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\verify.sql'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+_____ test_verify_sql_failure_message_names_the_three_retraction_fixtures _____
+
+    def test_verify_sql_failure_message_names_the_three_retraction_fixtures() -> None:
+        """``V11 < 3`` must fail with the fixture names, not with a bare number.
+    
+        ``T2.7`` acceptance: "V11 < 3 after a seed exits non-zero with a message
+        naming the retraction fixtures." The names are what tell the reader which
+        three rows to go and look for.
+        """
+>       text = VERIFY_SQL.read_text(encoding="utf-8")
+
+services\control_plane\tests\db\test_verify_queries.py:444: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/verify.sql'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\verify.sql'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+__________________ test_every_check_reports_what_it_examined __________________
+
+db_connection = <psycopg.Connection [IDLE] (host=rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud port=26257 user=pv_migrator database=provenance_ci) at 0x1f85a828170>
+
+    def test_every_check_reports_what_it_examined(db_connection: psycopg.Connection) -> None:
+        """The vacuity discrimination, asserted as a property of the output.
+    
+        A check that prints only ``0`` cannot be told apart from a check that ran
+        against nothing. Each line therefore carries ``examined=`` and a status of
+        ``HOLDS``, ``VACUOUS`` or ``VIOLATED``.
+        """
+        with db_connection.cursor() as cur:
+>           out = _run_verify(cur)
+
+services\control_plane\tests\db\test_verify_queries.py:462: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\control_plane\tests\db\test_verify_queries.py:173: in _run_verify
+    cursor.execute(VERIFY_SQL.read_text(encoding="utf-8"))  # noqa: S608 - static file
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/verify.sql'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\verify.sql'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+____________ test_summary_line_is_the_exact_string_g2_5_greps_for _____________
+
+db_connection = <psycopg.Connection [IDLE] (host=rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud port=26257 user=pv_migrator database=provenance_ci) at 0x1f85a828650>
+
+    def test_summary_line_is_the_exact_string_g2_5_greps_for(
+        db_connection: psycopg.Connection,
+    ) -> None:
+        """``G2.5`` reads ``V1 0  V2 0 ... V11 3`` - two spaces, V1 through V11."""
+        with db_connection.cursor() as cur:
+>           out = _run_verify(cur)
+
+services\control_plane\tests\db\test_verify_queries.py:483: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\control_plane\tests\db\test_verify_queries.py:173: in _run_verify
+    cursor.execute(VERIFY_SQL.read_text(encoding="utf-8"))  # noqa: S608 - static file
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/verify.sql'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\verify.sql'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+____________________ test_v1_through_v10_return_zero_rows _____________________
+
+db_connection = <psycopg.Connection [IDLE] (host=rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud port=26257 user=pv_migrator database=provenance_ci) at 0x1f85a82acc0>
+
+    def test_v1_through_v10_return_zero_rows(db_connection: psycopg.Connection) -> None:
+        """DDL section 18: "Every one of these must return zero rows."
+    
+        On an empty database this is trivially true, which is why the assertion below
+        is paired with a status check: a zero over an empty population is recorded as
+        ``VACUOUS``, and the run's verdict says so.
+        """
+        with db_connection.cursor() as cur:
+>           out = _run_verify(cur)
+
+services\control_plane\tests\db\test_verify_queries.py:500: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\control_plane\tests\db\test_verify_queries.py:173: in _run_verify
+    cursor.execute(VERIFY_SQL.read_text(encoding="utf-8"))  # noqa: S608 - static file
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/verify.sql'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\verify.sql'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+____ test_v11_is_zero_and_vacuous_before_the_seed_and_at_least_three_after ____
+
+db_connection = <psycopg.Connection [INTRANS] (host=rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud port=26257 user=pv_migrator database=provenance_ci) at 0x1f85a828980>
+
+    def test_v11_is_zero_and_vacuous_before_the_seed_and_at_least_three_after(
+        db_connection: psycopg.Connection,
+    ) -> None:
+        """``V11`` is 0 on an empty database - and that is not a pass.
+    
+        ``T2.7`` acceptance: "on an empty database V11 prints 0 and that is correct".
+        Correct, and unproven: the run must report ``VACUOUS_EMPTY_CORPUS`` rather
+        than success. Once ``T2.8`` has seeded, the other branch binds: ``V11 >= 3``
+        and the verdict is a real pass. Both branches assert; neither is a no-op.
+        """
+        with db_connection.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            assert row is not None
+            corpus = int(row[0])
+>           out = _run_verify(cur)
+
+services\control_plane\tests\db\test_verify_queries.py:520: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\control_plane\tests\db\test_verify_queries.py:173: in _run_verify
+    cursor.execute(VERIFY_SQL.read_text(encoding="utf-8"))  # noqa: S608 - static file
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/verify.sql'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\verify.sql'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+_____ test_v11_counts_retraction_fixtures_and_they_keep_their_embeddings ______
+
+db_connection = <psycopg.Connection [INTRANS] (host=rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud port=26257 user=pv_migrator database=provenance_ci) at 0x1f85a77b620>
+retraction_fixture = RetractionFixture(tenant_id=UUID('7c0c53e5-a8bb-46c7-9825-cdd18e102fcf'), user_id=UUID('ae3513ad-838f-4c41-9736-bc12a5...-4394-bf9f-e5472bdcdf64'), UUID('202dd34d-9df2-4260-8635-e702d7050749'), UUID('230000fc-2e36-457a-a7a8-7b296cbdb2f4')))
+
+    def test_v11_counts_retraction_fixtures_and_they_keep_their_embeddings(
+        db_connection: psycopg.Connection,
+        retraction_fixture: RetractionFixture,
+    ) -> None:
+        """After seeding, ``V11`` returns at least three - with vectors intact.
+    
+        DDL section 17.8: "All three keep their embeddings." A fixture deleted rather
+        than retracted, or stripped of its vector, would make ``V10`` pass for the
+        wrong reason forever.
+        """
+        with db_connection.cursor() as cur:
+>           out = _run_verify(cur)
+
+services\control_plane\tests\db\test_verify_queries.py:548: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\control_plane\tests\db\test_verify_queries.py:173: in _run_verify
+    cursor.execute(VERIFY_SQL.read_text(encoding="utf-8"))  # noqa: S608 - static file
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/verify.sql'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\verify.sql'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+______________ test_v10_returns_zero_while_retracted_rows_exist _______________
+
+db_connection = <psycopg.Connection [INTRANS] (host=rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud port=26257 user=pv_migrator database=provenance_ci) at 0x1f85a6d0fe0>
+retraction_fixture = RetractionFixture(tenant_id=UUID('56b72012-c2a8-44bb-a396-e44954ef4dde'), user_id=UUID('60ce11cd-8eea-46a6-a2b7-7f2ca1...-4e9c-b9fc-e04b9f417fcc'), UUID('67d15275-c791-4142-b6dd-47bb27f15758'), UUID('32092269-7100-4cd4-8f80-e48f5c6134be')))
+
+    def test_v10_returns_zero_while_retracted_rows_exist(
+        db_connection: psycopg.Connection,
+        retraction_fixture: RetractionFixture,
+    ) -> None:
+        """The negative half of the pair, over a population that is not empty."""
+        with db_connection.cursor() as cur:
+>           out = _run_verify(cur)
+
+services\control_plane\tests\db\test_verify_queries.py:570: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\control_plane\tests\db\test_verify_queries.py:173: in _run_verify
+    cursor.execute(VERIFY_SQL.read_text(encoding="utf-8"))  # noqa: S608 - static file
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/verify.sql'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\verify.sql'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+___________ test_v11_under_three_on_a_populated_corpus_is_a_failure ___________
+
+db_connection = <psycopg.Connection [INTRANS] (host=rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud port=26257 user=pv_migrator database=provenance_ci) at 0x1f85a7ecdd0>
+frozen_clock = FrozenClock(instant=datetime.datetime(2026, 9, 18, 9, 0, tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=72000))))
+
+    def test_v11_under_three_on_a_populated_corpus_is_a_failure(
+        db_connection: psycopg.Connection,
+        frozen_clock,
+    ) -> None:
+        """A corpus with evidence but no retractions must fail, not pass.
+    
+        This is the ``V11 < 3`` arm of the acceptance criterion. It can only be
+        observed while the database holds no retracted rows of its own; once
+        ``T2.8``'s seed has landed the three fixtures are always present, and the
+        assertion then flips to the seeded contract rather than being skipped.
+        """
+        now = frozen_clock.now_utc()
+        with db_connection.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items WHERE retraction_status <> 'ACTIVE'")
+            row = cur.fetchone()
+            assert row is not None
+            already_retracted = int(row[0])
+    
+            tenant_id, user_id = _insert_identity(cur)
+            artifact_id = _insert_artifact(cur, tenant_id=tenant_id, user_id=user_id, now=now)
+            _insert_evidence(
+                cur,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                artifact_id=artifact_id,
+                text="an active evidence item and no retraction anywhere",
+                now=now,
+                seed=11,
+            )
+>           out = _run_verify(cur)
+
+services\control_plane\tests\db\test_verify_queries.py:669: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\control_plane\tests\db\test_verify_queries.py:173: in _run_verify
+    cursor.execute(VERIFY_SQL.read_text(encoding="utf-8"))  # noqa: S608 - static file
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/verify.sql'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\verify.sql'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+=========================== short test summary info ===========================
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_verify_sql_exists_and_is_one_statement
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_verify_sql_transcribes_every_spec_query_verbatim
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_verify_sql_names_v11_as_the_positive_control_for_v10
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_verify_sql_failure_message_names_the_three_retraction_fixtures
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_every_check_reports_what_it_examined
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_summary_line_is_the_exact_string_g2_5_greps_for
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_v1_through_v10_return_zero_rows
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_v11_is_zero_and_vacuous_before_the_seed_and_at_least_three_after
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_v11_counts_retraction_fixtures_and_they_keep_their_embeddings
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_v10_returns_zero_while_retracted_rows_exist
+FAILED services/control_plane/tests/db/test_verify_queries.py::test_v11_under_three_on_a_populated_corpus_is_a_failure
+11 failed, 1 passed in 28.62s
+exit=1

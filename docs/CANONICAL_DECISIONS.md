@@ -134,6 +134,148 @@ Four documents previously carried four incompatible date sets for the same commi
 | Header copy | Strategy-dependent, selected from `memory_on.strategy`, never a client constant. Under `REPLAY_COMMITTED` the MEMORY_ON column is the already-committed production run and the UI must not claim it "ran just now". |
 | Permitted differences | Exactly four: `retrieval_enabled`, `canonical_memory_enabled`, `corpus_size_visible`, and the resulting `output`. Anything else differing is a parity failure. |
 
+## Bedrock model id canon (frozen 2026-08-17, supersedes the Tier E/R rows above)
+
+Phase 0 probing against the live account disproved the model ids frozen earlier. Two separate facts, both established by invocation rather than by listing — `list-foundation-models` returns ids that are **not invocable**, which is the trap.
+
+| Concern | Canonical decision |
+|---|---|
+| Identifier form — Anthropic | **Anthropic chat models are invoked by inference-profile id, never by bare model id.** A bare id returns `ValidationException: Invocation ... with on-demand throughput isn't supported. Retry your request with the ID or ARN of an inference profile`. The invocable form carries a region-group prefix: `us.` or `global.`. |
+| Identifier form — every other provider | **Third-party serverless models are invoked by bare id, and reject the profile form.** `us.zai.glm-5`, `us.moonshotai.kimi-k2.5`, `us.google.gemma-3-27b-it` and `us.deepseek.v3.2` all return `ValidationException`, while the same four ids without the prefix invoke successfully. The rule is the **mirror image** of the Anthropic rule, not an extension of it. A client that applies one rule uniformly cannot call both families. (`D-00-040`.) |
+| Tier E | **`us.anthropic.claude-haiku-4-5-20251001-v1:0`** — verified invocable. Note it also carries the dated suffix; the undated `anthropic.claude-haiku-4-5` does not exist in any form on Bedrock. |
+| Tier R — in force | **`us.anthropic.claude-opus-4-6-v1`** — verified invocable, and the most capable reasoning model this account can call. This is the shipped configuration, not a temporary substitution. |
+| Tier R — second reachable option | **`us.anthropic.claude-sonnet-4-6`** — verified invocable. Held as the fallback if Opus 4.6 throttles under eval load; a weaker choice for contradiction characterisation, so it is not the default. |
+| Denied on this account | `us.anthropic.claude-opus-5`, `us.anthropic.claude-sonnet-5`, `us.anthropic.claude-opus-4-8`, `us.anthropic.claude-opus-4-7`. A grant would have to be requested in the Bedrock console, us-east-1. **Nothing blocks on it** — see the row above. |
+| Embeddings | **`amazon.titan-embed-text-v2:0`**, unchanged, invoked by **bare id**. Verified: 1024 dims, L2 norm 1.0000000 with `"normalize": true`. |
+| Reachable but unadopted | `zai.glm-5`, `zai.glm-4.7`, `moonshotai.kimi-k2.5`, `google.gemma-3-27b-it`, `deepseek.v3.2`, `qwen.qwen3-next-80b-a3b`, `openai.gpt-oss-120b-1:0` are all invocable. None is adopted. A second model family in the reasoning path would mean two prompt calibrations, two refusal shapes and two JSON-mode behaviours to hold the extraction contract against, and `14_PROMPTS.md` is calibrated once. They are recorded because a **capacity** failure — not a capability one — is the scenario in which reaching for one is the right move, and that decision should not have to be re-probed under time pressure. |
+| Router obligation | Both tier ids are read from configuration (`BEDROCK_REASONING_MODEL_ID`, `BEDROCK_EXTRACTION_MODEL_ID`). Swapping either is a one-line environment change, never a code change. Because the two identifier forms differ by provider, the router **must not** synthesise a profile prefix; it passes the configured string through unmodified. `agent_runs.model_route` records the id actually used, so every run is attributable to the model that served it. |
+| Disclosure | The submission ships on **Opus 4.6**. `SUBMISSION.md` and the README state that, and do not claim Opus 5. Claiming a model you did not run is the kind of small, checkable dishonesty the pack exists to prevent, and `agent_runs.model_route` makes it checkable against persisted state. |
+
+Every occurrence of a bare `anthropic.claude-*` id elsewhere in the pack is superseded by this section.
+
+Evidence: `ops/bedrock-probe.txt`, run 2026-08-17T22:14:20Z. Every row above is a live `Converse` result, not a `list-foundation-models` listing — the listing returns ids that are not invocable, which is the trap the earlier run fell into.
+
+## Gemini model id canon (frozen 2026-08-24, supersedes the Bedrock canon above)
+
+The build pivoted from the CockroachDB × AWS hackathon to the All Things Agentic
+hackathon (deadline 2026-08-31T17:00 PDT), which mandates **Gemini 3.5 or newer**,
+**at least one Google agent framework**, and **at least one Google Cloud
+infrastructure service**. The CockroachDB entry is discarded; the cluster itself
+stays, because the eight migrations, twenty-six tables, five agent views, the seed
+and roughly 390 database and retrieval tests are the largest block of verified work
+in the repository, and `CREATE VECTOR INDEX` has no exact pgvector/ScaNN equivalent.
+
+Model access is the **Gemini Developer API** via an AI Studio API key, which the
+rules name explicitly ("accessed through Gemini API or Vertex AI"). No GCP service
+account, no ADC, no IAM. The Google Cloud requirement is therefore satisfied by
+**Cloud Run**, not by the model API.
+
+| Concern | Canonical decision |
+|---|---|
+| Reasoning tier — **there is no Pro option** | `gemini-3.1-pro-preview` is the only Pro model on the API and it is version **3.1**, *below* the mandated 3.5 floor; it also has no free tier. Gemini 3.5 Pro was announced but has not rolled out. **Both tiers are therefore Flash-class**, and any document implying a Pro reasoning tier is superseded. |
+| Tier E | `gemini-3.5-flash-lite` — extraction, classification, bulk structured output. |
+| Tier R | `gemini-3.7-flash` — semantic resolution, contradiction characterisation, attention assessment, advocacy drafting. |
+| Tier R fallback | `gemini-3.6-flash` (GA), held for capacity failure, not capability failure. |
+| Embeddings | **`gemini-embedding-2`** at `output_dimensionality=1536`, `embedding_version = 'v2'`. |
+| Why `gemini-embedding-2` and not `gemini-embedding-001` | `gemini-embedding-2` **auto-normalizes truncated dimensions** (768, 1536); `001` requires manual normalization for any width other than 3072. This stack ranks by **cosine**, and a missed normalization is silent — the distances stay numbers, stay ordered, and stop meaning anything. The model that makes the failure structurally impossible wins over the one that costs $0.05/1M less. It also raises the input ceiling from 2,048 to 8,192 tokens and is multimodal. |
+| Embedding width | **1536**. On Google's recommended list (768 / 1536 / 3072), halves storage and index-build cost against the 3072 default, and MRL truncation costs little quality. |
+| Agent framework | **`google-genai`** SDK (installed, 1.60.0), which is itself one of the four accepted frameworks. ADK remains an option for how the agent layer *reads*, never a requirement to satisfy a rule. |
+| Router obligation | Every id is read from configuration — `GEMINI_REASONING_MODEL_ID`, `GEMINI_EXTRACTION_MODEL_ID`, `GEMINI_REASONING_FALLBACK_MODEL_ID`, `GEMINI_EMBEDDING_MODEL_ID`. Swapping one is an environment change, never a code change. `agent_runs.model_route` records the id actually used, so every run is attributable to the model that served it. |
+| Database | CockroachDB Cloud, **unchanged**, on AWS `us-east-1`. Cloud Run should therefore sit in GCP `us-east4` — same physical metro, so the cross-cloud hop stays in single-digit milliseconds instead of 70+. |
+
+### These ids are PROBED, and the transcript is the evidence
+
+**Settled 2026-08-24 by live invocation.** `python ops/probes/gemini_probe.py`
+exited **0** with `PASS 11 | FAIL 0 | CANNOT RUN 0`; the transcript is
+`ops/gemini-probe.txt`. Every id in the table above was *invoked*, not listed —
+`client.models.list()` is recorded in the transcript under an explicit
+`REFERENCE ONLY, NOT PROOF` heading, because listing is the trap the Bedrock
+canon fell into and enumeration is not invocation.
+
+| Id | Verdict | Measured |
+|---|---|---|
+| `gemini-3.7-flash` (Tier R) | PASS | `reply='ok'`, 125 tokens, **116 of them thinking** |
+| `gemini-3.5-flash-lite` (Tier E) | PASS | `reply='ok'`, 9 tokens, `thoughts=None` — **does not think** |
+| `gemini-3.6-flash` (fallback) | PASS | `reply='ok'`, 116 tokens, 107 thinking |
+| `gemini-embedding-2` | PASS | **1536 dims, L2 norm 1.0000003 — unit-normalised**, drift `0.000e+00` across two calls |
+| `gemini-embedding-001` | PASS | 1536 dims, **L2 norm 0.6935943 — NOT normalised** |
+| structured output (`response_schema`) | PASS | `Extracted(amount='186.00', currency='USD')` |
+| native multimodal | PASS | described a 64×64 red-over-blue PNG as `'Red and blue.'` |
+
+**The embedding choice is now measured rather than argued.** The row above that
+justified `gemini-embedding-2` over `001` on auto-normalization was a claim read
+from documentation; it is now a number. At the same width, in the same minute,
+`2` returns 1.0000003 and `001` returns 0.6935943. The `gemini-001-v3` profile's
+`caller_must_normalize=True` is therefore correct and load-bearing, not defensive
+— cosine over unnormalised vectors still returns ordered numbers, which is why
+nothing downstream would ever have noticed.
+
+**Unknown 1 (the contested spelling) is closed.** `gemini-embedding-2` and
+`gemini-embedding-2-preview` both invoke and return byte-identical results
+(1536, 1.0000003). Migration `0009`'s CHECK may keep admitting both; there is now
+evidence for that latitude rather than an absence of evidence.
+
+**Two findings that the probe only produced because it was corrected first.**
+Both were defects in the probe, and both had already been written down as PASS or
+FAIL in the first transcript:
+
+1. **`max_output_tokens` is one allowance shared with thinking.** It is not a cap
+   on the reply. Every Flash tier above Lite thinks by default, so at
+   `max_output_tokens=16` the budget was spent before the first visible token:
+   `candidates_token_count=None`, `finish_reason=MAX_TOKENS`, `response.text=''`.
+   An empty string is not an exception, so the first run recorded **PASS for three
+   ids that answered nothing**. The router is unaffected — it budgets 8192/16000
+   and `router.py:482` treats truncation as a schema failure — but the probe's
+   verdict was vacuous, and a vacuous verdict in a transcript whose purpose is to
+   be believed is worse than no transcript.
+2. **PB-G6's FAIL was the fixture, not the capability.** The probe uploaded a 1×1
+   *transparent* PNG and the API answered `400 INVALID_ARGUMENT: Unable to process
+   input image`. An 8×8 solid red PNG — **the same 75 bytes** — succeeds. Acting on
+   that FAIL would have kept an external OCR dependency and forfeited the
+   multimodal category on the evidence of one transparent pixel. This is `D-00-005`
+   in its purest form: the probe could not perform the action and reported that the
+   capability had failed.
+
+**Unknown 2 (rate limits) still stands.** The published limits are per-tier and
+only visible in the AI Studio dashboard. Re-embedding 18,035 texts is the longest
+unattended job in the plan, and a free-tier limit could turn a fifty-minute job
+into an overnight one. The Batch API offers higher throughput at half price but
+appears to require Tier 1 (billing enabled). Nothing in this probe measured
+throughput, and nothing here should be read as if it did.
+
+Every occurrence of a `us.anthropic.*`, `anthropic.claude-*` or
+`amazon.titan-embed-*` id elsewhere in the pack is superseded by this section for
+new work. The Titan constants remain reachable in code because the 18,035 vectors
+currently in `evidence_items` were rendered by Titan at 1024 dimensions and stay
+uninterpretable without them until the re-embed lands.
+
+## Repository layout canon (frozen 2026-08-17)
+
+Four documents specified four different repository trees, and `ARCHITECTURE.md` §25 contradicted the implementation map outright by specifying a microservice decomposition that §4.2 explicitly rejects. Building the wrong one would have put the Memory Kernel in its own service and broken the single-canonical-writer boundary.
+
+| Concern | Canonical decision |
+|---|---|
+| Layout authority | `implementation/00_IMPLEMENTATION_MAP.md` §5, as reconciled. All other trees defer to it. |
+| `ARCHITECTURE.md` §25 | **Superseded.** Marked in place; retained only as a record of a rejected alternative. Must not be built from. |
+| Deployment units | Four: `web`, `control-plane`, `agent-runtime`, `workers`. Not five services, not three agent services. |
+| Hero artifact bytes | One location: **`demo/artifacts/`**. Replaces `demo_data/the_move/` and `db/demo/`, both retired. |
+| Seed scripts | `scripts/seed/` — `ids.py` (the `sid()` helper), `decoys.py`, `embeddings.py`. |
+| Execution evidence | `ops/` — probes, decisions, gate ledgers, logs, and `ops/defects/DEFECTS.md`. Committed and gitleaks-scanned. |
+| Test placement | Per-package tests live beside their package. Top-level `tests/` holds only genuinely cross-package suites (`retrieval/`, `e2e/`, `support/`). A test importing from exactly one package belongs next to that package. |
+
+## Test and corpus counts (frozen 2026-08-17)
+
+Three totals had been carried forward without re-adding the per-file column. The enumerated per-file counts are authoritative.
+
+| Concern | Canonical decision |
+|---|---|
+| `provenance_domain` tests | **230** (93 domain and state machines + 137 kernel algorithms) |
+| Layer 1 total | **392** (230 + 44 contracts + 14 `provenance_db` unit + 104 control-plane unit) |
+| Full suite total | **626** across the eight layers |
+| Eval corpus | **51** scenarios. The two `20_TDD_STRATEGY.md` occurrences of 62 are corrected; this register, `22_EVAL_DATASETS.md`, `G14.1` and the README were already right. |
+
+A gate that asserts a test count against a wrong figure fails on arrival, so these are contract values, not documentation trivia.
+
 ## Closed former questions
 
 - Superseded evidence is excluded from active retrieval, not merely down-weighted.

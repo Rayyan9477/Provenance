@@ -1,0 +1,26 @@
+T1.1 RED transcript — provenance_domain/enums.py
+Captured 2026-08-17T22:16:28Z
+git HEAD: c2a0c05
+
+$ ls packages/python/provenance_domain/src/provenance_domain/
+__init__.py
+__pycache__
+kernel
+
+(enums.py does not exist yet — this run precedes the implementation)
+
+$ python -m pytest packages/python/provenance_domain/tests/test_enums.py -q
+
+=================================== ERRORS ====================================
+___ ERROR collecting packages/python/provenance_domain/tests/test_enums.py ____
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_domain\tests\test_enums.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_domain\tests\test_enums.py:27: in <module>
+    from provenance_domain import enums
+E   ImportError: cannot import name 'enums' from 'provenance_domain' (D:\Repo\neverreset\packages\python\provenance_domain\src\provenance_domain\__init__.py)
+=========================== short test summary info ===========================
+ERROR packages/python/provenance_domain/tests/test_enums.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.24s
+exit=2

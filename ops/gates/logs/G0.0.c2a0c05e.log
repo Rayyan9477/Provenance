@@ -1,0 +1,5 @@
+# gate=G0.0 sha=c2a0c05e0e6bced45850fdf6b6fcb26c46ecef1f utc=2026-08-17T18:54:25Z exit=0
+# cmd=echo postgresql://[REDACTED-USER]:[REDACTED-SECRET]@h/d 
+# started=2026-08-17T18:54:24Z finished=2026-08-17T18:54:25Z tree=dirty scrubbed-by=tools/scrub.py
+#
+postgresql://[REDACTED-USER]:[REDACTED-SECRET]@h/d

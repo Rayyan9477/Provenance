@@ -1,0 +1,329 @@
+=== GREEN transcript — T4.1 through T4.5 ===
+Recorded after implementation. The RED counterpart is
+ops/tdd/RED_T4.1-4.5.txt (195 failed, 85 passed, exit=1).
+Date (UTC): 2026-08-18T15:56:01Z
+git HEAD:   33e593c
+
+--------------------------------------------------------------------
+1. The kernel suite
+   python -m pytest services/control_plane/tests/kernel -q --no-header
+--------------------------------------------------------------------
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 76%]
+..................................................................       [100%]
+282 passed in 1.21s
+
+exit=0
+
+--------------------------------------------------------------------
+2. THE NON-NEGOTIABLE: no network, no AWS credentials, no model call.
+   Every test in the selection carries pytest.mark.unit, which the root
+   conftest turns into 20_TDD_STRATEGY.md section 2.3 mechanism E3:
+   the five credential variables are deleted and every outbound socket
+   reach raises. The five are ALSO stripped from the parent environment
+   here, so the lane cannot pass on an ambient credential.
+
+   env -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
+       -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION \
+       -u COCKROACH_DATABASE_URL -u PROVENANCE_TEST_DB_URL \
+       -u PV_DB_KERNEL -u PV_DB_APP -u DATABASE_URL \
+     python -m pytest services/control_plane/tests/kernel -q --no-header -m unit
+--------------------------------------------------------------------
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 76%]
+..................................................................       [100%]
+282 passed in 1.21s
+
+exit=0
+
+--------------------------------------------------------------------
+3. The import graph: no I/O library is even loaded by the Kernel.
+   Imports all seven decision modules and inspects sys.modules.
+--------------------------------------------------------------------
+modules imported: 309
+forbidden modules loaded: ['asyncio']
+
+exit=0
+
+--------------------------------------------------------------------
+4. G4.9 sabotage probe. A green run here would be a gate failure.
+   PV_SABOTAGE=memory_kernel.preflight.assert_grounded \
+     python -m pytest services/control_plane/tests/kernel -q --no-header
+--------------------------------------------------------------------
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 76%]
+................................FF..F.............................       [100%]
+================================== FAILURES ===================================
+_____________ test_a_grounded_proposal_passes_the_grounding_check _____________
+
+    def test_a_grounded_proposal_passes_the_grounding_check() -> None:
+        """The happy path returns an empty tuple - "nothing ungrounded"."""
+>       assert pf.assert_grounded(_Ungrounded(0)) == ()
+E       assert <services.control_plane.tests.kernel.test_preflight._Ungrounded object at 0x0000011B89447BF0> == ()
+E        +  where <services.control_plane.tests.kernel.test_preflight._Ungrounded object at 0x0000011B89447BF0> = <function _identity at 0x0000011B88801300>(<services.control_plane.tests.kernel.test_preflight._Ungrounded object at 0x0000011B89447BF0>)
+E        +    where <function _identity at 0x0000011B88801300> = pf.assert_grounded
+E        +    and   <services.control_plane.tests.kernel.test_preflight._Ungrounded object at 0x0000011B89447BF0> = _Ungrounded(0)
+
+services\control_plane\tests\kernel\test_preflight.py:386: AssertionError
+________________ test_an_ungrounded_belief_version_is_refused _________________
+
+    def test_an_ungrounded_belief_version_is_refused() -> None:
+        """THE grounding invariant, and required test 2. A belief is revisable, but
+        it is never free-floating: a canonical version carries at least one
+        `SUPPORTS` edge or names a registered deterministic derivation."""
+>       with pytest.raises(pf.UngroundedBeliefError):
+E       Failed: DID NOT RAISE <class 'services.control_plane.app.memory_kernel.preflight.UngroundedBeliefError'>
+
+services\control_plane\tests\kernel\test_preflight.py:393: Failed
+________________ test_no_sabotage_is_installed_on_a_normal_run ________________
+
+    def test_no_sabotage_is_installed_on_a_normal_run() -> None:
+        """A suite that ran permanently sabotaged would report failures nobody
+        could explain, and a green sabotage probe would then mean nothing."""
+>       assert pf.SABOTAGED_SYMBOLS == ()
+E       AssertionError: assert ('assert_grounded',) == ()
+E         
+E         Left contains one more item: 'assert_grounded'
+E         Use -v to get more diff
+
+services\control_plane\tests\kernel\test_preflight.py:426: AssertionError
+=========================== short test summary info ===========================
+FAILED services/control_plane/tests/kernel/test_preflight.py::test_a_grounded_proposal_passes_the_grounding_check
+FAILED services/control_plane/tests/kernel/test_preflight.py::test_an_ungrounded_belief_version_is_refused
+FAILED services/control_plane/tests/kernel/test_preflight.py::test_no_sabotage_is_installed_on_a_normal_run
+3 failed, 279 passed in 1.29s
+
+exit=1   (1 is the required result)
+
+--------------------------------------------------------------------
+5. mypy --strict over the delivered modules.
+   python -m mypy --strict services/control_plane/app/memory_kernel
+--------------------------------------------------------------------
+Success: no issues found in 8 source files
+
+exit=0
+
+--------------------------------------------------------------------
+6. make lint
+--------------------------------------------------------------------
+python -m ruff check .
+All checks passed!
+python -m ruff format --check .
+182 files already formatted
+python -m mypy --strict packages/python/provenance_domain packages/python/provenance_contracts
+Success: no issues found in 22 source files
+=============
+Import Linter
+=============
+
+
+---------
+Contracts
+---------
+
+Analyzed 90 files, 295 dependencies.
+------------------------------------
+
+provenance_domain.kernel is pure KEPT
+provenance_domain does not depend on pydantic KEPT
+provenance_contracts performs no I/O KEPT
+the agent runtime cannot reach the canonical write path KEPT
+
+Contracts: 4 kept, 0 broken.
+python -m tools.txn_purity_lint services packages workers
+scanned 6 transaction callbacks, 0 network constructs found
+
+exit=0
+
+--------------------------------------------------------------------
+7. The rest of the repository, to show nothing regressed.
+   python -m pytest -q --no-header -m "unit or not db"
+--------------------------------------------------------------------
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 24%]
+........................................................................ [ 31%]
+........................................................................ [ 37%]
+........................................................................ [ 43%]
+........................................................................ [ 49%]
+........................................................................ [ 55%]
+........................................................................ [ 62%]
+................F....................................................... [ 68%]
+........................................................................ [ 74%]
+........................................................................ [ 80%]
+........................................................................ [ 86%]
+........................................................................ [ 93%]
+........................................................................ [ 99%]
+........                                                                 [100%]
+================================== FAILURES ===================================
+__________________ test_g0_3b_is_a_working_tree_scan_of_ops ___________________
+
+    def test_g0_3b_is_a_working_tree_scan_of_ops() -> None:
+        """D-00-043: G0.3b was `--source ops/gates` in git mode � the same scan as
+        G0.3, run twice.
+    
+        In git mode gitleaks scans the repository containing `--source` and ignores
+        the path, so the byte count was identical to the scan on the line above it.
+        `ops/` was also untracked, so no git-mode scan could have reached it anyway.
+    
+        Neuter to prove it: change G0.3b back to `--source ops/gates` without
+        `--no-git`, in the Makefile or in ci.yml, and this test goes red.
+        """
+        make_line = [
+            line
+            for line in makefile_recipe("gate-0").splitlines()
+            if "$(GATE) G0.3b" in line and not line.lstrip().startswith("#")
+        ]
+        assert len(make_line) == 1, f"expected exactly one G0.3b line, found {make_line}"
+        for where, line in (("Makefile", make_line[0]), ("ci.yml", _ci_g0_3b_line())):
+            assert (
+                "--source ops " in f"{line} "
+            ), f"{where}: G0.3b must scan ops/, not a subdirectory: {line.strip()!r}"
+            assert "--no-git" in line, (
+                f"{where}: G0.3b must be a WORKING-TREE scan. Without --no-git "
+                "gitleaks scans the repository containing --source and ignores the "
+                f"path entirely: {line.strip()!r}"
+            )
+    
+        tracked = subprocess.run(
+            ["git", "ls-files", "ops/"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+>       assert tracked.stdout.strip(), (
+            "`git ls-files ops/` is empty. The evidence directory is untracked, so "
+            "nothing restores a destroyed transcript and no git-mode scan can see it."
+        )
+E       AssertionError: `git ls-files ops/` is empty. The evidence directory is untracked, so nothing restores a destroyed transcript and no git-mode scan can see it.
+E       assert ''
+E        +  where '' = <built-in method strip of str object at 0x00007FFB6599AD00>()
+E        +    where <built-in method strip of str object at 0x00007FFB6599AD00> = ''.strip
+E        +      where '' = CompletedProcess(args=['git', 'ls-files', 'ops/'], returncode=0, stdout='', stderr='').stdout
+
+tools\tests\test_build_lane_guards.py:315: AssertionError
+=========================== short test summary info ===========================
+FAILED tools/tests/test_build_lane_guards.py::test_g0_3b_is_a_working_tree_scan_of_ops
+1 failed, 1159 passed, 167 deselected in 23.91s
+
+exit=1
+
+   NOTE on the single failure above:
+   tools/tests/test_build_lane_guards.py::test_g0_3b_is_a_working_tree_scan_of_ops
+   asserts that `git ls-files ops/` is non-empty. It is empty because the
+   whole ops/ tree is currently untracked while the repository is being
+   committed. Nothing in T4.1-T4.5 can affect whether a path is tracked;
+   this task only ADDED files under ops/tdd/. Reported, not touched.
+
+--------------------------------------------------------------------
+8. The proposed .importlinter contract E1 for the decision modules.
+   .importlinter is Integrator-owned and was NOT edited. The block was
+   evaluated from a scratch copy of the file, both ways:
+     (a) as delivered  -> KEPT
+     (b) with 'import asyncio' planted in disposition.py -> BROKEN,
+         exit 1, then reverted. A contract that cannot fail is
+         decoration.
+--------------------------------------------------------------------
+=============
+Import Linter
+=============
+
+
+---------
+Contracts
+---------
+
+Analyzed 90 files, 295 dependencies.
+------------------------------------
+
+provenance_domain.kernel is pure KEPT
+provenance_domain does not depend on pydantic KEPT
+provenance_contracts performs no I/O KEPT
+the agent runtime cannot reach the canonical write path KEPT
+the Memory Kernel's decision modules are pure KEPT
+
+Contracts: 5 kept, 0 broken.
+
+exit=0
+
+--------------------------------------------------------------------
+9. Test counts by file
+--------------------------------------------------------------------
+  test_boundary        23 passed in 0.62s
+  test_config          31 passed in 0.30s
+  test_families        57 passed in 0.33s
+  test_propositions    29 passed in 0.31s
+  test_contradiction   58 passed in 0.33s
+  test_disposition     36 passed in 0.44s
+  test_money_ops       26 passed in 0.57s
+  test_preflight       22 passed in 0.55s
+  TOTAL                282 passed
+
+--------------------------------------------------------------------
+10. gitleaks 8.30.1 over the delivered trees. G0.3.
+--------------------------------------------------------------------
+
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+[90m9:00PM[0m [32mINF[0m [1mscanned ~661284 bytes (661.28 KB) in 121ms[0m
+[90m9:00PM[0m [32mINF[0m [1mno leaks found[0m
+
+exit=0
+
+====================================================================
+RE-RUN after removing two ornamental module constants that nothing
+read (propositions._VALUE_TYPES, preflight._MONEY_EXPONENT).
+Date (UTC): 2026-08-18T16:02:10Z
+====================================================================
+$ python -m ruff check .
+All checks passed!
+$ python -m ruff format --check .
+182 files already formatted
+$ python -m mypy --strict services/control_plane/app/memory_kernel
+Success: no issues found in 8 source files
+$ python -m pytest services/control_plane/tests/kernel -q --no-header
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 76%]
+..................................................................       [100%]
+282 passed in 1.20s
+
+exit=0
+$ make lint
+python -m ruff check .
+All checks passed!
+python -m ruff format --check .
+182 files already formatted
+python -m mypy --strict packages/python/provenance_domain packages/python/provenance_contracts
+Success: no issues found in 22 source files
+=============
+Import Linter
+=============
+
+
+---------
+Contracts
+---------
+
+Analyzed 90 files, 294 dependencies.
+------------------------------------
+
+provenance_domain.kernel is pure KEPT
+provenance_domain does not depend on pydantic KEPT
+provenance_contracts performs no I/O KEPT
+the agent runtime cannot reach the canonical write path KEPT
+
+Contracts: 4 kept, 0 broken.
+python -m tools.txn_purity_lint services packages workers
+scanned 6 transaction callbacks, 0 network constructs found
+
+exit=0

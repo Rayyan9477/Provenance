@@ -1,0 +1,57 @@
+===============================================================================
+ SABOTAGE — the two entries T5.3 and T6.5 add to tests/sabotage_matrix.yaml
+ Captured 2026-08-18T20:14:55Z.  Matrix: 3 entries before, 5 after.
+===============================================================================
+
+A GREEN RUN ON A SABOTAGE ENTRY IS A GATE FAILURE, NOT A PASS.
+
+-------------------------------------------------------------------------------
+G5.5  PV_SABOTAGE=state_proof.builder.load_grounding
+      pytest services/control_plane/tests/state_proof
+-------------------------------------------------------------------------------
+E        Input: "2 validation errors for BeliefProof\ngrounding.0.belief_version_id\n  Extra inputs are not permitted [type=extra_forbidden, input_value=UUID('aaaaaaaa-0000-4000-8000-000000000002'), input_type=UUID]\n    For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden\ngrounding.1.belief_version_id\n  Extra inputs are not permitted [type=extra_forbidden, input_value=UUID('aaaaaaaa-0000-4000-8000-000000000002'), input_type=UUID]\n    For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden"
+
+services\control_plane\tests\state_proof\test_state_proof_assembly.py:472: AssertionError
+=========================== short test summary info ===========================
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_grounding_carries_the_support_edges_under_that_name
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_lineage_carries_the_version_chain_under_that_name
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_the_gate_query_shape_is_what_g5_2_expects
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_grounding_and_lineage_are_disjoint_id_spaces
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_a_canonical_belief_with_no_supports_edge_is_refused
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_an_evidence_edge_must_render_its_evidence
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_retracted_evidence_is_rendered_with_its_status_badge
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_the_proof_hash_is_stable_across_two_renderings
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_a_memory_off_proof_cannot_be_contaminated_with_canonical_state
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_no_chain_of_thought_key_appears_anywhere_in_the_proof
+FAILED services/control_plane/tests/state_proof/test_state_proof_assembly.py::test_transitions_never_exceed_the_revision_they_describe
+11 failed, 6 passed in 0.77s
+
+-------------------------------------------------------------------------------
+G6.7  PV_SABOTAGE=retrieval.predicates.retraction_filter
+      pytest tests/retrieval/test_retraction_filtering.py
+-------------------------------------------------------------------------------
+        )
+E       AssertionError: the in-process retraction filter admitted a SUPERSEDED row. Layer 1 is one SQL predicate; layer 3 is what stands there when layer 1 is edited away, and a correction the user already made is one line from being returned first.
+E       assert UUID('7d51aa38-f6b4-5f0d-8111-6fed0e109026') not in {UUID('05eeace6-4747-551d-83ee-d1bb5c11cc15'), UUID('19ec6092-e1b7-51bf-8cab-34b7e043305d'), UUID('1b91528f-a33b-5fd3-...c-8bed-55f7dc8d6027'), UUID('1e0acc58-9809-5010-ba29-c44957aab813'), UUID('20a3789f-cc27-5a8e-9a73-4bdc46a38a52'), ...}
+
+tests\retrieval\test_retraction_filtering.py:218: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/retrieval/test_retraction_filtering.py::test_layer_three_excludes_what_a_lost_sql_predicate_would_admit
+1 failed, 5 passed in 22.50s
+
+-------------------------------------------------------------------------------
+COUNTER-EVIDENCE, recorded because it changes how G6.7 must be read.
+The layer-1 assertion alone is GREEN under the same sabotage: the SQL
+predicate still excludes the fixtures, so a selection pointed only at
+test_no_retraction_fixture_survives_the_production_statement would report
+the sabotage undetected-but-passing. This is why the matrix entry names the
+file that also carries the layer-3 assertion.
+-------------------------------------------------------------------------------
+.                                                                        [100%]
+1 passed in 8.76s
+
+-------------------------------------------------------------------------------
+Control: both selections with PV_SABOTAGE unset.
+-------------------------------------------------------------------------------
+.......................                                                  [100%]
+23 passed in 21.10s

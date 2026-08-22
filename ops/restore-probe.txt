@@ -1,0 +1,60 @@
+== Provenance Phase 0 probe PB-6 -- seed clone and restore path ==
+run_at   : 2026-08-17T22:16:39Z
+question : can a seeded template database be cloned fast enough to give each eval
+           scenario a fresh database, and does a clone survive the vector index?
+authority: docs/ops/41_RUNBOOK.md S3.6; feeds 20_TDD_STRATEGY.md R6
+stakes   : G-14 THROUGHPUT only, never correctness. If this path is unavailable the
+           frozen fallback is sequential scenarios with rollback plus a hero-lite
+           500-decoy commit lane. No product behaviour changes either way.
+
+SCOPE OF THIS RUN -- stated before the output, not after.
+  The runbook probe MEASURES clone wall-clock against a SEEDED template. There is
+  no seed: db/seeds is empty until Phase 2 (T2.8). A timing figure taken against an
+  empty database would be a number with no relationship to the quantity the probe
+  exists to bound, and reporting it as PB-6 would be worse than reporting nothing.
+  So this run answers only the CAPABILITY half -- is the mechanism permitted on a
+  managed BASIC cluster at all -- and leaves the timing half explicitly NOT RUN.
+
+-- C1. Cluster plan and version.
+CockroachDB CCL v26.2.5 (x86_64-pc-linux-gnu, built 2026/07/28 18:56:00, go1.25.5)
+
+-- C2. Is BACKUP INTO userfile permitted for this user on this cluster?
+1202371837720625153|succeeded|1|0
+
+-- C3. Does the cluster expose the managed-backup / restore surface?
+1
+
+-- C4. RESTORE under a new database name (the actual clone mechanism).
+1202371855495626753|succeeded|1|0
+
+-- CLEANUP
+NOTICE:  waiting for job(s) to complete: 1202371865991446529
+If the statement is canceled, jobs will continue in the background.
+DROP DATABASE
+
+== PB-6 VERDICT: CAPABILITY PASS / TIMING NOT RUN ==
+  C2 BACKUP DATABASE ... INTO 'userfile://...'      job succeeded
+  C3 SHOW BACKUPS IN 'userfile://...'               1 backup visible
+  C4 RESTORE ... WITH new_db_name = '_pv_clone_probe'  job succeeded
+  CLEANUP  DROP DATABASE _pv_clone_probe            succeeded
+
+  The clone mechanism the eval harness depends on IS permitted on this managed BASIC
+  cluster, by this user, without a paid backup tier and without the cockroach CLI:
+  userfile storage, BACKUP, SHOW BACKUPS and RESTORE ... WITH new_db_name all work
+  over the Postgres wire protocol. The R6 fallback is therefore not pre-emptively
+  triggered.
+
+  What is NOT established, and must not be read into the above:
+  - wall-clock for a clone of the SEEDED corpus (hero rows + 18000 decoys + a 1024-dim
+    vector index). That is the number PB-6 exists to produce and it cannot exist before
+    T2.8 seeds the template.
+  - whether a VECTOR INDEX survives BACKUP/RESTORE intact and is still CHOSEN by the
+    planner afterwards. The probe database had no vector index. This is the sharper of
+    the two open questions: a restore that silently drops or invalidates the ANN index
+    would leave every cloned scenario correct but full-scanning, which is exactly the
+    failure shape of D-06-001 -- right answers, no error, no warning.
+
+  ACTION: re-run PB-6 in full at T2.8, against the seeded template, with the vector
+  index present, and assert EXPLAIN on the restored clone still names the index. Until
+  then G-14 plans for the sequential-with-rollback fallback and treats per-scenario
+  cloning as unproven rather than as available.

@@ -1,0 +1,102 @@
+==============================================================================
+Provenance -- Gemini capability probe  (PB-G1..PB-G6)
+started             : 2026-08-24T03:16:34+00:00
+api                 : Gemini Developer API (AI Studio key)
+sdk                 : google-genai
+scrubbing           : every line below passed through tools/scrub.py
+verdict semantics   : PASS / FAIL / CANNOT RUN are THREE outcomes. Only FAIL changes canon (D-00-005).
+==============================================================================
+
+-- PB-G1  model listing (REFERENCE ONLY, NOT PROOF)
+   models/antigravity-preview-05-2026
+   models/aqa
+   models/deep-research-max-preview-04-2026
+   models/deep-research-preview-04-2026
+   models/deep-research-pro-preview-12-2025
+   models/gemini-2.5-computer-use-preview-10-2025
+   models/gemini-2.5-flash
+   models/gemini-2.5-flash-image
+   models/gemini-2.5-flash-lite
+   models/gemini-2.5-flash-native-audio-latest
+   models/gemini-2.5-flash-native-audio-preview-09-2025
+   models/gemini-2.5-flash-native-audio-preview-12-2025
+   models/gemini-2.5-flash-preview-tts
+   models/gemini-2.5-pro
+   models/gemini-2.5-pro-preview-tts
+   models/gemini-3-flash-preview
+   models/gemini-3-pro-image
+   models/gemini-3-pro-image-preview
+   models/gemini-3.1-flash-image
+   models/gemini-3.1-flash-image-preview
+   models/gemini-3.1-flash-lite
+   models/gemini-3.1-flash-lite-image
+   models/gemini-3.1-flash-lite-preview
+   models/gemini-3.1-flash-live-preview
+   models/gemini-3.1-flash-tts-preview
+   models/gemini-3.1-pro-preview
+   models/gemini-3.1-pro-preview-customtools
+   models/gemini-3.5-flash
+   models/gemini-3.5-flash-lite
+   models/gemini-3.5-live-translate-preview
+   models/gemini-3.6-flash
+   models/gemini-3.7-flash
+   models/gemini-embedding-001
+   models/gemini-embedding-2
+   models/gemini-embedding-2-preview
+   models/gemini-flash-latest
+   models/gemini-flash-lite-latest
+   models/gemini-omni-flash-preview
+   models/gemini-pro-latest
+   models/gemini-robotics-er-1.6-preview
+   models/gemini-robotics-er-2-preview
+   models/gemini-robotics-er-2-streaming-preview
+   models/gemma-4-26b-a4b-it
+   models/gemma-4-31b-it
+   models/lyria-3-clip-preview
+   models/lyria-3-pro-preview
+   models/nano-banana-pro-preview
+   models/veo-3.1-fast-generate-preview
+   models/veo-3.1-generate-preview
+   models/veo-3.1-lite-generate-preview
+   listed=50  -- a listed id is NOT an invocable id (CANONICAL_DECISIONS.md -> Bedrock model id canon)
+
+-- PB-G2  chat invocation (this is the evidence)
+   PASS        gemini-3.7-flash             reply='ok' tokens=125 thoughts=116 finish=STOP  (Tier R canon -- resolution, contradiction, advocacy)
+   PASS        gemini-3.5-flash-lite        reply='ok' tokens=9 thoughts=None finish=STOP  (Tier E canon -- extraction, classification)
+   PASS        gemini-3.6-flash             reply='ok' tokens=116 thoughts=107 finish=STOP  (Tier R fallback (GA))
+   PASS        gemini-3.5-flash             reply='ok' tokens=118 thoughts=109 finish=STOP  (alternate Tier E)
+
+-- PB-G3  structured output (response_schema)
+   PASS  gemini-3.5-flash-lite parsed=Extracted(amount='186.00', currency='USD')
+
+-- PB-G4  embeddings at output_dimensionality=1536
+   PASS  gemini-embedding-2           dims=1536 l2_norm=1.0000003 unit=True
+   PASS  gemini-embedding-2-preview   dims=1536 l2_norm=1.0000003 unit=True
+   PASS  gemini-embedding-001         dims=1536 l2_norm=0.6935943 unit=False
+         NOTE: not unit-normalised. Cosine ranking requires normalisation; the caller MUST normalise or recall degrades silently.
+
+-- PB-G5  embedding determinism (same text twice)
+   PASS  gemini-embedding-2 identical=True max_drift=0.000e+00
+
+-- PB-G6  native multimodal input (replaces Textract)
+   PASS  gemini-3.5-flash-lite accepted image/png; reply='Red and blue.'
+
+==============================================================================
+SUMMARY
+==============================================================================
+  PASS        PB-G1  model listing                      50 models listed
+  PASS        PB-G2  invoke gemini-3.7-flash            reply='ok'
+  PASS        PB-G2  invoke gemini-3.5-flash-lite       reply='ok'
+  PASS        PB-G2  invoke gemini-3.6-flash            reply='ok'
+  PASS        PB-G2  invoke gemini-3.5-flash            reply='ok'
+  PASS        PB-G3  structured output                  parsed=Extracted(amount='186.00', currency='USD')
+  PASS        PB-G4  embed gemini-embedding-2           dims=1536 l2_norm=1.0000003 unit_normalised=True
+  PASS        PB-G4  embed gemini-embedding-2-preview   dims=1536 l2_norm=1.0000003 unit_normalised=True
+  PASS        PB-G4  embed gemini-embedding-001         dims=1536 l2_norm=0.6935943 unit_normalised=False
+  PASS        PB-G5  embedding determinism              identical=True drift=0.000e+00
+  PASS        PB-G6  multimodal input                   reply='Red and blue.'
+
+  PASS 11  |  FAIL 0  |  CANNOT RUN 0
+
+  A FAIL means canon is WRONG and CANONICAL_DECISIONS.md -> Gemini model id canon must be corrected before that id is used.
+  A CANNOT RUN means the question is still OPEN. It must not be recorded as a failure and must not force a fallback.

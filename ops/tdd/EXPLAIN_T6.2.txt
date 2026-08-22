@@ -1,0 +1,170 @@
+==============================================================================
+A. THE PRODUCTION STATEMENT - services.control_plane.app.retrieval.ann
+   Query vector bound as parameter $3 (psycopg %s::VECTOR(1024)).
+   Byte-for-byte the 10_DATABASE_DDL.md section 5.5 block.
+   G6.2 asserts against THIS shape, parameter binding included.
+==============================================================================
+
+WITH ann AS (
+    SELECT
+        id,
+        tenant_id,
+        user_id,
+        artifact_id,
+        evidence_type,
+        normalized_text,
+        observed_at,
+        valid_from,
+        valid_to,
+        source_authority,
+        extraction_confidence,
+        retraction_status,
+        embedding_version,
+        embedding <=> %s::VECTOR(1024) AS distance
+    FROM evidence_items
+    WHERE user_id = %s
+    ORDER BY embedding <=> %s::VECTOR(1024)
+    LIMIT %s
+)
+SELECT id, artifact_id, evidence_type, normalized_text, observed_at,
+       valid_from, valid_to, source_authority, extraction_confidence, distance
+FROM ann
+WHERE tenant_id = %s
+  AND retraction_status = 'ACTIVE'
+  AND embedding_version = %s
+ORDER BY distance
+LIMIT %s
+
+------------------------------------------------------------------------------
+distribution: local
+vectorized: true
+
+• top-k
+│ columns: (id, artifact_id, evidence_type, normalized_text, observed_at, valid_from, valid_to, source_authority, extraction_confidence, distance)
+│ estimated row count: 7
+│ order: +distance
+│ k: 20
+│
+└── • render
+    │ columns: (id, artifact_id, evidence_type, normalized_text, observed_at, valid_from, valid_to, source_authority, extraction_confidence, distance)
+    │ render id: id
+    │ render artifact_id: artifact_id
+    │ render evidence_type: evidence_type
+    │ render normalized_text: normalized_text
+    │ render observed_at: observed_at
+    │ render valid_from: valid_from
+    │ render valid_to: valid_to
+    │ render source_authority: source_authority
+    │ render extraction_confidence: extraction_confidence
+    │ render distance: distance
+    │
+    └── • filter
+        │ columns: (distance, column31, id, tenant_id, artifact_id, evidence_type, normalized_text, valid_from, valid_to, observed_at, extraction_confidence, source_authority, retraction_status, embedding_version)
+        │ estimated row count: 7
+        │ filter: ((tenant_id = 'eaf56bfd-2fa3-5de4-bf55-34478e87b351') AND (retraction_status = 'ACTIVE')) AND (embedding_version = 'v1')
+        │
+        └── • top-k
+            │ columns: (distance, column31, id, tenant_id, artifact_id, evidence_type, normalized_text, valid_from, valid_to, observed_at, extraction_confidence, source_authority, retraction_status, embedding_version)
+            │ estimated row count: 80
+            │ order: +column31
+            │ k: 80
+            │
+            └── • render
+                │ columns: (distance, column31, id, tenant_id, artifact_id, evidence_type, normalized_text, valid_from, valid_to, observed_at, extraction_confidence, source_authority, retraction_status, embedding_version)
+                │ render distance: embedding <=> '<1024-float query vector>'
+                │ render column31: embedding <=> '<1024-float query vector>'
+                │ render id: id
+                │ render tenant_id: tenant_id
+                │ render artifact_id: artifact_id
+                │ render evidence_type: evidence_type
+                │ render normalized_text: normalized_text
+                │ render valid_from: valid_from
+                │ render valid_to: valid_to
+                │ render observed_at: observed_at
+                │ render extraction_confidence: extraction_confidence
+                │ render source_authority: source_authority
+                │ render retraction_status: retraction_status
+                │ render embedding_version: embedding_version
+                │
+                └── • lookup join (inner)
+                    │ columns: (id, tenant_id, user_id, artifact_id, evidence_type, normalized_text, valid_from, valid_to, observed_at, extraction_confidence, source_authority, retraction_status, embedding, embedding_version)
+                    │ estimated row count: 160 (missing stats)
+                    │ table: evidence_items@evidence_items_pkey
+                    │ equality: (id) = (id)
+                    │ equality cols are key
+                    │ parallel
+                    │
+                    └── • vector search
+                          columns: (id)
+                          estimated row count: 160 (missing stats)
+                          table: evidence_items@evidence_embedding_ann_idx
+                          target count: 80
+                          prefix spans: /"\x88\xf5G\x15(\bX腑\x93\xf5\x15\xee!\xba"-/"\x88\xf5G\x15(\bX腑\x93\xf5\x15\xee!\xba"/PrefixEnd
+                          query vector: '<1024-float query vector>'
+
+VERDICT A
+  evidence_embedding_ann_idx named : True
+  'vector search' node             : True
+  'prefix spans' (user_id prefix)  : True
+  FULL SCAN                        : False
+
+==============================================================================
+B. THE CONTRAST - D-06-001. Identical intent, query vector supplied as
+   a correlated subquery instead of a bound parameter.
+   Correct results, no error, no warning. Only the plan differs.
+==============================================================================
+SELECT id FROM evidence_items WHERE user_id = %s ORDER BY embedding <=> (SELECT embedding FROM evidence_items WHERE id = %s) LIMIT 40
+------------------------------------------------------------------------------
+distribution: local
+vectorized: true
+
+• root
+│ columns: (id)
+│
+├── • project
+│   │ columns: (id)
+│   │
+│   └── • top-k
+│       │ columns: (column59, id)
+│       │ estimated row count: 40
+│       │ order: +column59
+│       │ k: 40
+│       │
+│       └── • render
+│           │ columns: (column59, id)
+│           │ render column59: embedding <=> @S1
+│           │ render id: id
+│           │
+│           └── • filter
+│               │ columns: (id, user_id, embedding)
+│               │ estimated row count: 16,061
+│               │ filter: user_id = '88f54715-2808-58e8-8591-93f515ee21ba'
+│               │
+│               └── • scan
+│                     columns: (id, user_id, embedding)
+│                     estimated row count: 18,035 (100% of the table; stats collected 2 hours ago; using stats forecast for 49 minutes ago)
+│                     table: evidence_items@evidence_items_pkey
+│                     spans: FULL SCAN
+│
+└── • subquery
+    │ id: @S1
+    │ original sql: (SELECT embedding FROM evidence_items WHERE id = $2)
+    │ exec mode: one row
+    │
+    └── • project
+        │ columns: (embedding)
+        │
+        └── • scan
+              columns: (id, embedding)
+              estimated row count: 1 (<0.01% of the table; stats collected 2 hours ago; using stats forecast for 49 minutes ago)
+              table: evidence_items@evidence_items_pkey
+              spans: /"\x00\v\xf9ܬ\xc9[/\xb7\xbd\x10\x87*JP\x00"/0 /"\x00\v\xf9ܬ\xc9[/\xb7\xbd\x10\x87*JP\x00"/2/1
+
+index recommendations: 1
+1. type: index creation
+   SQL command: CREATE INDEX ON provenance_ci.public.evidence_items (user_id) STORING (embedding);
+
+VERDICT B
+  evidence_embedding_ann_idx named : False
+  'vector search' node             : False
+  FULL SCAN                        : True

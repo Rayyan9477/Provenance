@@ -1,0 +1,31 @@
+=== RED_T1.6 :: captured 2026-08-18T09:21:37Z ===
+=== cmd: python -m pytest -q ===
+
+=================================== ERRORS ====================================
+_ ERROR collecting packages/python/provenance_contracts/tests/test_draft_grounding.py _
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_contracts\tests\test_draft_grounding.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_contracts\tests\test_draft_grounding.py:36: in <module>
+    from provenance_contracts.actions import (
+E   ModuleNotFoundError: No module named 'provenance_contracts.actions'
+_ ERROR collecting packages/python/provenance_contracts/tests/test_kernel_result.py _
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_contracts\tests\test_kernel_result.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_contracts\tests\test_kernel_result.py:53: in <module>
+    from provenance_contracts.events import (
+E   ModuleNotFoundError: No module named 'provenance_contracts.events'
+_ ERROR collecting packages/python/provenance_contracts/tests/test_proposal_grounding.py _
+ImportError while importing test module 'D:\Repo\neverreset\packages\python\provenance_contracts\tests\test_proposal_grounding.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+packages\python\provenance_contracts\tests\test_proposal_grounding.py:40: in <module>
+    from provenance_contracts.proposal import (
+E   ModuleNotFoundError: No module named 'provenance_contracts.proposal'
+=========================== short test summary info ===========================
+ERROR packages/python/provenance_contracts/tests/test_draft_grounding.py
+ERROR packages/python/provenance_contracts/tests/test_kernel_result.py
+ERROR packages/python/provenance_contracts/tests/test_proposal_grounding.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 3 errors during collection !!!!!!!!!!!!!!!!!!!
+3 errors in 0.70s

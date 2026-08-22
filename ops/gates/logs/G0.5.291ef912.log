@@ -1,0 +1,5 @@
+# gate=G0.5 sha=291ef912e7d0341e51eac70d4f8b47f307221faf utc=2026-08-18T00:08:32Z exit=127
+# cmd=bash -c ccloud\ cluster\ list\ --output\ json 
+# started=2026-08-18T00:08:32Z finished=2026-08-18T00:08:32Z tree=dirty scrubbed-by=tools/scrub.py
+#
+bash: line 1: ccloud: command not found

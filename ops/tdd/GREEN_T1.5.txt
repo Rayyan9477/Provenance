@@ -1,0 +1,131 @@
+# GREEN transcript — T1.5 (provenance_contracts: base, identity, ingestion, retrieval, resolution, predicates)
+# Captured AFTER the six source modules were written. ops/tdd/RED_T1.5.txt is the
+# same two test files failing to collect against a source directory that held only
+# __init__.py and settings.py.
+# Toolchain: python 3.12.3, pydantic 2.13.4 / pydantic-core 2.46.4, pytest 8.3.3,
+#            mypy 1.11.2, ruff 0.6.9 (all pinned by the root pyproject.toml).
+
+# Source directory now:
+#   __init__.py
+#   base.py
+#   identity.py
+#   ingestion.py
+#   predicates.py
+#   resolution.py
+#   retrieval.py
+#   settings.py
+
+$ python -m pytest packages/python/provenance_contracts/tests/test_scalars.py packages/python/provenance_contracts/tests/test_retrieval_retraction.py -q
+........................................................................ [ 92%]
+......                                                                   [100%]
+78 passed in 0.33s
+exit=0
+
+# ---------------------------------------------------------------------
+# G1.5 — the rejection matrix, exactly as quality/23_PHASE_GATES.md section 6
+# runs it. All seven named rejections are covered by test_scalars.py; that
+# file's module docstring maps each of the seven to its test name.
+# ---------------------------------------------------------------------
+$ python -m pytest packages/python/provenance_contracts/tests/test_scalars.py -q -k reject
+.................................                                        [100%]
+33 passed, 27 deselected in 0.28s
+exit=0
+
+$ python -m pytest packages/python/provenance_contracts/tests/test_scalars.py -k reject --collect-only -q
+packages/python/provenance_contracts/tests/test_scalars.py::test_money_rejects_a_float_amount
+packages/python/provenance_contracts/tests/test_scalars.py::test_money_rejects_a_bool_amount
+packages/python/provenance_contracts/tests/test_scalars.py::test_money_rejects_a_bare_json_number
+packages/python/provenance_contracts/tests/test_scalars.py::test_money_rejects_more_than_four_decimal_places
+packages/python/provenance_contracts/tests/test_scalars.py::test_money_rejects_a_four_letter_currency
+packages/python/provenance_contracts/tests/test_scalars.py::test_utc_datetime_rejects_a_naive_value
+packages/python/provenance_contracts/tests/test_scalars.py::test_utc_datetime_rejects_a_non_iso_string
+packages/python/provenance_contracts/tests/test_scalars.py::test_confidence_rejects_a_negative_value
+packages/python/provenance_contracts/tests/test_scalars.py::test_confidence_rejects_a_value_above_one
+packages/python/provenance_contracts/tests/test_scalars.py::test_confidence_rejects_a_bool
+packages/python/provenance_contracts/tests/test_scalars.py::test_confidence_rejects_a_non_finite_value
+packages/python/provenance_contracts/tests/test_scalars.py::test_half_open_interval_rejects_valid_to_at_or_before_valid_from[HalfOpenInterval]
+packages/python/provenance_contracts/tests/test_scalars.py::test_half_open_interval_rejects_valid_to_at_or_before_valid_from[EvidenceCandidate]
+packages/python/provenance_contracts/tests/test_scalars.py::test_half_open_interval_rejects_valid_to_at_or_before_valid_from[EvidenceSnippet]
+packages/python/provenance_contracts/tests/test_scalars.py::test_half_open_interval_rejects_valid_to_at_or_before_valid_from[TemporalFact]
+packages/python/provenance_contracts/tests/test_scalars.py::test_half_open_interval_rejects_valid_to_at_or_before_valid_from[TemporalInterpretation]
+packages/python/provenance_contracts/tests/test_scalars.py::test_boundary_contract_rejects_a_missing_schema_version
+packages/python/provenance_contracts/tests/test_scalars.py::test_boundary_contract_rejects_an_unsupported_schema_major
+packages/python/provenance_contracts/tests/test_scalars.py::test_contract_rejects_an_extra_field
+packages/python/provenance_contracts/tests/test_scalars.py::test_boundary_contract_rejects_an_extra_field
+packages/python/provenance_contracts/tests/test_scalars.py::test_safe_identifier_rejects_sql_shaped_text
+packages/python/provenance_contracts/tests/test_scalars.py::test_identifier_types_reject_the_wrong_shape
+packages/python/provenance_contracts/tests/test_scalars.py::test_sha256_hex_rejects_upper_case
+packages/python/provenance_contracts/tests/test_scalars.py::test_internal_principal_rejects_a_caller_supplied_user_id
+packages/python/provenance_contracts/tests/test_scalars.py::test_principal_rejects_an_inverted_token_window
+packages/python/provenance_contracts/tests/test_scalars.py::test_content_block_rejects_a_locator_pointing_at_another_block
+packages/python/provenance_contracts/tests/test_scalars.py::test_evidence_candidate_rejects_a_hallucinated_locator
+packages/python/provenance_contracts/tests/test_scalars.py::test_evidence_candidate_rejects_the_wrong_local_id_prefix
+packages/python/provenance_contracts/tests/test_scalars.py::test_predicate_ast_rejects_arithmetic_ops
+packages/python/provenance_contracts/tests/test_scalars.py::test_predicate_rejects_a_field_root_outside_the_registry
+packages/python/provenance_contracts/tests/test_scalars.py::test_predicate_rejects_a_node_that_is_both_leaf_and_branch
+packages/python/provenance_contracts/tests/test_scalars.py::test_predicate_rejects_the_wrong_arity
+packages/python/provenance_contracts/tests/test_scalars.py::test_predicate_rejects_an_evaluator_bomb
+
+33/60 tests collected (27 deselected) in 0.19s
+exit=0
+
+# ---------------------------------------------------------------------
+# T1.5 acceptance phrasing: -k reject over the whole package test directory.
+# test_settings.py (T0.4) is included and is unmodified by this task.
+# ---------------------------------------------------------------------
+$ python -m pytest packages/python/provenance_contracts/tests -q
+........................................................................ [ 62%]
+............................................                             [100%]
+116 passed in 0.38s
+exit=0
+
+$ python -m pytest packages/python/provenance_contracts/tests -k reject -q
+..........................................                               [100%]
+42 passed, 74 deselected in 0.33s
+exit=0
+
+# ---------------------------------------------------------------------
+# Type and lint gates, as make lint runs them (Makefile line 158, TYPED line 53).
+# ---------------------------------------------------------------------
+$ python -m mypy --strict packages/python/provenance_domain packages/python/provenance_contracts
+Success: no issues found in 15 source files
+exit=0
+
+$ python -m ruff check <the eight files T1.5 touched>
+All checks passed!
+exit=0
+
+$ python -m ruff format --check <the eight files T1.5 touched>
+8 files already formatted
+exit=0
+
+# ---------------------------------------------------------------------
+# Reported, not resolved (1): mypy --strict on the contracts package ALONE
+# cannot resolve provenance_domain, because that package ships no py.typed
+# marker and so counts as 'installed but untyped'. The merge-blocking command
+# above passes because it names both packages, so mypy reads the domain from
+# source. The fix is one empty file, packages/python/provenance_domain/src/
+# provenance_domain/py.typed, which T1.5 is not permitted to touch.
+# ---------------------------------------------------------------------
+$ python -m mypy --strict packages/python/provenance_contracts
+packages\python\provenance_contracts\src\provenance_contracts\retrieval.py:68: error: Skipping analyzing "provenance_domain.enums": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+packages\python\provenance_contracts\src\provenance_contracts\retrieval.py:199: error: Parameter 1 of Literal[...] cannot be of type "Any"  [valid-type]
+Found 10 errors in 5 files (checked 8 source files)
+exit=1
+
+# ---------------------------------------------------------------------
+# Reported, not resolved (2): the no-SQL test printed in
+# specs/11_CONTRACTS.md section 20.10 — a T1.6 deliverable — will flag three
+# literals that sections 7 and 11 mandate. Neither is a table reference.
+# Reproduced here against the six T1.5 modules only; see the NOTE FOR T1.6
+# comments at identity.py CapabilityBinding._cap_allowed_cases and at
+# predicates.py WHITELISTED_FIELD_ROOTS.
+# ---------------------------------------------------------------------
+canonical table names in non-docstring literals:
+  identity.py:178 -> ['cases'] in 'a single binding may not span more than 16 cases; narrow the unit of w'
+  predicates.py:70 -> ['commitments'] in 'commitments'
+  predicates.py:70 -> ['conflicts'] in 'conflicts'
+SQL statement shapes:
+  NONE
+hard-coded agent-safe view names:
+  NONE

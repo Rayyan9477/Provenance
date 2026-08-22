@@ -1,0 +1,76 @@
+== Provenance Phase 0 probe PB-5 -- Bedrock model access ==
+run_at : 2026-08-17T22:14:20Z
+region : us-east-1
+client : AWS CLI bedrock-runtime Converse. Converse exercises the same runtime
+         endpoint the application will use and is sufficient to prove ACCESS,
+         which is the only question this probe asks.
+caller : arn:aws:iam::[REDACTED-ACCOUNT]:user/MedCodex-Local
+rerun  : this transcript supersedes the 2026-08-17 run. That run probed only the
+         Anthropic family and concluded Tier R had no reachable model. It had not
+         probed the rest of the catalogue, so the conclusion was broader than the
+         evidence. This run probes every candidate family.
+
+[Step 1] availability -- listing proves EXISTENCE, not access.
+         The distinction is the whole point of Step 3: the ids below are all listed,
+         and several of them are not invocable by this account.
+  anthropic.claude-haiku-4-5-20251001-v1:0
+  anthropic.claude-opus-4-6-v1
+  anthropic.claude-opus-5
+  anthropic.claude-sonnet-4-6
+  anthropic.claude-sonnet-5
+  deepseek.v3.2
+  google.gemma-3-27b-it
+  moonshotai.kimi-k2.5
+  zai.glm-5
+
+[Step 2] ANTHROPIC chat models -- inference-profile ids (the 'us.' prefix).
+         Bare anthropic.* ids are NOT invocable on demand; established 2026-08-17,
+         recorded as D-00-002 and frozen in CANONICAL_DECISIONS.md.
+  us.anthropic.claude-opus-5                     DENIED
+  us.anthropic.claude-sonnet-5                   DENIED
+  us.anthropic.claude-opus-4-8                   DENIED
+  us.anthropic.claude-opus-4-7                   DENIED
+  us.anthropic.claude-opus-4-6-v1                OK
+  us.anthropic.claude-sonnet-4-6                 OK
+  us.anthropic.claude-haiku-4-5-20251001-v1:0    OK
+
+[Step 3] THIRD-PARTY serverless models -- BARE ids.
+  zai.glm-5                                      OK
+  zai.glm-4.7                                    OK
+  moonshotai.kimi-k2.5                           OK
+  google.gemma-3-27b-it                          OK
+  deepseek.v3.2                                  OK
+  qwen.qwen3-next-80b-a3b                        OK
+  openai.gpt-oss-120b-1:0                        OK
+
+[Step 4] the SAME third-party models through a 'us.' inference profile.
+         This is the control for Step 3. If these fail while Step 3 succeeds, the
+         identifier rule is provider-dependent and not a global Bedrock rule.
+  us.zai.glm-5                                   INVALID ID (not invocable in this form)
+  us.moonshotai.kimi-k2.5                        INVALID ID (not invocable in this form)
+  us.google.gemma-3-27b-it                       INVALID ID (not invocable in this form)
+  us.deepseek.v3.2                               INVALID ID (not invocable in this form)
+
+  FINDING (new, D-00-040): the identifier rule is the MIRROR IMAGE across providers.
+  Anthropic chat models are invocable ONLY through a 'us.'/'global.' inference
+  profile and reject the bare id. Third-party serverless models are invocable ONLY
+  by the bare id and reject the 'us.' profile form. A client that applies one rule
+  uniformly cannot call both families.
+
+[Step 5] embeddings -- amazon.titan-embed-text-v2:0, BARE id.
+  dims=1024  l2=1.0000000
+  RESULT: PASS
+
+== PB-5 VERDICT: PASS ==
+  Tier E     us.anthropic.claude-haiku-4-5-20251001-v1:0    invocable
+  Tier R     us.anthropic.claude-opus-4-6-v1                invocable -- IN FORCE
+  Embeddings amazon.titan-embed-text-v2:0                   invocable, 1024 dims, unit norm
+
+  Opus 5 and Sonnet 5 remain DENIED on this account. That is no longer a blocker:
+  the frozen Tier R role has a reachable model of the required capability class.
+  D-00-004 is downgraded from BLOCKER to MINOR and reframed -- it was filed as
+  'no frozen reasoning model is invocable', and that statement is now false.
+
+  DISCLOSURE OBLIGATION: the submission ships on Opus 4.6, not Opus 5. SUBMISSION.md
+  and the README must name the model actually used. agent_runs.model_route records
+  the id that served each run, so the claim is checkable against persisted state.

@@ -41,37 +41,83 @@ The product does not try to remember everything about a person. It maintains the
 
 ## 3. Hackathon alignment
 
-Provenance is designed around the hackathon requirements rather than adding sponsor technologies late.
+**Rewritten 2026-08-24 for the pivot.** This section previously aligned the
+build to the CockroachDB × AWS hackathon. That entry is discarded; the target is
+now the **All Things Agentic Hackathon** (deadline 2026-08-31T17:00 PDT).
+`CANONICAL_DECISIONS.md` → *Gemini model id canon* is the binding record; this
+section only explains the shape.
 
-Required CockroachDB tools used:
+Provenance is aligned to the requirements rather than having sponsor technology
+added late — but honestly, that is easier to claim than to earn, so the
+subsection order below is deliberate: what the rules demand first, then what the
+judging criteria reward, then what we are not claiming.
 
-1. Distributed Vector Indexing
-   - semantic candidate retrieval over evidence chunks and historical relationship memories
-   - hybrid retrieval that combines tenant/relationship constraints with vector similarity
+### 3.1 The three mandatory requirements
 
-2. CockroachDB Cloud Managed MCP Server
-   - read-oriented, audited memory access for reasoning agents
-   - least-privilege agent identities
-   - agents do not receive direct canonical-state write privileges
+| Requirement | How it is met |
+|---|---|
+| **Gemini 3.5 or newer**, via the Gemini API or Vertex AI | Gemini Developer API with an AI Studio key. Tier R `gemini-3.7-flash`; Tier E `gemini-3.5-flash-lite`. |
+| **At least one Google agent framework** | The **`google-genai` SDK**, which the rules name explicitly alongside ADK, Antigravity SDK and GenKit. |
+| **At least one Google Cloud infrastructure service** | **Cloud Run**, hosting the control plane and the web app. |
 
-Optional third tool:
+**There is no Pro reasoning tier, and that is a rules constraint rather than a
+preference.** `gemini-3.1-pro-preview` is the only Pro model on the API and it
+is version 3.1 — *below* the mandated 3.5 floor. Gemini 3.5 Pro was announced
+but has not rolled out. Both tiers are therefore Flash-class. Any statement
+elsewhere in this pack implying a Pro reasoning tier is superseded.
 
-3. CockroachDB Agent Skills
-   - used by developer/operations tooling and possibly an internal database-ops assistant
-   - not placed in the user request critical path
+**Why Cloud Run carries the infrastructure requirement alone.** CockroachDB
+Cloud stays where it is, on AWS `us-east-1`, because the eight migrations,
+twenty-six tables, five agent views, the seed and roughly 390 database and
+retrieval tests are the largest block of verified work in this repository, and
+`CREATE VECTOR INDEX` has no exact pgvector or ScaNN equivalent. The Gemini
+Developer API is a developer API, not a Cloud infrastructure service, so it does
+not satisfy the requirement either. Cloud Run should sit in `us-east4`: it and
+AWS `us-east-1` are both Northern Virginia, so the cross-cloud database hop
+stays in single-digit milliseconds rather than seventy-plus.
 
-AWS services:
+### 3.2 Where the judging criteria land
 
-- Amazon Bedrock for model inference
-- Amazon Bedrock AgentCore Runtime for LangGraph agents
-- AgentCore Gateway and Identity for governed agent/tool access
-- Amazon Cognito for end-user authentication
-- Amazon S3 for immutable raw artifacts
-- Amazon Textract for document extraction where useful
-- Amazon EventBridge / EventBridge Scheduler for wake-up signals and prospective memory
-- AWS Lambda for small event-driven workers
-- Amazon SQS for retry and dead-letter handling
-- Amazon CloudWatch / AgentCore Observability for telemetry
+Judging is **40%** Innovation & Operational Utility · **30%** Architectural
+Discipline & Tech Stack · **30%** Demo & Production Readiness.
+
+The 30% architecture band is the one this build has spent itself on, and the
+claims in it are machine-checkable rather than asserted:
+
+- **A single canonical writer**, proved by `tools/write_path_lint.py` — 23
+  canonical write statements, 17 inside the Memory Kernel and 6 in the outbox
+  dispatcher, which rule `W5` permits to set `outbox_events.status` and nothing
+  else. Every one of the 6 is status bookkeeping about a row the Kernel already
+  wrote; no epistemic state is written outside the Kernel. Re-measure rather
+  than quote: `python -m tools.write_path_lint`.
+- **Capability-typed principals** that cannot be constructed from request data,
+  with 63 adversarial cross-tenant tests.
+- **Five `agent_*_v1` views** with `pv_agent_reader` holding zero table grants —
+  the agent boundary is a SQL grant, not a prompt instruction.
+- **Serializable transactions** with bounded `40001` retry and no model or
+  network call inside the callback, enforced by `tools/txn_purity_lint.py`.
+- **118 machine-checkable gate assertions** and a sabotage matrix in which a
+  green run counts as a *failure*.
+
+### 3.3 What is deliberately not claimed
+
+The pack's own consistency review records that self-consistency is not
+correctness, and the same discipline applies to this section:
+
+- **No model id in the Gemini canon has been invoked.** Every one is
+  transcribed from documentation. The previous build froze four Bedrock ids from
+  a listing and all four were un-invocable — `list-foundation-models` returns ids
+  that cannot be called, which is the trap `D-00-002` fell into.
+  `ops/probes/gemini_probe.py` is what settles them, and until its transcript
+  exists these are candidates, not decisions.
+- **The corpus is still Titan-embedded.** The 18,035 vectors in `evidence_items`
+  are `amazon.titan-embed-text-v2:0` at 1024 dimensions. Retrieval is honest
+  about which space it is querying (`PV_EMBEDDING_PROFILE`), and the re-embed to
+  `gemini-embedding-2` at 1536 has not run.
+- **Multimodal ingestion is an opportunity, not a shipped capability.**
+  `ExtractionResult` already carries `needs_visual_reasoning`, and
+  `gemini-embedding-2` is multimodal, so Textract disappears rather than being
+  replaced. That work is scoped, not done.
 
 ## 4. Design goals
 
@@ -235,9 +281,20 @@ Primary surfaces:
 
 ### 8.3 Agent framework
 
-- LangGraph
-- hosted in Amazon Bedrock AgentCore Runtime
-- no use of LangGraph's persistence layer as canonical product memory
+Rewritten 2026-08-24. Phase 7 was never built, which turned out to be an
+advantage: there is no LangGraph code to port, so the agent layer is written
+once, natively.
+
+- **`google-genai` SDK** — one of the four frameworks the hackathon accepts
+  (alongside ADK, Antigravity SDK and GenKit), and already a dependency.
+- Hosted on **Cloud Run** alongside the control plane.
+- **No SDK persistence layer is canonical product memory.** This prohibition
+  previously named LangGraph's store; it now binds the GenAI SDK's and ADK's
+  session and memory abstractions equally. Session state is workflow durability
+  only. If canonical truth is ever read from an SDK session rather than from the
+  database, the single-canonical-writer guarantee is gone and nothing reports
+  it — which is why the ban is restated for the new stack rather than assumed to
+  carry over.
 - graph state is ephemeral workflow state; CockroachDB is durable product memory
 
 ### 8.4 Database
@@ -765,21 +822,36 @@ Model outage must never corrupt memory.
 
 ### 17.1 Hackathon topology
 
-Recommended AWS region: choose one where AgentCore and required Bedrock models are available and where operational latency from the team is acceptable. Keep all AWS services in that primary region unless a service requires otherwise.
+Rewritten 2026-08-24 for the pivot. Two clouds, deliberately, and the reason is
+recorded rather than left to be rediscovered.
 
-Components:
+| Component | Where |
+|---|---|
+| Next.js frontend | **Cloud Run** |
+| FastAPI control plane | **Cloud Run** |
+| Agent runtime (`google-genai`) | in-process with the control plane |
+| Model inference | **Gemini Developer API** (AI Studio key) |
+| Artifact bytes | **Cloud Storage** |
+| Async wakeups | **Pub/Sub** — the outbox is transport-agnostic by design |
+| Canonical database | **CockroachDB Cloud**, unchanged, on AWS `us-east-1` |
 
-- Next.js frontend: AWS Amplify Hosting, CloudFront-backed static hosting, or another simple AWS-compatible hosting path
-- FastAPI service: AgentCore Runtime for agent workloads plus Lambda or lightweight container/runtime for standard API depending on implementation convenience
-- LangGraph agents: AgentCore Runtime
-- Cognito: user authentication
-- S3: raw artifacts
-- Textract: extraction
-- EventBridge / Scheduler: async wakeups
-- Lambda: outbox dispatcher / small processors
-- SQS: DLQ and buffering
-- CloudWatch: logs, metrics, alarms, traces
-- CockroachDB Cloud Basic: canonical database
+**Region:** Cloud Run in `us-east4`. That is not arbitrary — `us-east4` and AWS
+`us-east-1` are both Northern Virginia, so the cross-cloud database hop stays in
+single-digit milliseconds. Putting Cloud Run anywhere else adds 70ms or more to
+every canonical read on a demo whose stated target is sub-second dashboard
+latency.
+
+**Why the database did not move.** Keeping CockroachDB preserves eight
+migrations, twenty-six tables, five agent views, the seed and roughly 390
+database and retrieval tests — the largest block of verified work in the
+repository. Cloud SQL or AlloyDB would mean re-deriving the vector strategy, and
+`CREATE VECTOR INDEX` has no exact pgvector or ScaNN equivalent. The rules
+require *at least one* Google Cloud infrastructure service, and Cloud Run
+satisfies that on its own.
+
+**What is deployed today: none of it.** The CDK for the previous AWS topology
+synthesises and is tested, and is now discarded. Nothing has been deployed to
+Google Cloud. This table is the target, not the state.
 
 ### 17.2 Production target
 
@@ -1019,7 +1091,11 @@ The canonical state change should not wait for the Advocate's prose generation w
 
 Maintain a deterministic set of evidence events with expected canonical state after each event. This becomes a high-value judge artifact because the team can demonstrate memory behavior is tested, not just visually plausible.
 
-## 25. Repository layout
+## 25. Repository layout — SUPERSEDED
+
+> **This section is superseded and must not be built from.** It describes a microservice decomposition — five separate `services/*`, three separate `agents/*`, no `workers/`, unprefixed `packages/*` — that `implementation/00_IMPLEMENTATION_MAP.md` §4.2 explicitly rejects: *"a modular monolith + managed async workers, not a microservice zoo."* Building this tree would create five deployment units where the architecture calls for four, and would put the Memory Kernel in its own service, breaking the single-canonical-writer boundary that the whole product rests on.
+>
+> **The authoritative repository layout is `implementation/00_IMPLEMENTATION_MAP.md` §5.** It is recorded as such in `CANONICAL_DECISIONS.md` → *Repository layout canon*. The tree below is retained only as a record of an early alternative that was considered and rejected.
 
 ```text
 provenance/

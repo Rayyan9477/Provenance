@@ -1,0 +1,5 @@
+# gate=G2.2 sha=33e593c15d9edb0eb02e7e16edf3d1b1b2caa3c3 utc=2026-08-18T14:38:11Z exit=0
+# cmd=bash -c n=\$\(psql\ -At\ -d\ \'postgresql://[REDACTED-USER]:[REDACTED-SECRET]@rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257/provenance_ci\?sslmode=verify-full\'\ -c\ \"SELECT\ count\(\*\)\ FROM\ information_schema.tables\ WHERE\ table_schema=\'public\'\ AND\ table_type=\'BASE\ TABLE\'\ AND\ table_name\ \<\>\ \'alembic_version\'\;\"\ \|\ tr\ -d\ \'\\r\'\)\;\ echo\ \"canonical\ base\ tables:\ \$n\"\;\ test\ \"\$n\"\ =\ 26 
+# started=2026-08-18T14:38:08Z finished=2026-08-18T14:38:11Z tree=dirty scrubbed-by=tools/scrub.py
+#
+canonical base tables: 26

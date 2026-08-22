@@ -1,0 +1,113 @@
+Provenance
+Copyright 2026 The Provenance Authors
+
+This product is licensed under the Apache License, Version 2.0. The complete
+licence text is in the file LICENSE at the root of this repository.
+
+Provenance is a personal system of record for a user's relationships with
+institutions. It was built for the CockroachDB x AWS hackathon, "Build with
+Agentic Memory".
+
+
+--------------------------------------------------------------------------------
+1. Attribution of third-party components
+--------------------------------------------------------------------------------
+
+Provenance depends on the third-party components listed below. No source code
+from any of them has been copied into this repository; each is consumed as a
+published package or as a network service through its public interface. Each
+component is distributed by its own authors under its own licence terms, which
+are NOT restated here - a paraphrased licence is a wrong licence. Consult the
+LICENSE file shipped inside each distribution. The package manifests resolve to
+exact, pinned artifacts at build time: pyproject.toml today, and the apps/web
+manifest once the web application lands.
+
+Versions are deliberately not pinned in this file. The manifests are the single
+place a version is recorded, and a version duplicated here would drift from them.
+
+Database access
+  psycopg (PostgreSQL wire-protocol driver for Python; the CockroachDB client
+    path, since CockroachDB speaks the PostgreSQL wire protocol)
+    Copyright (c) The Psycopg Team
+    https://www.psycopg.org/
+    Note: psycopg 3 is distributed under the GNU Lesser General Public License.
+    Provenance links against it as an unmodified library and does not
+    redistribute it; consult its own COPYING/LICENSE file before vendoring it.
+  Alembic (schema migrations)
+    Copyright (c) Michael Bayer and contributors
+    https://alembic.sqlalchemy.org/
+
+Agent runtime
+  LangGraph (graph orchestration for the ingestion and advocate graphs)
+    Copyright (c) LangChain, Inc.
+    https://github.com/langchain-ai/langgraph
+  Anthropic SDK for Python (Claude model client)
+    Copyright (c) Anthropic, PBC
+    https://github.com/anthropics/anthropic-sdk-python
+
+Control plane
+  FastAPI (HTTP API framework)
+    Copyright (c) Sebastian Ramirez
+    https://github.com/fastapi/fastapi
+  Starlette and Uvicorn (ASGI toolkit and server underneath FastAPI)
+    Copyright (c) Encode OSS Ltd.
+    https://www.starlette.io/  https://www.uvicorn.org/
+  Pydantic (typed contracts and settings validation)
+    Copyright (c) Pydantic Services Inc. and individual contributors
+    https://docs.pydantic.dev/
+
+Web application
+  Next.js (React application framework for apps/web)
+    Copyright (c) Vercel, Inc.
+    https://nextjs.org/
+  React (UI library underneath Next.js)
+    Copyright (c) Meta Platforms, Inc. and affiliates
+    https://react.dev/
+
+AWS SDKs
+  AWS SDK for Python (boto3 and botocore) - Amazon Bedrock, S3, SES,
+    EventBridge, Secrets Manager, SQS and Cognito clients
+    Copyright Amazon.com, Inc. or its affiliates
+    https://github.com/boto/boto3
+  AWS Cloud Development Kit (infrastructure definitions under infra/cdk)
+    Copyright Amazon.com, Inc. or its affiliates
+    https://github.com/aws/aws-cdk
+
+Development and verification toolchain (not shipped in any deployment unit)
+  pytest, Hypothesis, coverage.py, mutmut, ruff, mypy, import-linter,
+  pre-commit, Playwright, PyYAML, gitleaks.
+  Each is copyright its respective authors and licensed under its own terms.
+
+
+--------------------------------------------------------------------------------
+2. Services used, not redistributed
+--------------------------------------------------------------------------------
+
+The following are used as hosted services over their public interfaces. No code
+belonging to them is present in this repository, and nothing here is a derivative
+work of them.
+
+  CockroachDB Cloud, the CockroachDB Cloud Managed MCP Server, the ccloud CLI
+    and the cockroach SQL CLI
+    Copyright Cockroach Labs, Inc.
+  Amazon Web Services - Amazon Bedrock (Anthropic Claude and Amazon Titan
+    Embeddings text models), Amazon Cognito, Amazon S3, Amazon SES,
+    Amazon EventBridge, AWS Secrets Manager, Amazon SQS, Amazon Textract,
+    Amazon CloudWatch and AWS Bedrock AgentCore
+    Copyright Amazon.com, Inc. or its affiliates
+
+CockroachDB, Amazon Web Services, AWS, Amazon Bedrock, Anthropic, Claude and
+Next.js are trademarks of their respective owners. Their use here is nominative:
+it identifies the services and models this project runs against, and it does not
+imply endorsement or affiliation. Section 6 of the Apache License does not grant
+permission to use those marks.
+
+
+--------------------------------------------------------------------------------
+3. Data
+--------------------------------------------------------------------------------
+
+All demonstration data in this repository is synthetic. Every counterparty is
+fictional, every domain is a .example domain, every account reference is
+invented, and no real person's correspondence, account, or personal data appears
+in the repository or in the demo.

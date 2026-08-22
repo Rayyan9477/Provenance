@@ -1,0 +1,228 @@
+T12 GREEN transcript — Phase 12, the frontend (apps/web)
+Captured 2026-08-19T01:20Z
+git HEAD c0168bd (working tree, uncommitted — the user owns git)
+node v24.3.0 | npm 11.7.0 | Next.js 15.5.23 | React 19 | TypeScript 5.8 | vitest 3.2.7
+
+WHAT THIS TRANSCRIPT IS, AND WHAT IT IS NOT
+-------------------------------------------
+This is a BUILD-AGAINST-CONTRACT transcript. Phase 8's control plane does not
+exist, so nothing in apps/web has ever spoken to a Provenance API. Every screen
+was written against docs/specs/15_API_SPEC.md, and every payload it renders in
+this state comes from src/fixtures/hero.fixture.ts through a single declared
+adapter, with a non-dismissible banner on every screen saying so.
+
+Consequently: no G12.x exit assertion that requires a running API or a browser
+has been run, and none is claimed. See the closing section for which are
+passable now and which are blocked on Phase 8.
+
+This task did NOT follow a literal RED-first sequence for the screens, and
+saying otherwise would be dishonest. A RED transcript for a page component is
+"the route 404s", which proves nothing about whether the honesty rule bites. The
+equivalent proof is mechanical and is the centrepiece of this transcript: a
+six-rule checker that runs in `npm run build`, a counterfactual mode that plants
+one deliberate violation per rule and fails if any rule does not fire, and one
+live sabotage of a real component recorded below.
+
+THE RULE
+--------
+Nothing renders that has no backing row. No hard-coded id, no fixture
+masquerading as live data, no placeholder that looks like a value. Where data is
+unavailable the UI says so; it does not invent a plausible number.
+
+ENFORCEMENT — apps/web/scripts/check-render-honesty.mjs
+------------------------------------------------------
+Runs first in `npm run build`. Six rules:
+
+  R1 FIXTURE_CONTAINMENT   fixtures importable only by tests, stories, and
+                           src/lib/api/fixture-source.ts
+  R2 NO_UUID_LITERAL       G12.3's grep, verbatim, as a build step
+  R3 NO_CANON_LITERAL      27 hero-canon values (names, ids, amounts, the demo
+                           alias) forbidden in src/app, src/components, src/lib
+  R4 ABSENCE_GLYPH_SCOPE   the em dash belongs to <Absent /> and to the G12.7
+                           banner copy; nowhere else
+  R5 FIXTURE_NAMING        everything under src/fixtures is *.fixture.ts
+  R6 NO_VALUE_FALLBACK     `?? 0`, `|| 0`, `?? "0..."`, `?? "N/A"`,
+                           `?? "not recorded"`, `formatX(...) ?? ""`
+
+R6 was added during this task and caught a pre-existing violation on its first
+run (apps/web/src/app/(app)/watches/page.tsx rendering `last_reason_code=none`
+where the column was null). Thirteen further absence-as-prose fallbacks were
+found and converted, either to <Absent /> where the row genuinely holds nothing,
+or to formatDateOrRaw / formatInstantOrRaw where the row holds a value that
+could not be formatted. Rendering "not recorded" over a stored timestamp is a
+false statement about the record; rendering the raw instant is a true one.
+
+  $ npm run honesty
+  render-honesty: 58 source files scanned, 0 violations across 6 rules.
+    R1 fixture containment  R2 no identifier literals  R3 no hero-canon literals
+    R4 absence-glyph scope  R5 fixture naming       R6 no value-shaped fallback
+
+COUNTERFACTUAL — the proof the checker can fail
+-----------------------------------------------
+A check that has never failed is indistinguishable from a check that cannot
+fail. `--counterfactual` materialises a throwaway tree with one deliberate
+violation per rule, runs the same engine over it, and exits non-zero unless
+every rule fires.
+
+  $ npm run honesty:counterfactual
+  render-honesty counterfactual
+    planted 6 violations across 6 files in a throwaway tree
+    CAUGHT  R1 FIXTURE_CONTAINMENT  (1 finding)
+              src/components/DishonestImport.tsx:1 -- imports "@/fixtures/hero.fixture".
+    CAUGHT  R2 NO_UUID_LITERAL  (1 finding)
+              src/components/DishonestId.tsx:1 -- contains the identifier literal
+              "018f8a10-4c22-7f31-9b7d-2ac1e5f09b41". G12.3 requires zero.
+    CAUGHT  R3 NO_CANON_LITERAL  (1 finding)
+              src/components/DishonestTotal.tsx:2 -- contains the hero-canon value
+              "2,020.00". It must arrive from the API, not from source.
+    CAUGHT  R4 ABSENCE_GLYPH_SCOPE  (1 finding)
+              src/components/DishonestDash.tsx:1 -- renders the absence glyph directly.
+    CAUGHT  R5 FIXTURE_NAMING  (1 finding)
+              src/fixtures/data.ts:1 -- must be named *.fixture.ts
+    CAUGHT  R6 NO_VALUE_FALLBACK  (1 finding)
+              src/components/DishonestFallback.tsx:2 -- falls back to a value-shaped
+              default (?? 0).
+
+  COUNTERFACTUAL PASSED: every rule fires on dishonest source.
+
+The R6 plant is the one worth reading. It is an outstanding balance that falls
+back to zero when the amount is missing. It reads as careful defensive code, it
+never throws, and it renders a number indistinguishable from a real balance of
+zero — which on this product's hero case is itself a true and load-bearing
+value, because a disputed balance changes `status` and never `amount`. A reader
+cannot tell the two apart, and neither can a reviewer.
+
+SABOTAGE — one real component, both layers
+------------------------------------------
+RevisionBadge was altered to drop its absence branch and render
+`revision {revision ?? 0}`.
+
+  $ node scripts/check-render-honesty.mjs
+  render-honesty: 1 violation(s) in 58 files.
+    R6 NO_VALUE_FALLBACK
+      src/components/primitives/Chips.tsx:47
+
+  $ npx vitest run src/components/__tests__/honesty.test.tsx
+  × a revision badge with no revision does not render revision 0
+    → expected an explicit absence marker: expected 0 to be greater than 0
+  Tests  1 failed | 12 passed (13)
+
+Both layers caught it independently. File restored; suite green.
+
+VERIFY — the full gate
+----------------------
+  $ npm run verify
+  render-honesty: 58 source files scanned, 0 violations across 6 rules.
+  COUNTERFACTUAL PASSED: every rule fires on dishonest source.
+  (tsc --noEmit: clean, strict, noUncheckedIndexedAccess, verbatimModuleSyntax)
+  ✔ No ESLint warnings or errors
+  All matched files use Prettier code style!
+  Test Files  7 passed (7)
+       Tests  65 passed (65)
+
+  $ npm run build
+  ✓ Compiled successfully
+  21 routes, zero warnings.
+
+RUNTIME SMOKE — every route, production server, fixture mode
+------------------------------------------------------------
+`next start -p 3117`, all 19 addressable paths, all HTTP 200. Canon checked in
+the rendered HTML of /dashboard:
+
+  USD 2,020.00 ........ 1   (the context total, from the API field)
+  USD 1,800.00 ........ 1   (Harborview)
+  USD 220.00 .......... 1   (Beltline)
+  "contributes nothing" 1   (the disputed relationship, in the ledger, at zero)
+  Kestrel Analytics ... 1   (rendered as EMPLOYER, not as a mover)
+  USD 186.00 .......... 0   (the counterparty claim, never in a total)
+  2,206.00 ............ 0   (the sum a naive client would have produced)
+  data-case-revision="13"   (G12.4's DOM hook, present and first-class)
+  data-node-id .......... 21 unique on /judge (G12.2 requires >= 8)
+  data-parity-all-equal="true" / data-columns-rendered="true"
+
+Two <Absent /> markers appear on /dashboard. Both are the valid-time field on an
+attention row: the design commits to VALID TIME and RECORD TIME on every such
+row, and section 8.4 returns only `last_activity_at`, which is a record clock.
+The absence is the honest rendering of that gap. See DISCREPANCIES.
+
+TESTS — 65, in 7 files
+----------------------
+  src/components/__tests__/honesty.test.tsx        13  the rule, both directions
+  src/components/__tests__/counterfactual.test.tsx  9  the parity render gate
+  src/components/__tests__/grayscale.test.tsx       9  meaning without colour
+  src/lib/__tests__/typed-record.test.tsx           8  every token traces to a row
+  src/lib/__tests__/trace.test.tsx                  8  G12.2 as a unit test
+  src/lib/__tests__/format.test.ts                 15  money as strings, time in
+                                                       the record's zone
+  src/lib/__tests__/render-honesty.test.ts          3  the checker, bound to CI
+
+honesty.test.tsx asserts both halves of the rule, and the second half is the
+reason the first matters: a relationship with an empty `outstanding` array must
+render "contributes nothing" and must NOT render an absence marker. "We do not
+know" and "it is zero" are opposite claims, and on the hero case the zero is the
+one the Kernel committed.
+
+DEFECT FOUND AND FIXED (pre-existing, in code written before this session)
+-------------------------------------------------------------------------
+src/components/proof/Grounding.tsx discriminated a grounding edge's source with
+`"evidence_id" in source`. ClaimSource also declares `evidence_id` (nullable,
+naming the evidence a claim was extracted from), so the predicate was true for
+both and every counterparty claim would have rendered in the evidence treatment:
+quoted as source text, with its authority score presented as an extraction
+confidence. On the hero case that is the invoice claim rendered as admitted
+evidence — the exact confusion the product exists to prevent. Corrected to
+`"exact_text" in source`, which is on EvidenceSource alone, in all three places
+the test appears.
+
+FORMATTING DEFECT FOUND AND FIXED
+---------------------------------
+`Intl.DateTimeFormat("en-GB", { month: "short" })` renders September as "SEPT"
+in current ICU, and every other month as three letters. The demo clock is
+18 September 2026, so the one month where the locale disagrees with canon is the
+only month the hero dataset shows. Uncorrected, every date in the recorded demo
+would read "18 SEPT 2026" against a design and a CANONICAL_DECISIONS entry that
+both say "18 SEP 2026". formatDate now assembles from formatToParts and
+truncates the month to three letters. Locale is pinned to en-GB.
+
+G12.x STATUS
+------------
+PASSABLE NOW (no API, no browser needed):
+  G12.3  zero UUID literals in apps/web/src — enforced as R2, runs in every
+         build, asserted in the suite.
+  G12.7  the fixture-mode banner copy is asserted character-for-character in
+         grayscale.test.tsx, and the component has no control, no aria-hidden,
+         no hidden attribute and no prop that can suppress it. The Playwright
+         form of the gate still needs a browser.
+
+PASSABLE IN UNIT FORM, GATE FORM BLOCKED ON PHASE 8:
+  G12.2  "DOM node ids ⊆ payload node ids, |DOM| >= 8" is asserted against the
+         layout module and the panel in trace.test.tsx (21 unique ids). The gate
+         intercepts a live GET /v1/traces/{id}.
+  G12.5  the parity render gate is asserted in counterfactual.test.tsx,
+         including that neither arm's output text appears anywhere on the page
+         when all_equal is false. The gate runs a real counterfactual and reads
+         the case revision out of CockroachDB.
+
+BLOCKED ON PHASE 8:
+  G12.1  hero flow end to end in a browser with zero console errors.
+  G12.4  mutation probe. The DOM hook exists and is first-class
+         (data-case-revision), so the probe can be written now and run later.
+  G12.6  no raw chain-of-thought in any network response body. Nothing in this
+         build renders a `thinking` field, but the assertion is about responses.
+
+NOT DONE
+--------
+  T12.3  types are hand-transcribed from 15_API_SPEC.md into
+         src/lib/api/contract.ts rather than generated from build/openapi.json,
+         which does not exist yet. The transcription is the single place the API
+         shape is written down and every fixture is checked against it, so drift
+         fails `tsc` rather than rendering something plausible. Generation
+         replaces this file when Phase 8 exports the schema.
+  ops/decisions/FRONTEND_DESIGN.md lists `support.js` and the live Claude Design
+  project as unread. Still unread: the MCP connector needs an interactive OAuth
+  flow this session cannot run. The design was consumed from Design.pdf, 26
+  pages, all read.
+
+DISCREPANCIES BETWEEN THE DESIGN AND THE SPECS — reported, not resolved
+----------------------------------------------------------------------
+See the closing section of the agent report. Nine, none resolved unilaterally.

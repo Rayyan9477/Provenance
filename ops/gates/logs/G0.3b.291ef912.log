@@ -1,0 +1,6 @@
+# gate=G0.3b sha=291ef912e7d0341e51eac70d4f8b47f307221faf utc=2026-08-18T00:08:31Z exit=0
+# cmd=gitleaks detect --source ops --config .gitleaks.toml --redact --no-banner --no-git --exit-code 1 
+# started=2026-08-18T00:08:30Z finished=2026-08-18T00:08:31Z tree=dirty scrubbed-by=tools/scrub.py
+#
+[90m5:08AM[0m [32mINF[0m [1mscanned ~355651 bytes (355.65 KB) in 163ms[0m
+[90m5:08AM[0m [32mINF[0m [1mno leaks found[0m

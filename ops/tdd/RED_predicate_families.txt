@@ -1,0 +1,55 @@
+RED — predicate-family registry reconciled to 12_KERNEL_ALGORITHMS.md section 2.1
+Captured 2026-08-18T16:11:56Z
+
+The test file has been rewritten against section 2.1's 16 surface predicates.
+authority.py still ships section 5.2's 8-entry map, so these fail for the right reason.
+
+$ python -m pytest packages/python/provenance_domain/tests/test_authority.py -q
+F..F..F...........                                                       [100%]
+================================== FAILURES ===================================
+____________ test_predicate_families_map_the_eight_spec_predicates ____________
+
+    def test_predicate_families_map_the_eight_spec_predicates() -> None:
+        for predicate, family in _PREDICATE_FAMILIES.items():
+>           assert authority.predicate_family(predicate) == family
+E           AssertionError: assert 'UNMAPPED' == 'SERVICE_STATUS'
+E             
+E             - SERVICE_STATUS
+E             + UNMAPPED
+
+packages\python\provenance_domain\tests\test_authority.py:137: AssertionError
+____ test_grid_values_match_the_specification_table_at_four_decimal_places ____
+
+    def test_grid_values_match_the_specification_table_at_four_decimal_places() -> None:
+        """`claims.authority_score` is `DECIMAL(5,4)`; the shape is part of the value."""
+        for source_class in SourceClass:
+            for family in _FAMILIES:
+                actual = authority.authority_for(_PREDICATE_OF[family], source_class)
+>               assert actual == _expected(source_class.value, family), f"{source_class.value}/{family}"
+E               AssertionError: BANK_OR_CARD_STATEMENT/OUTSTANDING
+E               assert Decimal('0.1000') == Decimal('0.6000')
+E                +  where Decimal('0.6000') = _expected('BANK_OR_CARD_STATEMENT', 'OUTSTANDING')
+E                +    where 'BANK_OR_CARD_STATEMENT' = <SourceClass.BANK_OR_CARD_STATEMENT: 'BANK_OR_CARD_STATEMENT'>.value
+
+packages\python\provenance_domain\tests\test_authority.py:170: AssertionError
+__________ test_model_inference_is_never_authoritative_for_anything ___________
+
+    def test_model_inference_is_never_authoritative_for_anything() -> None:
+        """The machine-readable form of the kernel rule.
+    
+        `10_DATABASE_DDL.md` `ck_claims_inference_authority` caps an `INFERENCE`
+        claim at `0.2000`; the grid must not be able to breach it.
+        """
+        for family in _FAMILIES:
+            score = authority.authority_for(_PREDICATE_OF[family], SourceClass.MODEL_INFERENCE)
+>           assert score == Decimal("0.0500")
+E           AssertionError: assert Decimal('0.1000') == Decimal('0.0500')
+E            +  where Decimal('0.0500') = Decimal('0.0500')
+
+packages\python\provenance_domain\tests\test_authority.py:210: AssertionError
+=========================== short test summary info ===========================
+FAILED packages/python/provenance_domain/tests/test_authority.py::test_predicate_families_map_the_eight_spec_predicates
+FAILED packages/python/provenance_domain/tests/test_authority.py::test_grid_values_match_the_specification_table_at_four_decimal_places
+FAILED packages/python/provenance_domain/tests/test_authority.py::test_model_inference_is_never_authoritative_for_anything
+3 failed, 15 passed in 0.45s
+exit=1

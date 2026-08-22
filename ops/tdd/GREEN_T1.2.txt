@@ -1,0 +1,27 @@
+T1.2 GREEN transcript — provenance_domain/transitions.py
+Captured 2026-08-17T23:58:21Z
+git HEAD: ad74461
+
+$ python -m pytest packages/python/provenance_domain/tests/test_transitions.py -q
+......................................                                   [100%]
+38 passed in 0.09s
+exit=0
+
+$ python -m mypy --strict packages/python/provenance_domain
+Success: no issues found in 6 source files
+exit=0
+
+$ python -m ruff check packages/python/provenance_domain/src/provenance_domain/transitions.py packages/python/provenance_domain/tests/test_transitions.py
+All checks passed!
+exit=0
+
+$ python -m ruff format --check packages/python/provenance_domain/src/provenance_domain/transitions.py packages/python/provenance_domain/tests/test_transitions.py
+2 files already formatted
+exit=0
+
+Mutation sanity (implementation restored afterwards; not part of the shipped tree):
+  drop the RESOLVED->REOPENED guard        -> 7 failed, 31 passed
+  add FULFILLED->ACTIVE to the table       -> caught
+  invert the outstanding_amount comparison -> caught (3 params)
+  ignore the ARMED precondition on a wake  -> caught
+  combined B+C+D run                       -> 6 failed, 32 passed

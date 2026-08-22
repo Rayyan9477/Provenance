@@ -1,0 +1,49 @@
+# T1.3 GREEN — money.py, derivations.py, authority.py implemented.
+# Recorded: 2026-08-18T00:02:18Z
+
+$ python -m pytest packages/python/provenance_domain/tests/test_derivations.py packages/python/provenance_domain/tests/test_authority.py -q
+.........................                                                [100%]
+25 passed in 0.12s
+exit=0
+
+$ python -m pytest ... -q --collect-only
+packages/python/provenance_domain/tests/test_derivations.py::test_outstanding_is_committed_minus_admitted_fulfilment
+packages/python/provenance_domain/tests/test_derivations.py::test_money_rejects_float_bad_currency_and_excess_scale
+packages/python/provenance_domain/tests/test_derivations.py::test_money_arithmetic_refuses_to_cross_currencies
+packages/python/provenance_domain/tests/test_derivations.py::test_outstanding_money_is_currency_strict_and_never_clamps
+packages/python/provenance_domain/tests/test_derivations.py::test_outstanding_is_the_canonical_derivation_and_grounds_without_evidence
+packages/python/provenance_domain/tests/test_derivations.py::test_business_days_are_monday_to_friday_and_flag_the_assumed_calendar
+packages/python/provenance_domain/tests/test_derivations.py::test_pv_sabotage_hook_can_neuter_the_outstanding_identity
+packages/python/provenance_domain/tests/test_authority.py::test_predicate_families_map_the_eight_spec_predicates
+packages/python/provenance_domain/tests/test_authority.py::test_an_unmapped_predicate_stops_rather_than_guessing
+packages/python/provenance_domain/tests/test_authority.py::test_the_grid_covers_every_source_class_and_every_family
+packages/python/provenance_domain/tests/test_authority.py::test_grid_values_match_the_specification_table_at_four_decimal_places
+packages/python/provenance_domain/tests/test_authority.py::test_every_score_is_a_decimal_and_the_table_is_immutable
+packages/python/provenance_domain/tests/test_authority.py::test_bank_statement_knows_payments_and_knows_nothing_about_service
+packages/python/provenance_domain/tests/test_authority.py::test_model_inference_is_never_authoritative_for_anything
+packages/python/provenance_domain/tests/test_authority.py::test_authority_is_not_the_models_confidence
+packages/python/provenance_domain/tests/test_authority.py::test_the_entailment_penalty_applies_once_and_floors_at_zero
+packages/python/provenance_domain/tests/test_authority.py::test_the_ordering_is_family_relative_and_not_a_single_global_rank
+packages/python/provenance_domain/tests/test_authority.py::test_authority_ranking_orders_the_source_classes_of_one_predicate
+packages/python/provenance_domain/tests/test_authority.py::test_a_tie_retains_the_incumbent_and_still_demands_a_human
+packages/python/provenance_domain/tests/test_authority.py::test_the_incumbent_is_retained_when_it_outranks_by_the_margin
+packages/python/provenance_domain/tests/test_authority.py::test_the_challenger_is_promoted_when_it_outranks_by_the_margin
+packages/python/provenance_domain/tests/test_authority.py::test_a_wide_margin_between_two_weak_sources_still_needs_a_human
+packages/python/provenance_domain/tests/test_authority.py::test_a_narrow_margin_between_two_strong_sources_is_the_authority_tie
+packages/python/provenance_domain/tests/test_authority.py::test_an_entailed_challenger_loses_and_the_reason_names_the_penalty
+packages/python/provenance_domain/tests/test_authority.py::test_a_ranking_is_deterministic_frozen_and_reports_its_own_inputs
+
+25 tests collected in 0.03s
+exit=0
+
+$ python -m mypy --strict packages/python/provenance_domain
+Success: no issues found in 7 source files
+exit=0
+
+$ python -m ruff check <T1.3 files>
+All checks passed!
+exit=0
+
+$ python -m ruff format --check <T1.3 files>
+5 files already formatted
+exit=0

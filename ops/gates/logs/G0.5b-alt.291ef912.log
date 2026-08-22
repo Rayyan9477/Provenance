@@ -1,0 +1,5 @@
+# gate=G0.5b-alt sha=291ef912e7d0341e51eac70d4f8b47f307221faf utc=2026-08-18T00:08:57Z exit=0
+# cmd=bash -c set\ -euo\ pipefail\;\ psql\ -At\ -c\ \'SELECT\ version\(\)\;\'\ -d\ \'postgresql://[REDACTED-USER]:[REDACTED-SECRET]@rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257/defaultdb\?sslmode=verify-full\'\ \|\ tee\ /dev/stderr\ \|\ grep\ -q\ \'CockroachDB\ CCL\ v\' 
+# started=2026-08-18T00:08:54Z finished=2026-08-18T00:08:57Z tree=dirty scrubbed-by=tools/scrub.py
+#
+CockroachDB CCL v26.2.5 (x86_64-pc-linux-gnu, built 2026/07/28 18:56:00, go1.25.5)

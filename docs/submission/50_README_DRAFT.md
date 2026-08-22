@@ -201,7 +201,7 @@ Each row is a guarantee, the mechanism that produces it, and the assertion that 
 
 | Guarantee | Mechanism | Proven by |
 |---|---|---|
-| **No direct LLM write path** | Agents emit typed `MemoryProposal` objects over HTTP; canonical `INSERT`/`UPDATE` statements exist in exactly one module; agents connect as `pv_agent_reader`, which has no `INSERT` anywhere | `G4.3` write-path lint, `G7.3`, `G11.2` |
+| **No direct LLM write path** | Agents emit typed `MemoryProposal` objects over HTTP; canonical `INSERT`/`UPDATE` statements exist in exactly two named modules -- the Kernel, and the outbox dispatcher, which rule `W5` permits to set `outbox_events.status` and nothing else; agents connect as `pv_agent_reader`, which has no `INSERT` anywhere | `G4.3` write-path lint, `G7.3`, `G11.2` |
 | **Every canonical belief is grounded** | `belief_support` edges required by a `CHECK` constraint, not by convention; `support_edge_count` reconciled against the real edge count | `G2.8`, `G4.9` sabotage, invariants V1–V3 |
 | **Contradictions persist as first-class state** | `conflicts` rows with type, severity, `requires_human`, and the belief version that remains canonical — never a transient prompt string | `G4.1`, conflict-detection and false-conflict eval gates |
 | **Aggregate transitions are serializable** | One `SERIALIZABLE` transaction per accepted proposal, bounded `40001` retry with jitter, no model or network call inside the callback | `G3.2`, `G3.5`, `G4.7` at 10 consecutive runs, `G14.4` at 25 |

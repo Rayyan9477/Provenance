@@ -57,7 +57,7 @@ Pin these. Version drift in the toolchain is the cheapest possible source of a l
 | `cockroach` CLI | v25.3.x | `cockroach sql` is what every gate command in the phase gates uses. | `cockroach version` |
 | `jq` | 1.6+ | Every probe and gate assertion parses JSON with it. | `jq --version` |
 | `gh` | 2.x | Repository visibility and licence assertions (`G0.2`, `S1`, `S2`). | `gh --version` |
-| `gitleaks` | 8.x | `G0.3` and `S8`. | `gitleaks version` |
+| `gitleaks` | **≥ 8.30.0** | `G0.3` and `S8`. **Not "8.x".** On 8.21.x the top-level `[[allowlists]]` array is applied to the extended default ruleset only and is silently ignored for every custom `pv-*` rule — the rules covering the six credential shapes this project can leak. The failure is invisible: nothing goes red, the allowlists simply do not exist for those rules. `tools/tests/test_gitleaks_config.py` asserts the floor at runtime. | `gitleaks version` |
 | `ffprobe` (ffmpeg) | any | `S4` measures the video against the hard 180.0 s limit. | `ffprobe -version` |
 | `uuidgen` | any | Idempotency-key generation in gate commands. | `uuidgen` |
 
@@ -737,6 +737,40 @@ CREATE VECTOR INDEX evidence_embedding_ann_idx
     ON evidence_items (user_id, embedding vector_cosine_ops);
 ```
 
+> ### The ANN index build takes ~55 minutes, not one to two
+>
+> **Measured twice on this cluster** over the full 18,035-row corpus, from the
+> job ledger rather than a stopwatch:
+>
+> | run | start | finish | elapsed |
+> |---|---|---|---|
+> | A | 15:51:45Z | 16:44:41Z | **52m 56s** |
+> | B | 18:28:04Z | 19:23:16Z | **55m 12s** |
+>
+> An earlier estimate of "one to two minutes" is wrong by roughly a factor of
+> thirty. This is not a footnote: it changes what `make demo-reset && make seed`
+> costs before a demo from five minutes to over an hour, and it is the difference
+> between a recoverable mistake and an unrecoverable one on the day.
+>
+> ### Two seeds must never run concurrently, and the failure is SILENT
+>
+> CockroachDB serialises schema changes on a table. A second seed's step-4
+> `DROP INDEX` does not fail and does not run — it **queues** behind the first
+> seed's step-7 `CREATE`, then executes the instant that build succeeds. Observed:
+>
+> ```
+> 18:27:49Z  DROP INDEX evidence_embedding_ann_idx     (run B, step 4)
+> 18:28:04Z  CREATE VECTOR INDEX ...                   (run B, step 7)  -> ok 19:23:16Z
+> 19:23:16Z  DROP INDEX evidence_embedding_ann_idx     (run C, step 4)  -> ok 19:23:18Z
+> ```
+>
+> Run C destroyed 55 minutes of run B's work two seconds after it completed, and
+> then exited before its own step 7 — leaving 18,035 rows and **no ANN index**.
+> Nothing errored. `scripts/seed` now waits for any in-flight ANN schema-change
+> job before touching the index, only drops it when at least 500 rows are pending,
+> and rebuilds it if it finds the index missing with nothing to load — so
+> `python -m scripts.seed --profile all` is the repair for this exact state.
+
 Step 8, because a `CREATE INDEX` that has returned is not a `CREATE INDEX` that has finished:
 
 ```sql
@@ -984,7 +1018,7 @@ These are not preferences. Each corresponds to an invariant or to a canonical de
 1. **The Memory Kernel.** It is never mocked, stubbed, faked, or bypassed in any correctness test. `PV_FORBID_MOCKS=1` makes the end-to-end conftest raise on any `unittest.mock` import (`G14.7`), and `grep -rn "MagicMock\|FakeKernel\|StubDB" tests/e2e` must return nothing. A demo whose commit came from anything but the Kernel is a fabricated demo.
 2. **The real CockroachDB.** Never SQLite, never an in-memory shim, never an ORM-level fake. The invariants live in `CHECK` constraints, composite foreign keys, and `SERIALIZABLE` isolation. A test database without them tests nothing that matters.
 3. **The real transaction path.** One serializable transaction per accepted proposal, written in the statement order of `specs/10_DATABASE_DDL.md` §13, with bounded retry on SQLSTATE `40001` and **no model call or network call inside the callback** (`G3.5` enforces this with an AST lint over every transaction callback).
-4. **Canonical write authority.** Only `pv_kernel_writer`, only from `services/control_plane/app/memory_kernel/`. `python -m tools.write_path_lint` must report canonical write statements in exactly one module and zero in `agents/`, `workers/`, `apps/web/`, and `packages/`.
+4. **Canonical write authority.** Only `pv_kernel_writer`, only from `services/control_plane/app/memory_kernel/`. `python -m tools.write_path_lint` must report canonical write statements in exactly two modules — `app/memory_kernel` and `app/events`, the latter holding only the `UPDATE outbox_events SET status` that rule `W5` permits — and zero in `agents/`, `workers/`, `apps/web/`, and `packages/`. Assert the module *names*, never the count: a count admits any second module.
 5. **Trace and State Proof backing.** Both are assembled from persisted rows by SQL. No scripted animation, no hard-coded identifiers, no model in the State Proof path (`G5.1` constructs an exploding Bedrock client and requires the suite to pass anyway).
 6. **The approval binding.** `basis_case_revision` and `approval_draft_sha256` are revalidated by the executor immediately before the send. Never skip it locally "because it is only the sink".
 

@@ -1,0 +1,36 @@
+T1.4 SABOTAGE — PV_SABOTAGE must reach test_invariants.py
+Captured 2026-08-18T09:19:05Z   git HEAD: e2a242c
+
+The point: a from-import would copy money.outstanding before PV_SABOTAGE
+rebinds it on the module object, the sabotage would never arrive, and G1.7
+would report a GREEN sabotage run -- a gate FAILURE, not a pass.
+
+Exit codes below are pytest's own, captured with PIPESTATUS. An earlier
+capture piped through tail and recorded tail's exit=0, which in a sabotage
+transcript reads as 'the sabotage run passed' -- the exact misreading this
+file exists to prevent.
+
+--- baseline, no sabotage ---
+.....................                                                    [100%]
+21 passed in 0.33s
+pytest exit=0  (expect 0)
+
+--- sabotaged: test_invariants.py ---
+packages\python\provenance_domain\tests\test_invariants.py:582: AssertionError
+=========================== short test summary info ===========================
+FAILED packages/python/provenance_domain/tests/test_invariants.py::test_invariant_3_state_is_transactional
+FAILED packages/python/provenance_domain/tests/test_invariants.py::test_derive_outstanding_never_clamps_over_fulfilment
+FAILED packages/python/provenance_domain/tests/test_invariants.py::test_derive_commitment_status_is_the_only_money_to_status_map
+3 failed, 18 passed in 0.45s
+pytest exit=1  (expect NON-ZERO; a zero here is a gate failure)
+
+--- sabotaged: the whole matrix selection, packages/python/provenance_domain/tests ---
+=========================== short test summary info ===========================
+FAILED packages/python/provenance_domain/tests/test_derivations.py::test_outstanding_is_committed_minus_admitted_fulfilment
+FAILED packages/python/provenance_domain/tests/test_derivations.py::test_outstanding_money_is_currency_strict_and_never_clamps
+FAILED packages/python/provenance_domain/tests/test_derivations.py::test_pv_sabotage_hook_can_neuter_the_outstanding_identity
+FAILED packages/python/provenance_domain/tests/test_invariants.py::test_invariant_3_state_is_transactional
+FAILED packages/python/provenance_domain/tests/test_invariants.py::test_derive_outstanding_never_clamps_over_fulfilment
+FAILED packages/python/provenance_domain/tests/test_invariants.py::test_derive_commitment_status_is_the_only_money_to_status_map
+6 failed, 87 passed in 0.57s
+pytest exit=1  (expect NON-ZERO)

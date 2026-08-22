@@ -1,0 +1,37 @@
+=== GREEN_T1.6 :: captured 2026-08-18T09:49:56Z ===
+
+=== cmd: python -m pytest packages/python/provenance_contracts/tests packages/python/provenance_domain/tests -q ===
+........................................................................ [ 85%]
+................................................                         [100%]
+336 passed in 2.90s
+
+=== per-file collection ===
+packages/python/provenance_contracts/tests/test_draft_grounding.py       12 tests collected
+packages/python/provenance_contracts/tests/test_kernel_result.py         21 tests collected
+packages/python/provenance_contracts/tests/test_no_sql_in_contracts.py   22 tests collected
+packages/python/provenance_contracts/tests/test_proposal_grounding.py    14 tests collected
+packages/python/provenance_contracts/tests/test_retrieval_retraction.py  18 tests collected
+packages/python/provenance_contracts/tests/test_roundtrip.py             43 tests collected
+packages/python/provenance_contracts/tests/test_scalars.py               60 tests collected
+packages/python/provenance_contracts/tests/test_settings.py              38 tests collected
+packages/python/provenance_contracts/tests/test_state_proof.py           15 tests collected
+packages/python/provenance_domain/tests (all)                            93 tests collected
+
+=== cmd: python -m pytest -q  (whole repo) ===
+........................                                                 [100%]
+456 passed in 14.29s
+
+=== cmd: mypy --strict packages/python/provenance_contracts ===
+Success: no issues found in 14 source files
+
+=== cmd: mypy --strict packages/python/provenance_domain packages/python/provenance_contracts ===
+Success: no issues found in 22 source files
+
+=== cmd: python -m tools.contract_lint --rule no-float-money --rule schema-version-present --rule no-sql-in-contracts ===
+contract_lint: 3 rules, 0 violations
+
+=== cmd: ruff check . ===
+All checks passed!
+
+=== cmd: ruff format --check . ===
+81 files already formatted

@@ -7,35 +7,57 @@ Audience: coding agents, backend/frontend engineers, judges reviewing technical 
 
 ## 1. Frozen decisions
 
-These decisions are considered stable unless a concrete blocker appears.
+**Rewritten 2026-08-24 for the pivot** from the CockroachDB × AWS hackathon to the
+All Things Agentic Hackathon. `CANONICAL_DECISIONS.md` → *Gemini model id canon* is
+the binding record; this table is the summary and defers to it on any conflict.
 
-| Concern | Decision |
-|---|---|
-| Product | Provenance: personal system of record for user–institution relationships |
-| Hero story | “The Move That Never Really Ended” — ISP post-cancellation bill reopens an old relationship, while other move obligations remain unresolved |
-| Agent framework | LangGraph |
-| Agent hosting | Amazon Bedrock AgentCore Runtime |
-| Canonical memory | CockroachDB Cloud |
-| Agent access to DB | CockroachDB MCP for governed reads; no direct canonical writes from reasoning agents |
-| Backend | Python + FastAPI |
-| Frontend | Next.js + TypeScript |
-| Authentication | Amazon Cognito user pool; real multi-user architecture + pre-seeded judge account |
-| Raw artifacts | Amazon S3 |
-| Email ingestion | Amazon SES inbound → S3 → ingestion worker; upload `.eml`/PDF/image remains fallback |
-| Document extraction | MIME/parser first; Textract for image/PDF/form/table workloads |
-| Event/wakeup | EventBridge + EventBridge Scheduler; SQS DLQ |
-| External action | Draft → human approval → deterministic executor; demo outbound email via SES/safe sink |
-| Reasoning model | `anthropic.claude-opus-5` for Tier R semantic resolution and advocacy |
-| Bulk extraction model | `anthropic.claude-haiku-4-5` for Tier E extraction/classification |
-| Fallback policy | One Tier E repair and one Opus 5 low-effort invocation fallback; Tier R failure becomes `PENDING_HUMAN_REVIEW` |
-| Embeddings | Titan Text Embeddings V2, 1024 dimensions, one frozen embedding version |
-| Database isolation | CockroachDB `SERIALIZABLE`; kernel retries SQLSTATE `40001` |
-| Deployment DB | CockroachDB Cloud Basic/trial first; multi-region if easy under credits |
-| AWS primary region | `us-east-1` default; change only if required model/SES/AgentCore availability dictates |
+| Concern | Decision | Changed by the pivot |
+|---|---|---|
+| Product | Provenance: personal system of record for user–institution relationships | no |
+| Hero story | "The Move That Never Really Ended" | no |
+| Agent framework | **`google-genai` SDK** | yes — was LangGraph |
+| Agent hosting | **Cloud Run**, in-process with the control plane | yes — was Bedrock AgentCore Runtime |
+| Canonical memory | CockroachDB Cloud | no — and deliberately still on AWS `us-east-1` |
+| Agent access to DB | Five `agent_*_v1` views via `pv_agent_reader`; no canonical writes from reasoning agents | no |
+| Backend | Python + FastAPI | no |
+| Frontend | Next.js + TypeScript | no |
+| Authentication | **Identity provider selected by `PV_PLATFORM`**: Google Identity Platform, Cognito, or a disclosed local issuer | yes — was Cognito only |
+| Raw artifacts | **Cloud Storage** | yes — was S3 |
+| Email ingestion | **Deferred.** Upload `.eml`/PDF/image is the ingestion path for v1 | yes — was SES inbound |
+| Document extraction | MIME/parser first; **Gemini native multimodal** for image/PDF | yes — was Textract |
+| Event/wakeup | **In-process dispatcher behind a transport Protocol**; Pub/Sub is a later wiring decision | yes — was EventBridge + SQS |
+| External action | Draft → human approval → deterministic executor; demo sink only | no |
+| Reasoning model (Tier R) | **`gemini-3.7-flash`** | yes |
+| Extraction model (Tier E) | **`gemini-3.5-flash-lite`** | yes |
+| Tier R fallback | **`gemini-3.6-flash`** — held for *capacity* failure, not capability | yes |
+| Embeddings | **`gemini-embedding-2`, 1536 dimensions, version `v2`** | yes — was Titan, 1024, `v1` |
+| Database isolation | CockroachDB `SERIALIZABLE`; Kernel retries SQLSTATE `40001` | no |
+| Cloud region | Cloud Run in **`us-east4`** | yes |
+
+**There is no Pro reasoning tier, and that is the rules rather than a preference.**
+`gemini-3.1-pro-preview` is the only Pro model on the Gemini API and it is version
+3.1 — *below* the mandated "3.5 or newer" floor. Both tiers are therefore
+Flash-class. Any statement elsewhere in this pack implying a Pro tier is superseded.
+
+**Why the database did not move.** Keeping CockroachDB preserves eight migrations,
+twenty-six tables, five agent views, the seed and roughly 390 database and retrieval
+tests — the largest block of verified work in the repository. `CREATE VECTOR INDEX`
+has no exact pgvector or ScaNN equivalent, so moving would mean re-deriving the
+vector strategy under deadline. The hackathon requires *at least one* Google Cloud
+infrastructure service, and Cloud Run satisfies that on its own. `us-east4` and AWS
+`us-east-1` are both Northern Virginia, so the cross-cloud hop stays in single-digit
+milliseconds.
+
+**Every Gemini id above is UNPROBED.** All are transcribed from documentation and
+none has been invoked. The previous canon was frozen the same way and *every one of
+its four ids turned out to be un-invocable* — `list-foundation-models` returns ids
+that cannot be called, which is the trap `D-00-002` fell into.
+`ops/probes/gemini_probe.py` is what settles them; until its transcript exists these
+are candidates, not decisions.
 
 ## 2. The architecture in one sentence
 
-> Untrusted evidence is interpreted by LangGraph agents into typed proposals; a deterministic Memory Kernel validates those proposals and atomically commits versioned beliefs, obligations, state transitions, and outbox records in CockroachDB; asynchronous AWS services then react to committed state under explicit human authorization.
+> Untrusted evidence is interpreted by Gemini agents into typed proposals; a deterministic Memory Kernel validates those proposals and atomically commits versioned beliefs, obligations, state transitions, and outbox records in CockroachDB; asynchronous workers then react to committed state under explicit human authorization.
 
 ## 3. Four invariants that every implementation must preserve
 
@@ -59,8 +81,8 @@ Provenance has many logical modules, but the hackathon build should **not** depl
 - Memory Kernel
 - State Proof builder
 - action policy + action executor
-- Interpreter LangGraph
-- Advocate LangGraph
+- Interpreter graph (`google-genai`)
+- Advocate graph (`google-genai`)
 - optional Resolver node/subgraph
 - event dispatcher
 - trigger evaluator
@@ -70,14 +92,31 @@ Provenance has many logical modules, but the hackathon build should **not** depl
 
 Use only these deployment units initially:
 
-1. **`web`** — Next.js UI on Amplify Hosting.
-2. **`control-plane`** — one FastAPI container on AWS App Runner containing API, retrieval, Memory Kernel, State Proof, action-policy logic, and internal tool endpoints.
-3. **`agent-runtime`** — LangGraph agent package on AgentCore Runtime.
-4. **`workers`** — small Lambda functions for SES ingestion notification, trigger wakeups, outbox sweeping/dispatch, and optional document-analysis completion callbacks.
-5. **CockroachDB Cloud** — canonical memory plane.
-6. **S3/SES/EventBridge/SQS/Cognito/CloudWatch** — managed supporting services.
+Rewritten 2026-08-24. The pivot **reduced** this list, which is the main reason
+the deploy phase got cheaper rather than more expensive.
 
-This is intentionally a **modular monolith + managed async workers**, not a microservice zoo. It minimizes deployment/network failure modes while preserving clear module boundaries in code.
+1. **`web`** — Next.js UI on **Cloud Run**.
+2. **`control-plane`** — one FastAPI container on **Cloud Run**, containing API,
+   retrieval, Memory Kernel, State Proof, action-policy logic, the agent runtime and
+   internal tool endpoints.
+3. **`workers`** — trigger wakeups and outbox sweeping/dispatch. In-process behind a
+   transport Protocol for the hackathon build; a separate deployment unit only if the
+   demo shows it needs one.
+4. **CockroachDB Cloud** — canonical memory plane, on AWS `us-east-1`.
+5. **Cloud Storage** — raw artifact bytes.
+6. **Gemini Developer API** — model inference. Not a Cloud infrastructure service, so
+   it does **not** satisfy the hackathon's infrastructure requirement; Cloud Run does.
+
+`agent-runtime` is no longer a separate deployment unit. It was one because AgentCore
+Runtime was a distinct hosting product; with the `google-genai` SDK the agent layer is
+a library the control plane imports, and it still holds no canonical write credential
+because that boundary is enforced by SQL grants and `tools/write_path_lint.py`, not by
+process separation.
+
+This is intentionally a **modular monolith + async workers**, not a microservice zoo.
+It minimizes deployment and network failure modes while preserving clear module
+boundaries in code — and the boundary that matters most, the single canonical writer,
+was never a process boundary in the first place.
 
 ## 5. Repository layout
 
@@ -114,11 +153,9 @@ provenance/
 │       ├── model_router/
 │       └── tests/
 │
-├── workers/
-│   ├── ses_ingest/
-│   ├── textract_complete/
-│   ├── outbox_dispatch/
-│   └── trigger_wakeup/
+├── workers/                          # ses_ingest/ and textract_complete/ are
+│   ├── outbox_dispatch/              # retired with the pivot: SES ingestion is
+│   └── trigger_wakeup/               # deferred and Gemini reads images natively
 │
 ├── packages/
 │   └── python/
@@ -128,27 +165,66 @@ provenance/
 │       └── provenance_telemetry/     # trace IDs / OTEL helpers
 │
 ├── db/
-│   ├── migrations/                   # Alembic migrations
-│   ├── seeds/
-│   └── demo/
+│   ├── migrations/                   # Alembic 0001..0008
+│   ├── seeds/                        # MANIFEST.json
+│   └── verify.sql                    # V1..V11 post-migration verification queries
+│
+├── scripts/
+│   └── seed/                         # ids.py (sid), decoys.py, embeddings.py
 │
 ├── infra/
-│   ├── cdk/                          # Cognito, S3, SES, EventBridge, SQS, Lambda, App Runner/ECR
-│   └── agentcore/                    # AgentCore CLI/SDK config
+│   ├── cdk/                          # AWS CDK -- DISCARDED with the pivot; retained only as a record
+│   └── agentcore/                    # RETIRED with the pivot
+│
+├── tests/                            # cross-package suites; per-package tests live beside their package
+│   ├── retrieval/                    # L5
+│   ├── e2e/                          # L6
+│   └── support/                      # shared helpers only, contains NO tests
 │
 ├── evals/
-│   ├── datasets/
-│   ├── memory/
-│   ├── retrieval/
-│   ├── extraction/
-│   └── adversarial/
+│   ├── datasets/                     # memory_cases.jsonl (51), injection_corpus.jsonl, schema/
+│   ├── decoys/
+│   ├── fixtures/model/               # recorded cassettes
+│   ├── runner/                       # __main__.py, modes.py, assertions.py, scoring.py, report.py
+│   ├── reports/                      # generated *.json
+│   ├── memory/  retrieval/  extraction/  adversarial/
 │
-├── demo_data/
-│   └── the_move/
+├── tools/                            # gate.sh, scrub.py, write_path_lint, txn_purity_lint,
+│                                     # fixture_guard, invariant_map_check
+│
+├── ops/                              # execution evidence — committed, gitleaks-scanned
+│   ├── gate-env.sh
+│   ├── cluster-provision.txt
+│   ├── probes/                       # phase0-probe.sh / .ps1
+│   ├── cluster-probe.txt  grant-probe.txt  bedrock-probe.txt  restore-probe.txt
+│   ├── decisions/                    # VECTOR_INDEX_VARIANT.md
+│   ├── gates/                        # PHASE_00.md .. PHASE_15.md, SUBMISSION.md, logs/
+│   └── defects/                      # DEFECTS.md
+│
+├── demo/
+│   └── artifacts/                    # the hero .eml and PDF files, real bytes, real hashes
+│
+├── pyproject.toml   .importlinter   Makefile   .coveragerc
+├── LICENSE   NOTICE                  # Apache-2.0
 │
 └── docs/
-    └── implementation/
 ```
+
+### 5.1 Layout authority and the four trees it reconciles
+
+**This tree is authoritative.** Four documents previously specified four different layouts, and one of them contradicted this one outright. Resolved 2026-08-17, recorded in `CANONICAL_DECISIONS.md` → *Repository layout canon*:
+
+| Source | Status |
+|---|---|
+| `implementation/00_IMPLEMENTATION_MAP.md` §5 (this tree) | **Authoritative.** |
+| `ARCHITECTURE.md` §25 | **Superseded.** Specified a microservice tree — five `services/*`, three `agents/*`, no `workers/` — that §4.2 of this document explicitly rejects. Marked superseded in place. |
+| `submission/50_README_DRAFT.md` | Merged in: `ops/`, `tools/`, `tests/`, `db/verify.sql`. |
+| `quality/20_TDD_STRATEGY.md` §3.3 | Merged in: `pyproject.toml`, `.importlinter`, `Makefile`, `.coveragerc`, `tests/{retrieval,e2e,support}`, `evals/fixtures/model/`. |
+| `quality/22_EVAL_DATASETS.md` §1.4 | Merged in: `evals/{decoys,runner,reports}`, `datasets/schema/`. |
+
+Two directories were referenced by working documents but appeared in no tree, and are now placed: **`scripts/seed/`** (`41_RUNBOOK.md` calls `scripts/seed/embeddings.py`; `20_TDD_STRATEGY.md` imports `from scripts.seed.ids import sid`) and **`demo/artifacts/`** (referenced three times in `20_TDD_STRATEGY.md` for the real hero `.eml` and PDF bytes). `demo/artifacts/` **replaces** the earlier `demo_data/the_move/` and `db/demo/`; there is now one location for hero artifact bytes, not three.
+
+Test placement rule: per-package tests live beside their package (`packages/python/*/tests/`, `services/control_plane/tests/`, `agents/runtime/tests/`). Only genuinely cross-package suites live in the top-level `tests/`. A test that imports from exactly one package belongs next to that package.
 
 ## 6. Shared contracts are mandatory
 
@@ -242,7 +318,7 @@ contracts/domain enums
        |          |
        |          +--> retrieval engine
        |                   |
-       +-------------------+--> LangGraph agents
+       +-------------------+--> Gemini agents (google-genai)
                                   |
                                   +--> ingestion end-to-end
                                   +--> advocate flow
@@ -283,9 +359,14 @@ Everything beyond this slice is enhancement.
 - Prefer one database transaction over choreography when objects share a consistency invariant.
 - Do not add a cache until profiling proves a need.
 - Do not introduce DynamoDB as a second canonical memory store.
-- Do not use AgentCore Memory for product memory.
-- Do not use LangGraph Store as product memory.
-- LangGraph checkpointers are allowed only for workflow durability/HITL recovery.
+- **Do not use any agent SDK's session or memory abstraction as product memory.**
+  This previously named AgentCore Memory and the LangGraph Store; after the pivot it
+  binds the `google-genai` SDK's and ADK's session and memory abstractions equally.
+  The ban is restated for the new stack rather than assumed to carry over, because a
+  rule phrased against a library nobody uses any more is a rule nobody applies.
+- Session state is workflow durability and HITL recovery only. If canonical truth is
+  ever read from an SDK session rather than from the database, the
+  single-canonical-writer guarantee is gone and nothing reports it.
 - Do not expose arbitrary SQL tools to agents.
 - Do not put raw document contents into logs.
 - Do not silently resolve two high-authority conflicting sources.
@@ -308,8 +389,11 @@ Read in this order:
 - CockroachDB transaction retry errors: https://www.cockroachlabs.com/docs/stable/transaction-retry-error-reference
 - CockroachDB vector indexes: https://www.cockroachlabs.com/docs/stable/vector-indexes
 - CockroachDB MCP server: https://www.cockroachlabs.com/docs/v26.2/cockroachdb-mcp-server
-- AgentCore Runtime: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agents-tools-runtime.html
-- AgentCore Runtime deployment: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/create-deploy-agent.html
-- Amazon SES email receiving: https://docs.aws.amazon.com/ses/latest/dg/receiving-email.html
-- EventBridge Scheduler: https://docs.aws.amazon.com/scheduler/latest/UserGuide/what-is-scheduler.html
-- Titan Text Embeddings V2: https://docs.aws.amazon.com/bedrock/latest/userguide/titan-embedding-models.html
+- Gemini API models: https://ai.google.dev/gemini-api/docs/models
+- Gemini API embeddings: https://ai.google.dev/gemini-api/docs/embeddings
+- Gemini API rate limits: https://ai.google.dev/gemini-api/docs/rate-limits
+- Cloud Run: https://cloud.google.com/run/docs
+
+Retired with the pivot, retained so a reader can find what a superseded decision
+pointed at: AgentCore Runtime, Amazon SES email receiving, EventBridge Scheduler,
+and Titan Text Embeddings V2.

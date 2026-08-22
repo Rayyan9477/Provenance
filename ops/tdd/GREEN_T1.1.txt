@@ -1,0 +1,8 @@
+T1.1 GREEN transcript — provenance_domain/enums.py
+Captured 2026-08-17T23:29:34Z
+git HEAD: c2a0c05
+
+$ python -m pytest packages/python/provenance_domain/tests/test_enums.py -q
+.........                                                                [100%]
+9 passed in 0.08s
+exit=0

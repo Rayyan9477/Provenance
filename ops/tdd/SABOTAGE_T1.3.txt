@@ -1,0 +1,82 @@
+# T1.3 SABOTAGE — G1.7 probe against provenance_domain.money.outstanding.
+# Recorded: 2026-08-18T00:02:33Z
+# A green run here would be a gate failure, not a relief.
+
+$ PV_SABOTAGE=provenance_domain.money.outstanding python -m pytest packages/python/provenance_domain/tests/test_derivations.py -q
+F..F..F                                                                  [100%]
+================================== FAILURES ===================================
+___________ test_outstanding_is_committed_minus_admitted_fulfilment ___________
+
+    def test_outstanding_is_committed_minus_admitted_fulfilment() -> None:
+        """`outstanding = committed_amount - admitted_fulfilment_amount`, exactly.
+    
+        The scale assertion is not decoration: `Decimal("900.00") ==
+        Decimal("900.0000")` is true numerically, so equality alone would pass on a
+        value that had lost its `DECIMAL(20,4)` shape.
+        """
+        result = money.outstanding(Decimal("1200.0000"), Decimal("300.0000"))
+>       assert result == Decimal("900.0000")
+E       AssertionError: assert Decimal('1200.0000') == Decimal('900.0000')
+E        +  where Decimal('900.0000') = Decimal('900.0000')
+
+packages\python\provenance_domain\tests\test_derivations.py:53: AssertionError
+_________ test_outstanding_money_is_currency_strict_and_never_clamps __________
+
+    def test_outstanding_money_is_currency_strict_and_never_clamps() -> None:
+        """11_CONTRACTS.md §5.1: over-fulfilment yields a negative outstanding.
+    
+        The projection stored in the database is clamped at zero and the excess is
+        raised as a `FULFILLMENT_CONFLICT` (12_KERNEL_ALGORITHMS.md §4.3). That
+        clamping is the Kernel's job and it is not silent. This pure function must
+        hand the Kernel the real number so there is something to notice.
+        """
+        committed = money.Money(Decimal("420.00"), "USD")
+        paid = money.Money(Decimal("200.00"), "USD")
+>       assert money.outstanding_money(committed, paid) == money.Money(Decimal("220.00"), "USD")
+E       AssertionError: assert Money(amount=...urrency='USD') == Money(amount=...urrency='USD')
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing attributes:
+E         ['amount']
+E         
+E         Drill down into differing attribute amount:
+E           amount: Decimal('420.0000') != Decimal('220.0000')
+
+packages\python\provenance_domain\tests\test_derivations.py:168: AssertionError
+__________ test_pv_sabotage_hook_can_neuter_the_outstanding_identity __________
+
+    def test_pv_sabotage_hook_can_neuter_the_outstanding_identity() -> None:
+        """`G1.7` neuters `provenance_domain.money.outstanding` and requires red.
+    
+        The hook is exercised as a pure function over an explicit namespace, so the
+        mechanism is stated without re-importing the module or mutating the process
+        environment. The one assertion that *is* environment-sensitive is
+        `SABOTAGED_SYMBOLS == ()`: on an ordinary run it proves the hook is off by
+        default, and under the `G1.7` probe it correctly goes red alongside the
+        identity tests above rather than quietly agreeing with the sabotage.
+        """
+        assert money.SABOTAGE_ENV_VAR == "PV_SABOTAGE"
+        assert money.SABOTAGE_HOOKS == ("outstanding",)
+>       assert money.SABOTAGED_SYMBOLS == ()
+E       AssertionError: assert ('outstanding',) == ()
+E         
+E         Left contains one more item: 'outstanding'
+E         Use -v to get more diff
+
+packages\python\provenance_domain\tests\test_derivations.py:296: AssertionError
+=========================== short test summary info ===========================
+FAILED packages/python/provenance_domain/tests/test_derivations.py::test_outstanding_is_committed_minus_admitted_fulfilment
+FAILED packages/python/provenance_domain/tests/test_derivations.py::test_outstanding_money_is_currency_strict_and_never_clamps
+FAILED packages/python/provenance_domain/tests/test_derivations.py::test_pv_sabotage_hook_can_neuter_the_outstanding_identity
+3 failed, 4 passed in 0.20s
+exit=1
+
+# Same probe over both T1.3 test files, as G1.7 runs it across the package.
+$ PV_SABOTAGE=provenance_domain.money.outstanding python -m pytest packages/python/provenance_domain/tests/test_derivations.py packages/python/provenance_domain/tests/test_authority.py -q --no-header -rf --tb=no
+F..F..F..................                                                [100%]
+=========================== short test summary info ===========================
+FAILED packages/python/provenance_domain/tests/test_derivations.py::test_outstanding_is_committed_minus_admitted_fulfilment
+FAILED packages/python/provenance_domain/tests/test_derivations.py::test_outstanding_money_is_currency_strict_and_never_clamps
+FAILED packages/python/provenance_domain/tests/test_derivations.py::test_pv_sabotage_hook_can_neuter_the_outstanding_identity
+3 failed, 22 passed in 0.09s
+exit=1

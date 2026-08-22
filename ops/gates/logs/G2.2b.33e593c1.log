@@ -1,0 +1,5 @@
+# gate=G2.2b sha=33e593c15d9edb0eb02e7e16edf3d1b1b2caa3c3 utc=2026-08-18T14:38:14Z exit=0
+# cmd=bash -c diff\ \<\(psql\ -At\ -d\ \'postgresql://[REDACTED-USER]:[REDACTED-SECRET]@rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257/provenance_ci\?sslmode=verify-full\'\ -c\ \"SELECT\ table_name\ FROM\ information_schema.tables\ WHERE\ table_schema=\'public\'\ AND\ table_type=\'BASE\ TABLE\'\ AND\ table_name\ \<\>\ \'alembic_version\'\ ORDER\ BY\ 1\;\"\ \|\ tr\ -d\ \'\\r\'\)\ \<\(sort\ db/expected_tables.txt\ \|\ tr\ -d\ \'\\r\'\)\ \&\&\ echo\ \'expected_tables.txt\ matches\ the\ live\ schema\' 
+# started=2026-08-18T14:38:11Z finished=2026-08-18T14:38:14Z tree=dirty scrubbed-by=tools/scrub.py
+#
+expected_tables.txt matches the live schema

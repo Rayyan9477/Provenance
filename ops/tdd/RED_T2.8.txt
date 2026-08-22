@@ -1,0 +1,1245 @@
+=== RED transcript for T2.8 — the deterministic seed pipeline ===
+Recorded before any implementation module existed. scripts/seed/ held only __init__.py;
+db/seeds/ held only .gitkeep; demo/artifacts/ held only .gitkeep.
+
+$ ls scripts/seed db/seeds demo/artifacts
+db/seeds:
+
+demo/artifacts:
+
+scripts/seed:
+__init__.py
+__pycache__
+
+$ git status --short scripts/seed db/seeds demo/artifacts
+?? db/seeds/
+?? demo/artifacts/
+?? scripts/seed/
+
+$ python -m pytest services/control_plane/tests/db/test_seed_determinism.py services/control_plane/tests/db/test_seed_canon.py services/control_plane/tests/db/test_seed_corpus.py -q
+FFFFFFFF..FFFFFFFFFFF.FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEEEEEEEE [ 86%]
+EEEEEEEEEEE                                                              [100%]
+=================================== ERRORS ====================================
+____________ ERROR at setup of test_evidence_items_total_is_18035 _____________
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+______________ ERROR at setup of test_hero_partition_holds_16035 ______________
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+_____ ERROR at setup of test_isolation_tenants_hold_a_thousand_rows_each ______
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+_________ ERROR at setup of test_small_planes_have_their_canon_counts _________
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+______ ERROR at setup of test_no_evidence_row_is_stitched_across_tenants ______
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+_________ ERROR at setup of test_the_ann_index_is_back_after_the_seed _________
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+________ ERROR at setup of test_the_index_build_job_actually_finished _________
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+__ ERROR at setup of test_every_evidence_row_carries_a_1024_dim_titan_vector __
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+________ ERROR at setup of test_no_two_evidence_rows_share_one_vector _________
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+_ ERROR at setup of test_v11_returns_at_least_three_retracted_rows_that_kept_their_vectors _
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+____ ERROR at setup of test_the_three_fixtures_carry_their_canon_statuses _____
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+______ ERROR at setup of test_retracted_rows_are_not_retrieval_eligible _______
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+_ ERROR at setup of test_the_superseded_item_points_at_the_correct_31_may_evidence _
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+__________ ERROR at setup of test_seeding_twice_changes_no_row_count __________
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+________ ERROR at setup of test_seeding_twice_changes_no_row_identity _________
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+____ ERROR at setup of test_the_seed_refuses_to_run_outside_local_or_demo _____
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+_________ ERROR at setup of test_all_eleven_verification_queries_hold _________
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+________ ERROR at setup of test_manifest_matches_the_seeded_row_counts ________
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+____ ERROR at setup of test_seed_perturb_removes_the_outcome_bearing_rows _____
+
+migrated = MaskedDsn('postgresql://<redacted>')
+
+    @pytest.fixture(scope="module")
+    def seeded(migrated: str) -> str:
+        """The DSN of a database that holds the seeded corpus.
+    
+        Runs the seed when the corpus is absent. It is not re-run when it is
+        present: this lane asserts *properties of a seeded database*, and paying
+        several minutes per module to re-prove the loader would make the suite
+        unusable. ``test_seeding_twice_changes_no_row_count`` is the one test that
+        deliberately re-runs it.
+        """
+        with psycopg.connect(migrated) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM evidence_items")
+            row = cur.fetchone()
+            present = int(row[0]) if row else 0
+        if present == 0:
+            result = _run_seed(migrated, "--profile", "all")
+            if result.returncode != 0:
+>               pytest.fail(f"seed failed\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+E               Failed: seed failed
+E               --- stdout ---
+E               
+E               --- stderr ---
+E               C:\Users\rayyan.a\AppData\Local\anaconda3\python.exe: No module named scripts.seed.__main__; 'scripts.seed' is a package and cannot be directly executed
+
+services\control_plane\tests\db\test_seed_corpus.py:79: Failed
+================================== FAILURES ===================================
+____________________ test_seed_namespace_is_the_frozen_one ____________________
+
+    def test_seed_namespace_is_the_frozen_one() -> None:
+>       from scripts.seed.ids import PROVENANCE_SEED_NS
+E       ModuleNotFoundError: No module named 'scripts.seed.ids'
+
+services\control_plane\tests\db\test_seed_determinism.py:78: ModuleNotFoundError
+_________________________ test_sid_is_uuid5_not_uuid4 _________________________
+
+    def test_sid_is_uuid5_not_uuid4() -> None:
+>       from scripts.seed.ids import PROVENANCE_SEED_NS, sid
+E       ModuleNotFoundError: No module named 'scripts.seed.ids'
+
+services\control_plane\tests\db\test_seed_determinism.py:84: ModuleNotFoundError
+__________ test_sid_case_isp_cancellation_is_stable_across_processes __________
+
+    def test_sid_case_isp_cancellation_is_stable_across_processes() -> None:
+        """The exact assertion ``T2.8`` names, run in a second interpreter."""
+>       from scripts.seed.ids import sid
+E       ModuleNotFoundError: No module named 'scripts.seed.ids'
+
+services\control_plane\tests\db\test_seed_determinism.py:93: ModuleNotFoundError
+_______________ test_every_seeded_id_is_stable_across_processes _______________
+
+    def test_every_seeded_id_is_stable_across_processes() -> None:
+        """Not just the one id the plan names -- the whole minted world."""
+>       from scripts.seed.world import all_seeded_ids
+E       ModuleNotFoundError: No module named 'scripts.seed.world'
+
+services\control_plane\tests\db\test_seed_determinism.py:105: ModuleNotFoundError
+___________________ test_demo_anchor_is_the_frozen_instant ____________________
+
+    def test_demo_anchor_is_the_frozen_instant() -> None:
+>       from scripts.seed.ids import DEMO_ANCHOR
+E       ModuleNotFoundError: No module named 'scripts.seed.ids'
+
+services\control_plane\tests\db\test_seed_determinism.py:125: ModuleNotFoundError
+_____ test_deposit_due_at_derives_from_the_anchor_and_is_95_days_overdue ______
+
+    def test_deposit_due_at_derives_from_the_anchor_and_is_95_days_overdue() -> None:
+>       from scripts.seed.ids import DEMO_ANCHOR, DEPOSIT_DUE_AT
+E       ModuleNotFoundError: No module named 'scripts.seed.ids'
+
+services\control_plane\tests\db\test_seed_determinism.py:131: ModuleNotFoundError
+___________ test_final_inspection_and_the_thirty_day_promise_agree ____________
+
+    def test_final_inspection_and_the_thirty_day_promise_agree() -> None:
+>       from scripts.seed.ids import DEPOSIT_DUE_AT, FINAL_INSPECTION_AT
+E       ModuleNotFoundError: No module named 'scripts.seed.ids'
+
+services\control_plane\tests\db\test_seed_determinism.py:140: ModuleNotFoundError
+______________ test_trigger_wake_is_due_at_plus_the_wake_margin _______________
+
+    def test_trigger_wake_is_due_at_plus_the_wake_margin() -> None:
+>       from scripts.seed.ids import DEPOSIT_DUE_AT, TRIGGER_WAKE_AT, WAKE_MARGIN_SECONDS
+E       ModuleNotFoundError: No module named 'scripts.seed.ids'
+
+services\control_plane\tests\db\test_seed_determinism.py:147: ModuleNotFoundError
+____________________ test_decoy_rng_seed_is_the_frozen_one ____________________
+
+    def test_decoy_rng_seed_is_the_frozen_one() -> None:
+>       from scripts.seed.decoys import DECOY_PLAN, NEAR_MISS_QUOTA, RNG_SEED
+E       ModuleNotFoundError: No module named 'scripts.seed.decoys'
+
+services\control_plane\tests\db\test_seed_determinism.py:209: ModuleNotFoundError
+_______________ test_decoy_corpus_is_identical_across_processes _______________
+
+    def test_decoy_corpus_is_identical_across_processes() -> None:
+        """A hash over the whole generated corpus, computed in two interpreters."""
+>       from scripts.seed.decoys import corpus_fingerprint
+E       ModuleNotFoundError: No module named 'scripts.seed.decoys'
+
+services\control_plane\tests\db\test_seed_determinism.py:218: ModuleNotFoundError
+____________ test_decoy_generation_is_repeatable_within_a_process _____________
+
+    def test_decoy_generation_is_repeatable_within_a_process() -> None:
+>       from scripts.seed.decoys import generate_decoys
+E       ModuleNotFoundError: No module named 'scripts.seed.decoys'
+
+services\control_plane\tests\db\test_seed_determinism.py:229: ModuleNotFoundError
+__________________________ test_decoy_ids_are_unique __________________________
+
+    def test_decoy_ids_are_unique() -> None:
+>       from scripts.seed.decoys import generate_decoys
+E       ModuleNotFoundError: No module named 'scripts.seed.decoys'
+
+services\control_plane\tests\db\test_seed_determinism.py:239: ModuleNotFoundError
+_________ test_near_misses_are_isp_invoices_within_25_dollars_of_186 __________
+
+    def test_near_misses_are_isp_invoices_within_25_dollars_of_186() -> None:
+        """``22_EVAL_DATASETS.md`` section 7.2 rule 2 -- the quota that makes the
+        retrieval eval measure discrimination rather than recall against noise."""
+        from decimal import Decimal
+    
+>       from scripts.seed.decoys import NEAR_MISS_QUOTA, generate_decoys
+E       ModuleNotFoundError: No module named 'scripts.seed.decoys'
+
+services\control_plane\tests\db\test_seed_determinism.py:250: ModuleNotFoundError
+____________ test_decoy_observed_at_is_inside_the_540_day_lookback ____________
+
+    def test_decoy_observed_at_is_inside_the_540_day_lookback() -> None:
+>       from scripts.seed.decoys import generate_decoys
+E       ModuleNotFoundError: No module named 'scripts.seed.decoys'
+
+services\control_plane\tests\db\test_seed_determinism.py:261: ModuleNotFoundError
+_______________ test_isolation_decoys_reuse_the_hero_vocabulary _______________
+
+    def test_isolation_decoys_reuse_the_hero_vocabulary() -> None:
+        """``22_EVAL_DATASETS.md`` section 7.2 rule 3 -- the isolation tripwire only
+        works if the other tenants' text is near-identical to the hero's."""
+>       from scripts.seed.decoys import generate_decoys
+E       ModuleNotFoundError: No module named 'scripts.seed.decoys'
+
+services\control_plane\tests\db\test_seed_determinism.py:273: ModuleNotFoundError
+_____________ test_no_decoy_embedding_text_contains_an_identifier _____________
+
+    def test_no_decoy_embedding_text_contains_an_identifier() -> None:
+        """``13_RETRIEVAL_SPEC.md`` section 12.1 rule 5 -- identifiers are a flag,
+        never embedded input."""
+        import re
+    
+>       from scripts.seed.decoys import generate_decoys
+E       ModuleNotFoundError: No module named 'scripts.seed.decoys'
+
+services\control_plane\tests\db\test_seed_determinism.py:285: ModuleNotFoundError
+__________________ test_three_tenants_hero_and_two_isolation __________________
+
+    def test_three_tenants_hero_and_two_isolation() -> None:
+>       from scripts.seed.tenants import TENANTS
+E       ModuleNotFoundError: No module named 'scripts.seed.tenants'
+
+services\control_plane\tests\db\test_seed_canon.py:65: ModuleNotFoundError
+_______________________ test_three_users_one_per_tenant _______________________
+
+    def test_three_users_one_per_tenant() -> None:
+>       from scripts.seed.tenants import TENANTS, USERS
+E       ModuleNotFoundError: No module named 'scripts.seed.tenants'
+
+services\control_plane\tests\db\test_seed_canon.py:71: ModuleNotFoundError
+__________ test_hero_user_is_alex_rivera_in_new_york_with_judge_mode __________
+
+    def test_hero_user_is_alex_rivera_in_new_york_with_judge_mode() -> None:
+>       from scripts.seed.tenants import HERO_USER
+E       ModuleNotFoundError: No module named 'scripts.seed.tenants'
+
+services\control_plane\tests\db\test_seed_canon.py:78: ModuleNotFoundError
+______ test_five_counterparties_named_exactly_as_the_register_names_them ______
+
+    def test_five_counterparties_named_exactly_as_the_register_names_them() -> None:
+>       from scripts.seed.counterparties import COUNTERPARTIES
+E       ModuleNotFoundError: No module named 'scripts.seed.counterparties'
+
+services\control_plane\tests\db\test_seed_canon.py:104: ModuleNotFoundError
+_________________ test_counterparty_kinds_match_the_register __________________
+
+    def test_counterparty_kinds_match_the_register() -> None:
+>       from scripts.seed.counterparties import COUNTERPARTIES
+E       ModuleNotFoundError: No module named 'scripts.seed.counterparties'
+
+services\control_plane\tests\db\test_seed_canon.py:116: ModuleNotFoundError
+________________ test_kestrel_is_the_employer_never_the_mover _________________
+
+    def test_kestrel_is_the_employer_never_the_mover() -> None:
+        """The defect this whole file exists for.
+    
+        An earlier draft made "Kestrel Moving Co." the mover, which would have
+        pinned the USD 420 damage claim on the user's employer.
+        """
+        from pathlib import Path
+    
+>       from scripts.seed.counterparties import COUNTERPARTIES, RELATIONSHIPS
+E       ModuleNotFoundError: No module named 'scripts.seed.counterparties'
+
+services\control_plane\tests\db\test_seed_canon.py:136: ModuleNotFoundError
+______________ test_six_relationships_across_five_counterparties ______________
+
+    def test_six_relationships_across_five_counterparties() -> None:
+>       from scripts.seed.counterparties import COUNTERPARTIES, RELATIONSHIPS
+E       ModuleNotFoundError: No module named 'scripts.seed.counterparties'
+
+services\control_plane\tests\db\test_seed_canon.py:153: ModuleNotFoundError
+________ test_northline_carries_two_relationships_on_one_counterparty _________
+
+    def test_northline_carries_two_relationships_on_one_counterparty() -> None:
+        """The sharpest decoy in the corpus: same counterparty, two accounts."""
+>       from scripts.seed.counterparties import COUNTERPARTIES, RELATIONSHIPS
+E       ModuleNotFoundError: No module named 'scripts.seed.counterparties'
+
+services\control_plane\tests\db\test_seed_canon.py:161: ModuleNotFoundError
+______________ test_every_external_account_ref_is_the_frozen_one ______________
+
+    def test_every_external_account_ref_is_the_frozen_one() -> None:
+>       from scripts.seed.counterparties import RELATIONSHIPS
+E       ModuleNotFoundError: No module named 'scripts.seed.counterparties'
+
+services\control_plane\tests\db\test_seed_canon.py:173: ModuleNotFoundError
+____________________ test_external_account_refs_are_unique ____________________
+
+    def test_external_account_refs_are_unique() -> None:
+>       from scripts.seed.counterparties import RELATIONSHIPS
+E       ModuleNotFoundError: No module named 'scripts.seed.counterparties'
+
+services\control_plane\tests\db\test_seed_canon.py:188: ModuleNotFoundError
+__________ test_one_context_titled_exactly_as_the_register_titles_it __________
+
+    def test_one_context_titled_exactly_as_the_register_titles_it() -> None:
+>       from scripts.seed.cases import CONTEXTS
+E       ModuleNotFoundError: No module named 'scripts.seed.cases'
+
+services\control_plane\tests\db\test_seed_canon.py:200: ModuleNotFoundError
+____________________ test_the_move_opened_on_2_april_2026 _____________________
+
+    def test_the_move_opened_on_2_april_2026() -> None:
+>       from scripts.seed.cases import CONTEXTS
+E       ModuleNotFoundError: No module named 'scripts.seed.cases'
+
+services\control_plane\tests\db\test_seed_canon.py:208: ModuleNotFoundError
+_______________ test_ten_cases_inside_the_eight_to_twelve_band ________________
+
+    def test_ten_cases_inside_the_eight_to_twelve_band() -> None:
+>       from scripts.seed.cases import CASES
+E       ModuleNotFoundError: No module named 'scripts.seed.cases'
+
+services\control_plane\tests\db\test_seed_canon.py:215: ModuleNotFoundError
+________ test_case_statuses_and_revisions_match_the_eval_ground_truth _________
+
+    def test_case_statuses_and_revisions_match_the_eval_ground_truth() -> None:
+        """``22_EVAL_DATASETS.md`` section 2 pins a revision per case."""
+>       from scripts.seed.cases import CASES
+E       ModuleNotFoundError: No module named 'scripts.seed.cases'
+
+services\control_plane\tests\db\test_seed_canon.py:222: ModuleNotFoundError
+___________________ test_resolved_cases_carry_a_resolved_at ___________________
+
+    def test_resolved_cases_carry_a_resolved_at() -> None:
+        """``ck_cases_resolved_at_consistent`` refuses the alternative."""
+>       from scripts.seed.cases import CASES
+E       ModuleNotFoundError: No module named 'scripts.seed.cases'
+
+services\control_plane\tests\db\test_seed_canon.py:244: ModuleNotFoundError
+_________ test_four_of_the_six_relationships_are_in_the_move_context __________
+
+    def test_four_of_the_six_relationships_are_in_the_move_context() -> None:
+        """``G12.1`` asserts the dashboard shows four relationships against a seed
+        of six. The plausible reading -- recorded in ``70_TASK_PLAN.md`` section 24
+        risk 3 -- is that the dashboard is scoped to "The Move". This pins the seed
+        side of that reading so the discrepancy is measurable rather than argued.
+        """
+>       from scripts.seed.cases import CASES, CONTEXTS
+E       ModuleNotFoundError: No module named 'scripts.seed.cases'
+
+services\control_plane\tests\db\test_seed_canon.py:259: ModuleNotFoundError
+___________________ test_thirty_two_curated_evidence_items ____________________
+
+    def test_thirty_two_curated_evidence_items() -> None:
+>       from scripts.seed.evidence import CURATED_EVIDENCE
+E       ModuleNotFoundError: No module named 'scripts.seed.evidence'
+
+services\control_plane\tests\db\test_seed_canon.py:272: ModuleNotFoundError
+_______________ test_curated_items_per_case_match_section_17_5 ________________
+
+    def test_curated_items_per_case_match_section_17_5() -> None:
+        from collections import Counter
+    
+>       from scripts.seed.evidence import CURATED_EVIDENCE
+E       ModuleNotFoundError: No module named 'scripts.seed.evidence'
+
+services\control_plane\tests\db\test_seed_canon.py:280: ModuleNotFoundError
+_________ test_the_june_invoice_is_deliberately_absent_from_the_seed __________
+
+    def test_the_june_invoice_is_deliberately_absent_from_the_seed() -> None:
+        """Section 17.5: the USD 186 June invoice is uploaded live during the demo.
+    
+        Seeding it would make the reveal a lookup and the counterfactual a fiction.
+        """
+>       from scripts.seed.evidence import CURATED_EVIDENCE
+E       ModuleNotFoundError: No module named 'scripts.seed.evidence'
+
+services\control_plane\tests\db\test_seed_canon.py:301: ModuleNotFoundError
+_______ test_the_june_invoice_artifact_exists_on_disk_but_is_not_seeded _______
+
+    def test_the_june_invoice_artifact_exists_on_disk_but_is_not_seeded() -> None:
+        from pathlib import Path
+    
+        repo_root = Path(__file__).resolve().parents[4]
+        artifact = repo_root / "demo" / "artifacts" / "northline-june-invoice.eml"
+>       assert artifact.is_file(), "the live-upload artifact must be committed"
+E       AssertionError: the live-upload artifact must be committed
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = WindowsPath('D:/Repo/neverreset/demo/artifacts/northline-june-invoice.eml').is_file
+
+services\control_plane\tests\db\test_seed_canon.py:312: AssertionError
+_____________ test_every_curated_item_has_a_real_artifact_on_disk _____________
+
+    def test_every_curated_item_has_a_real_artifact_on_disk() -> None:
+        from pathlib import Path
+    
+>       from scripts.seed.evidence import CURATED_ARTIFACTS
+E       ModuleNotFoundError: No module named 'scripts.seed.evidence'
+
+services\control_plane\tests\db\test_seed_canon.py:319: ModuleNotFoundError
+___________ test_artifact_hashes_are_the_real_bytes_not_fabricated ____________
+
+    def test_artifact_hashes_are_the_real_bytes_not_fabricated() -> None:
+        import hashlib
+        from pathlib import Path
+    
+>       from scripts.seed.evidence import CURATED_ARTIFACTS
+E       ModuleNotFoundError: No module named 'scripts.seed.evidence'
+
+services\control_plane\tests\db\test_seed_canon.py:332: ModuleNotFoundError
+___________________ test_curated_evidence_slugs_are_unique ____________________
+
+    def test_curated_evidence_slugs_are_unique() -> None:
+>       from scripts.seed.evidence import CURATED_EVIDENCE
+E       ModuleNotFoundError: No module named 'scripts.seed.evidence'
+
+services\control_plane\tests\db\test_seed_canon.py:341: ModuleNotFoundError
+_____________ test_four_commitments_two_fulfillments_two_triggers _____________
+
+    def test_four_commitments_two_fulfillments_two_triggers() -> None:
+>       from scripts.seed.obligations import COMMITMENTS, FULFILLMENTS, TRIGGERS
+E       ModuleNotFoundError: No module named 'scripts.seed.obligations'
+
+services\control_plane\tests\db\test_seed_canon.py:353: ModuleNotFoundError
+________________ test_commitment_money_is_decimal_never_float _________________
+
+    def test_commitment_money_is_decimal_never_float() -> None:
+>       from scripts.seed.obligations import COMMITMENTS
+E       ModuleNotFoundError: No module named 'scripts.seed.obligations'
+
+services\control_plane\tests\db\test_seed_canon.py:361: ModuleNotFoundError
+________ test_commitment_arithmetic_satisfies_the_outstanding_identity ________
+
+    def test_commitment_arithmetic_satisfies_the_outstanding_identity() -> None:
+        """``ck_commitments_outstanding_identity`` refuses anything else."""
+>       from scripts.seed.obligations import COMMITMENTS
+E       ModuleNotFoundError: No module named 'scripts.seed.obligations'
+
+services\control_plane\tests\db\test_seed_canon.py:374: ModuleNotFoundError
+_______ test_the_four_commitments_carry_the_frozen_amounts_and_statuses _______
+
+    def test_the_four_commitments_carry_the_frozen_amounts_and_statuses() -> None:
+>       from scripts.seed.obligations import COMMITMENTS
+E       ModuleNotFoundError: No module named 'scripts.seed.obligations'
+
+services\control_plane\tests\db\test_seed_canon.py:386: ModuleNotFoundError
+_______ test_outstanding_total_is_2020_with_northline_contributing_zero _______
+
+    def test_outstanding_total_is_2020_with_northline_contributing_zero() -> None:
+        """The landing-screen figure, computed from the fixtures.
+    
+        Harborview 1800.00 + Beltline 220.00 = 2020.00. Northline's obligation is
+        non-monetary and contributes nothing; the June invoice's USD 186 moves
+        ``epistemic_status`` to ``DISPUTED`` and never moves an amount.
+        """
+>       from scripts.seed.obligations import COMMITMENTS, outstanding_total
+E       ModuleNotFoundError: No module named 'scripts.seed.obligations'
+
+services\control_plane\tests\db\test_seed_canon.py:414: ModuleNotFoundError
+________ test_fulfilled_amount_equals_the_sum_of_admitted_fulfillments ________
+
+    def test_fulfilled_amount_equals_the_sum_of_admitted_fulfillments() -> None:
+        """Verification query V7, asserted on the fixtures before it is asserted
+        on the rows."""
+>       from scripts.seed.obligations import COMMITMENTS, FULFILLMENTS
+E       ModuleNotFoundError: No module named 'scripts.seed.obligations'
+
+services\control_plane\tests\db\test_seed_canon.py:426: ModuleNotFoundError
+_____ test_the_deposit_trigger_is_armed_on_case_three_with_the_canon_wake _____
+
+    def test_the_deposit_trigger_is_armed_on_case_three_with_the_canon_wake() -> None:
+>       from scripts.seed.ids import TRIGGER_WAKE_AT
+E       ModuleNotFoundError: No module named 'scripts.seed.ids'
+
+services\control_plane\tests\db\test_seed_canon.py:443: ModuleNotFoundError
+_________________ test_the_deposit_predicate_is_the_canon_ast _________________
+
+    def test_the_deposit_predicate_is_the_canon_ast() -> None:
+>       from scripts.seed.obligations import TRIGGERS
+E       ModuleNotFoundError: No module named 'scripts.seed.obligations'
+
+services\control_plane\tests\db\test_seed_canon.py:456: ModuleNotFoundError
+______________ test_trigger_basis_case_revision_matches_its_case ______________
+
+    def test_trigger_basis_case_revision_matches_its_case() -> None:
+>       from scripts.seed.cases import CASES
+E       ModuleNotFoundError: No module named 'scripts.seed.cases'
+
+services\control_plane\tests\db\test_seed_canon.py:467: ModuleNotFoundError
+___________ test_three_retraction_fixtures_with_the_frozen_statuses ___________
+
+    def test_three_retraction_fixtures_with_the_frozen_statuses() -> None:
+>       from scripts.seed.retractions import RETRACTION_FIXTURES
+E       ModuleNotFoundError: No module named 'scripts.seed.retractions'
+
+services\control_plane\tests\db\test_seed_canon.py:481: ModuleNotFoundError
+__________ test_the_superseding_evidence_is_the_correct_31_may_item ___________
+
+    def test_the_superseding_evidence_is_the_correct_31_may_item() -> None:
+>       from scripts.seed.retractions import RETRACTION_FIXTURES
+E       ModuleNotFoundError: No module named 'scripts.seed.retractions'
+
+services\control_plane\tests\db\test_seed_canon.py:494: ModuleNotFoundError
+______________ test_every_retraction_fixture_keeps_its_embedding ______________
+
+    def test_every_retraction_fixture_keeps_its_embedding() -> None:
+        """Canon item C: retracted evidence retains bytes, metadata and embeddings.
+    
+        V11 is the database-side proof; this is the fixture-side one.
+        """
+>       from scripts.seed.retractions import RETRACTION_FIXTURES
+E       ModuleNotFoundError: No module named 'scripts.seed.retractions'
+
+services\control_plane\tests\db\test_seed_canon.py:506: ModuleNotFoundError
+____________ test_the_injected_instruction_is_retained_not_deleted ____________
+
+    def test_the_injected_instruction_is_retained_not_deleted() -> None:
+>       from scripts.seed.retractions import RETRACTION_FIXTURES
+E       ModuleNotFoundError: No module named 'scripts.seed.retractions'
+
+services\control_plane\tests\db\test_seed_canon.py:513: ModuleNotFoundError
+________ test_embedding_template_renders_all_six_header_lines_in_order ________
+
+    def test_embedding_template_renders_all_six_header_lines_in_order() -> None:
+>       from scripts.seed.embedding_text import build_embedding_text
+E       ModuleNotFoundError: No module named 'scripts.seed.embedding_text'
+
+services\control_plane\tests\db\test_seed_canon.py:526: ModuleNotFoundError
+________________ test_embedding_template_money_is_two_decimals ________________
+
+    def test_embedding_template_money_is_two_decimals() -> None:
+>       from scripts.seed.embedding_text import build_embedding_text
+E       ModuleNotFoundError: No module named 'scripts.seed.embedding_text'
+
+services\control_plane\tests\db\test_seed_canon.py:550: ModuleNotFoundError
+___________ test_embedding_template_caps_the_body_at_900_characters ___________
+
+    def test_embedding_template_caps_the_body_at_900_characters() -> None:
+>       from scripts.seed.embedding_text import MAX_BODY_CHARS, build_embedding_text
+E       ModuleNotFoundError: No module named 'scripts.seed.embedding_text'
+
+services\control_plane\tests\db\test_seed_canon.py:567: ModuleNotFoundError
+________________ test_embedding_template_collapses_whitespace _________________
+
+    def test_embedding_template_collapses_whitespace() -> None:
+>       from scripts.seed.embedding_text import build_embedding_text
+E       ModuleNotFoundError: No module named 'scripts.seed.embedding_text'
+
+services\control_plane\tests\db\test_seed_canon.py:585: ModuleNotFoundError
+___________ test_manifest_exists_and_covers_all_26_canonical_tables ___________
+
+    def test_manifest_exists_and_covers_all_26_canonical_tables() -> None:
+        import json
+        from pathlib import Path
+    
+        repo_root = Path(__file__).resolve().parents[4]
+>       manifest = json.loads((repo_root / "db" / "seeds" / "MANIFEST.json").read_text("utf-8"))
+
+services\control_plane\tests\db\test_seed_canon.py:611: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/seeds/MANIFEST.json'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\seeds\\MANIFEST.json'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+___________ test_manifest_records_the_demo_anchor_and_the_rng_seed ____________
+
+    def test_manifest_records_the_demo_anchor_and_the_rng_seed() -> None:
+        import json
+        from pathlib import Path
+    
+        repo_root = Path(__file__).resolve().parents[4]
+>       manifest = json.loads((repo_root / "db" / "seeds" / "MANIFEST.json").read_text("utf-8"))
+
+services\control_plane\tests\db\test_seed_canon.py:622: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/seeds/MANIFEST.json'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\seeds\\MANIFEST.json'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+________ test_manifest_evidence_count_is_18035_and_hero_scope_is_16035 ________
+
+    def test_manifest_evidence_count_is_18035_and_hero_scope_is_16035() -> None:
+        import json
+        from pathlib import Path
+    
+        repo_root = Path(__file__).resolve().parents[4]
+>       manifest = json.loads((repo_root / "db" / "seeds" / "MANIFEST.json").read_text("utf-8"))
+
+services\control_plane\tests\db\test_seed_canon.py:633: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/seeds/MANIFEST.json'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\seeds\\MANIFEST.json'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+____________ test_manifest_expected_counts_agree_with_the_fixtures ____________
+
+    def test_manifest_expected_counts_agree_with_the_fixtures() -> None:
+        import json
+        from pathlib import Path
+    
+>       from scripts.seed.cases import CASES, CONTEXTS
+E       ModuleNotFoundError: No module named 'scripts.seed.cases'
+
+services\control_plane\tests\db\test_seed_canon.py:643: ModuleNotFoundError
+__________ test_manifest_marks_the_kernel_written_tables_as_deferred __________
+
+    def test_manifest_marks_the_kernel_written_tables_as_deferred() -> None:
+        """``70_TASK_PLAN.md`` section 24 risk 11.
+    
+        Step 9 replays curated proposals through ``MemoryKernel.commit()``, which
+        does not exist until Phase 4. Under ``--profile schema-only`` the canonical
+        tables are legitimately empty, and the manifest must say so *by name*
+        rather than by an unexplained zero -- otherwise ``26 tables checked, 26
+        match`` is a green light over an unbuilt half of the seed.
+        """
+        import json
+        from pathlib import Path
+    
+        repo_root = Path(__file__).resolve().parents[4]
+>       manifest = json.loads((repo_root / "db" / "seeds" / "MANIFEST.json").read_text("utf-8"))
+
+services\control_plane\tests\db\test_seed_canon.py:673: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('D:/Repo/neverreset/db/seeds/MANIFEST.json'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Repo\\neverreset\\db\\seeds\\MANIFEST.json'
+
+C:\Users\rayyan.a\AppData\Local\anaconda3\Lib\pathlib.py:1013: FileNotFoundError
+=========================== short test summary info ===========================
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_evidence_items_total_is_18035
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_hero_partition_holds_16035
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_isolation_tenants_hold_a_thousand_rows_each
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_small_planes_have_their_canon_counts
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_no_evidence_row_is_stitched_across_tenants
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_the_ann_index_is_back_after_the_seed
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_the_index_build_job_actually_finished
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_every_evidence_row_carries_a_1024_dim_titan_vector
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_no_two_evidence_rows_share_one_vector
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_v11_returns_at_least_three_retracted_rows_that_kept_their_vectors
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_the_three_fixtures_carry_their_canon_statuses
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_retracted_rows_are_not_retrieval_eligible
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_the_superseded_item_points_at_the_correct_31_may_evidence
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_seeding_twice_changes_no_row_count
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_seeding_twice_changes_no_row_identity
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_the_seed_refuses_to_run_outside_local_or_demo
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_all_eleven_verification_queries_hold
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_manifest_matches_the_seeded_row_counts
+ERROR services/control_plane/tests/db/test_seed_corpus.py::test_seed_perturb_removes_the_outcome_bearing_rows
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_seed_namespace_is_the_frozen_one
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_sid_is_uuid5_not_uuid4
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_sid_case_isp_cancellation_is_stable_across_processes
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_every_seeded_id_is_stable_across_processes
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_demo_anchor_is_the_frozen_instant
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_deposit_due_at_derives_from_the_anchor_and_is_95_days_overdue
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_final_inspection_and_the_thirty_day_promise_agree
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_trigger_wake_is_due_at_plus_the_wake_margin
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_decoy_rng_seed_is_the_frozen_one
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_decoy_corpus_is_identical_across_processes
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_decoy_generation_is_repeatable_within_a_process
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_decoy_ids_are_unique
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_near_misses_are_isp_invoices_within_25_dollars_of_186
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_decoy_observed_at_is_inside_the_540_day_lookback
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_isolation_decoys_reuse_the_hero_vocabulary
+FAILED services/control_plane/tests/db/test_seed_determinism.py::test_no_decoy_embedding_text_contains_an_identifier
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_three_tenants_hero_and_two_isolation
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_three_users_one_per_tenant
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_hero_user_is_alex_rivera_in_new_york_with_judge_mode
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_five_counterparties_named_exactly_as_the_register_names_them
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_counterparty_kinds_match_the_register
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_kestrel_is_the_employer_never_the_mover
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_six_relationships_across_five_counterparties
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_northline_carries_two_relationships_on_one_counterparty
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_every_external_account_ref_is_the_frozen_one
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_external_account_refs_are_unique
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_one_context_titled_exactly_as_the_register_titles_it
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_the_move_opened_on_2_april_2026
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_ten_cases_inside_the_eight_to_twelve_band
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_case_statuses_and_revisions_match_the_eval_ground_truth
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_resolved_cases_carry_a_resolved_at
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_four_of_the_six_relationships_are_in_the_move_context
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_thirty_two_curated_evidence_items
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_curated_items_per_case_match_section_17_5
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_the_june_invoice_is_deliberately_absent_from_the_seed
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_the_june_invoice_artifact_exists_on_disk_but_is_not_seeded
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_every_curated_item_has_a_real_artifact_on_disk
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_artifact_hashes_are_the_real_bytes_not_fabricated
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_curated_evidence_slugs_are_unique
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_four_commitments_two_fulfillments_two_triggers
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_commitment_money_is_decimal_never_float
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_commitment_arithmetic_satisfies_the_outstanding_identity
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_the_four_commitments_carry_the_frozen_amounts_and_statuses
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_outstanding_total_is_2020_with_northline_contributing_zero
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_fulfilled_amount_equals_the_sum_of_admitted_fulfillments
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_the_deposit_trigger_is_armed_on_case_three_with_the_canon_wake
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_the_deposit_predicate_is_the_canon_ast
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_trigger_basis_case_revision_matches_its_case
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_three_retraction_fixtures_with_the_frozen_statuses
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_the_superseding_evidence_is_the_correct_31_may_item
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_every_retraction_fixture_keeps_its_embedding
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_the_injected_instruction_is_retained_not_deleted
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_embedding_template_renders_all_six_header_lines_in_order
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_embedding_template_money_is_two_decimals
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_embedding_template_caps_the_body_at_900_characters
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_embedding_template_collapses_whitespace
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_manifest_exists_and_covers_all_26_canonical_tables
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_manifest_records_the_demo_anchor_and_the_rng_seed
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_manifest_evidence_count_is_18035_and_hero_scope_is_16035
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_manifest_expected_counts_agree_with_the_fixtures
+FAILED services/control_plane/tests/db/test_seed_canon.py::test_manifest_marks_the_kernel_written_tables_as_deferred
+61 failed, 3 passed, 19 errors in 8.61s

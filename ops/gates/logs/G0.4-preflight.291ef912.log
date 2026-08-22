@@ -1,0 +1,7 @@
+# gate=G0.4-preflight sha=291ef912e7d0341e51eac70d4f8b47f307221faf utc=2026-08-18T00:08:58Z exit=0
+# cmd=bash -c set\ -euo\ pipefail\;\ gh\ repo\ view\ --json\ url\,visibility\,isPrivate\ -q\ \"\\\"url=\\\"\ +\ .url\ +\ \\\"\ private=\\\"\ +\ \(.isPrivate\|tostring\)\"\;\ echo\ \"local\ HEAD:\ \$\(git\ rev-parse\ --short\ HEAD\)\"\;\ echo\ \"pushed\?\ \ \ \ :\ \$\(git\ branch\ -r\ --contains\ HEAD\ 2\>/dev/null\ \|\ tr\ -d\ \"\ \\n\"\ \|\|\ echo\ NO-REMOTE-REF\)\" 
+# started=2026-08-18T00:08:57Z finished=2026-08-18T00:08:58Z tree=dirty scrubbed-by=tools/scrub.py
+#
+url=https://github.com/Rayyan9477/Provenance private=true
+local HEAD: 291ef91
+pushed?    : 

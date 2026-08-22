@@ -1,0 +1,215 @@
+T13 SABOTAGE transcript — proving the CDK assertions are not vacuous
+Captured 2026-08-18T18:52Z
+git HEAD c0168bd (working tree, uncommitted)
+Python 3.12.3 | aws-cdk-lib 2.265.0 | pytest 8.x
+
+WHY THIS EXISTS
+---------------
+This task was authored implementation-and-tests-in-one-pass rather than
+literally RED first, and ops/tdd/GREEN_T13.1-13.5.txt says so. A RED transcript
+for a CDK app would only show "the module does not exist", which proves nothing
+about whether the assertions bite.
+
+This is the stronger proof. For each row: break ONE asserted property in the
+source, run the test that is supposed to catch it, confirm it FAILS, restore the
+file byte-for-byte. A row where the test still passes is a vacuous assertion and
+the harness reports it as MISSED.
+
+Twenty rows. Twenty caught. Zero missed. Suite green before and after.
+
+The harness lives in the session scratchpad, not in the repository: it mutates
+source files, and a script that rewrites infra/cdk/ has no business being
+committed next to it. It is reproduced in full at the end so the run is
+repeatable.
+
+
+================ Result ================
+
+$ python sabotage.py                     # run from the repository root
+
+BASELINE  full suite -> rc=0  304 passed in 5.26s
+CAUGHT    S1 Tier R reverts to the denied Opus 5 id
+              -> rc=1  1 failed in 4.74s
+CAUGHT    S2 the embedding id acquires a us. profile prefix
+              -> rc=1  1 failed in 0.47s
+CAUGHT    S3 the control plane gets s3:* on every resource
+              -> rc=1  2 failed in 4.90s
+CAUGHT    S4 a literal AWS account id enters a policy
+              -> rc=1  1 failed in 4.43s
+CAUGHT    S5 a database DSN is delivered as a plaintext environment variable
+              -> rc=1  2 failed, 4 passed in 4.61s
+CAUGHT    S6 the agent client is granted action/execute
+              -> rc=1  1 failed in 4.77s
+CAUGHT    S7 the SES bucket grant loses aws:SourceAccount
+              -> rc=1  1 failed, 1 passed in 4.92s
+CAUGHT    S8 iam:PassRole loses its PassedToService narrowing
+              -> rc=1  2 failed in 4.97s
+CAUGHT    S9 a second worker acquires a SQL credential
+              -> rc=1  1 failed in 5.24s
+CAUGHT    S10 the action executor is handed ses:SendEmail
+              -> rc=1  2 failed in 4.90s
+CAUGHT    S11 the outbox sweep silently drops its second pass
+              -> rc=1  1 failed in 4.79s
+CAUGHT    S12 the artifact bucket starts expiring raw evidence
+              -> rc=1  1 failed in 5.40s
+CAUGHT    S13 ECR tags become mutable, so a sha tag stops pinning bytes
+              -> rc=1  1 failed in 4.55s
+CAUGHT    S14 the advocate rule loses its attention_level filter
+              -> rc=1  1 failed in 5.01s
+CAUGHT    S15 an alarm threshold is moved to stop a page
+              -> rc=1  24 failed in 4.74s
+CAUGHT    S16 an alarm starts paging on missing data
+              -> rc=1  24 failed in 4.85s
+CAUGHT    S17 a fifth deployment unit appears (ARCHITECTURE.md 25's rejected tree)
+              -> rc=1  1 failed in 5.30s
+CAUGHT    S18 the web client is given a client secret, disabling forced PKCE
+              -> rc=1  1 failed in 4.89s
+CAUGHT    S19 the AgentCore authorizer is opened to the agent's own client
+              -> rc=1  1 failed in 4.75s
+CAUGHT    S20 the CSP drops the artifact bucket origin
+              -> rc=1  1 failed, 3 passed in 4.38s
+RESTORED  full suite -> rc=0  304 passed in 4.70s
+
+rows=20  missed_or_skipped=0
+
+
+================ What each row is actually protecting ================
+
+S1   BEDROCK_REASONING_MODEL_ID -> us.anthropic.claude-opus-5
+     Opus 5 is DENIED on this account. A policy or an environment default naming
+     it would fail at the first invocation with an AccessDeniedException that
+     reads like a permissions bug rather than a model-access one.
+     Caught by test_no_denied_model_id_appears_anywhere, whose regex is anchored
+     on both sides precisely so it does not false-alarm on the valid dated haiku
+     id that contains a denied id as a prefix.
+
+S2   BEDROCK_EMBEDDING_MODEL_ID -> us.amazon.titan-embed-text-v2:0
+     The mirror-image rule: Anthropic chat models take ONLY the profile id and
+     every other provider takes ONLY the bare id. A `us.` prefix on Titan is a
+     ValidationException, not a nicety.
+     Caught by test_the_embedding_contract_is_frozen.
+
+S3   instance role S3 statement -> ["s3:GetObject","s3:PutObject",
+     "s3:DeleteObject"] on "*"
+     Evidence is append-only and tenant/user are the first two key segments.
+     Caught twice: by the wildcard-resource sweep and by the named-absence test
+     for s3:DeleteObject on the instance role.
+
+S4   PassRole resource -> a literal twelve-digit account id
+     The account id is a targeting primitive for a confused-deputy attack
+     (40_INFRA_IAC.md section 757) and is the value most likely to be pasted in
+     by hand.
+     Caught by test_no_template_contains_a_literal_account_id.
+
+S5   a DSN with a password added to RuntimeEnvironmentVariables
+     This is G13.6's exact failure mode, caught at synth time instead of after
+     deploy — which matters, because the literal would already be in cdk.out and
+     in every CloudFormation event by the time the gate command ran.
+     Caught by the G13.6 variable filter and by the credential-shape sweep.
+
+S6   provenance-agent-runtime granted provenance.action/execute
+     The graph that writes a dispute letter must be structurally incapable of
+     sending it.
+     Caught by test_the_agent_client_cannot_execute_actions_or_dispatch_the_outbox.
+
+S7   the inbound bucket's SES grant loses aws:SourceAccount
+     Without it, any AWS customer's receipt rule can write into the evidence
+     store. That is evidence injection, not a noisy neighbour.
+     Caught twice: by the bucket-specific test and by the generic
+     service-principal-in-a-resource-policy sweep.
+
+S8   iam:PassRole loses iam:PassedToService
+     An unconditioned PassRole is a privilege-escalation primitive.
+     Caught by the generic PassRole sweep and by the "only one PassRole in
+     Compute" test.
+
+S9   ses_ingest given COCKROACH_DATABASE_URL_SECRET_ARN
+     "No worker holds a SQL credential" has exactly one documented exception,
+     and a second one appearing must fail.
+     Caught by test_only_the_cognito_trigger_receives_a_database_credential.
+
+S10  action_execute given ses:SendEmail on *
+     Invariant 4 in IAM. The executor's inability to reach SES is what makes the
+     control plane's revalidation the only path to a send.
+     Caught by the named-absence test and by the wildcard sweep.
+
+S11  outbox sweep input -> passes:1, pass_gap_seconds:0
+     Scheduler's minimum rate() is one minute; the 30-second guarantee is met by
+     sweeping twice inside one invocation. Dropping the second pass halves the
+     guarantee silently.
+     Caught by test_the_outbox_sweep_fires_once_a_minute_and_sweeps_twice.
+
+S12  an expiration added to the raw/ lifecycle rule
+     A lifecycle rule that expires an artifact makes a State Proof unciteable
+     four months later, and nothing fails loudly when it happens.
+     Caught by test_only_normalized_output_expires.
+
+S13  ECR tag mutability -> MUTABLE
+     With mutable tags, sha-abc123 can point at different bytes than the reviewer
+     read and G13.2 becomes a check on a label rather than on an artifact.
+     Caught by test_both_ecr_repositories_have_immutable_tags.
+
+S14  the advocate rule's attention_level filter deleted
+     EventBridge does not fail when a pattern stops matching; the consumer just
+     goes quiet.
+     Caught by test_the_advocate_rule_filters_on_attention_level.
+
+S15  every alarm threshold moved by one
+     A gate that checks "alarms exist" passes on a threshold somebody moved to
+     make a page stop.
+     Caught by all 24 parametrised threshold assertions.
+
+S16  treatMissingData -> BREACHING
+     This is the setting that lets a quiet system report OK rather than
+     INSUFFICIENT_DATA, which is what G13.7 actually turns on.
+     Caught by all 24 parametrised assertions.
+
+S17  a second App Runner service named provenance-memory-kernel
+     This is ARCHITECTURE.md section 25's rejected microservice tree arriving one
+     service at a time. Building it would put the Memory Kernel in its own
+     service and break the single-canonical-writer boundary.
+     Caught by test_deployment_unit_control_plane_is_one_app_runner_service.
+
+S18  the web client given generateSecret=true
+     PKCE is not a Cognito toggle: it is forced by the ABSENCE of a client
+     secret. A secret here silently permits a non-PKCE flow.
+     Caught by test_the_web_client_has_no_secret_which_is_what_forces_pkce.
+
+S19  the AgentCore authorizer switched to the agent client, plus an
+     allowedAudience
+     Two failures in one: the agent's own callback credential would open the
+     front door of the runtime it runs in, and a Cognito access token has no
+     `aud` claim so an audience makes the runtime reject every valid token.
+     Caught by test_the_jwt_authorizer_allows_only_the_worker_client.
+
+S20  the artifact bucket dropped from the CSP connect-src
+     Fails as what looks like a CORS error in the browser console rather than as
+     a CSP violation, which is why it needs a test rather than a review.
+     Caught by test_connect_src_names_every_origin_the_browser_actually_calls.
+
+
+================ Not covered by this matrix ================
+
+Stated so the coverage claim is bounded rather than implied:
+
+  - Nothing here proves a deployed behaviour. Every row is a template-level
+    property.
+  - The advocate rule's real fragility (section 17.8: every routed detail-type
+    must actually CARRY attention_level in its payload) cannot be tested from a
+    template. It needs the spec_lint check and the PutEvents contract test named
+    in 40_INFRA_IAC.md section 6.3, and neither is in this builder's scope.
+  - IAM policy SEMANTICS are not simulated. The suite proves a policy names what
+    it should and omits what it should not; it does not prove AWS evaluates it
+    the way the comment claims. `iam simulate-principal-policy` after deploy is
+    the thing that would.
+
+
+================ The harness, reproduced ================
+
+Saved during this session at
+  <scratchpad>/sabotage.py
+and run from the repository root. It snapshots each file, applies one string
+substitution, runs the named node ids, restores the file in a `finally`, and
+re-runs the full suite at the end to prove the tree came back clean. The twenty
+(label, file, find, replace, node-ids) rows are exactly the twenty summarised
+above.

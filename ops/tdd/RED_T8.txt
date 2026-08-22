@@ -1,0 +1,37 @@
+=== RED transcript - Phase 8 (T8.1-T8.8) ===
+date: 2026-08-18T18:59:02Z
+state: tests written FIRST; services/control_plane/app/api/** and app/auth/** do not exist yet.
+
+$ python -m pytest services/control_plane/tests/api services/control_plane/tests/auth -q
+ImportError while loading conftest 'D:\Repo\neverreset\services\control_plane\tests\api\conftest.py'.
+services\control_plane\tests\api\conftest.py:18: in <module>
+    from _support.fixtures import *  # noqa: E402,F401,F403
+services\control_plane\tests\api\_support\fixtures.py:23: in <module>
+    from _support import fakes as fakes_mod
+services\control_plane\tests\api\_support\fakes.py:22: in <module>
+    from services.control_plane.app.api.errors import ApiError, ErrorCode
+E   ModuleNotFoundError: No module named 'services.control_plane.app.api.errors'
+exit=4
+
+$ ls services/control_plane/app/api services/control_plane/app/auth
+services/control_plane/app/api:
+__init__.py
+__pycache__
+internal
+routes
+
+services/control_plane/app/auth:
+__init__.py
+
+Test files written before any implementation:
+  services/control_plane/tests/api/test_adversarial_isolation.py  440 lines
+  services/control_plane/tests/api/test_error_envelope.py         222 lines
+  services/control_plane/tests/api/test_idempotency_records.py    264 lines
+  services/control_plane/tests/api/test_internal_routes.py        539 lines
+  services/control_plane/tests/api/test_openapi_surface.py        155 lines
+  services/control_plane/tests/api/test_pagination.py             161 lines
+  services/control_plane/tests/api/test_public_routes.py          567 lines
+  services/control_plane/tests/auth/test_auth_principal.py        233 lines
+  services/control_plane/tests/auth/test_capability_binding.py    344 lines
+  services/control_plane/tests/auth/test_jwt.py                   265 lines
+  services/control_plane/tests/auth/test_route_class.py           225 lines

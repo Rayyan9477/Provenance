@@ -1,0 +1,9 @@
+# gate=G2.5a sha=33e593c15d9edb0eb02e7e16edf3d1b1b2caa3c3 utc=2026-08-18T15:14:07Z exit=1
+# cmd=bash -c $'set -uo pipefail; \\\n  out=$(C:/Users/rayyan.a/bin/make.exe db-verify 2>&1 || true); \\\n  printf "%s\\n" "$out" | grep -E "^VERDICT" | tee /dev/stderr | grep -q "^VERDICT VACUOUS_EMPTY_CORPUS" || { \\\n    printf "\\n  expected VERDICT VACUOUS_EMPTY_CORPUS on the pre-seed database.\\n" >&2; \\\n    printf "  A different verdict here means the database was not empty, so this\\n" >&2; \\\n    printf "  assertion proved nothing about the suite refusing an empty corpus.\\n\\n" >&2; \\\n    exit 1; }' 
+# started=2026-08-18T15:14:07Z finished=2026-08-18T15:14:07Z tree=dirty scrubbed-by=tools/scrub.py
+#
+
+  expected VERDICT VACUOUS_EMPTY_CORPUS on the pre-seed database.
+  A different verdict here means the database was not empty, so this
+  assertion proved nothing about the suite refusing an empty corpus.
+

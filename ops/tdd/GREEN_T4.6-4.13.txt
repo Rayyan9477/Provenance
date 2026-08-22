@@ -1,0 +1,319 @@
+================================================================
+ GREEN - T4.6 .. T4.13   the Memory Kernel transaction, the case
+ machine, the decision record, write_path_lint and the db lane
+================================================================
+date       : 2026-08-18T21:14:46Z
+git         : 33e593c  (branch main)
+python     : Python 3.12.3
+database   : provenance_ci  (DSN never printed; MaskedDsn fixture)
+
+=== 1. ruff check . ===
+All checks passed!
+exit=0
+
+=== 2. ruff format --check . ===
+270 files already formatted
+exit=0
+
+=== 3. mypy --strict (kernel + the new tool) ===
+Success: no issues found in 14 source files
+exit=0
+
+=== 4. import-linter contracts ===
+-------------------------------------
+
+provenance_domain.kernel is pure KEPT
+provenance_domain does not depend on pydantic KEPT
+provenance_contracts performs no I/O KEPT
+the agent runtime cannot reach the canonical write path KEPT
+the Memory Kernel's decision modules are pure KEPT
+
+Contracts: 5 kept, 0 broken.
+exit=0
+
+=== 5. tools/txn_purity_lint  (no network inside a transaction callback) ===
+scanned 7 transaction callbacks, 0 network constructs found
+exit=0
+
+=== 6. G4.3  python -m tools.write_path_lint ===
+write_path_lint: 5 rules, 0 violations
+scanned 114 python modules and 64 non-python source files; 14 canonical write statements, 14 of them in the Kernel
+canonical write statements found in 1 module: services/control_plane/app/memory_kernel
+    agents/: 0    workers/: 0    apps/web/: 0    packages/: 0
+excluded 64 test modules, and these trees:
+    scripts/       CI fixture loader; runs as pv_migrator, never in the request path
+    db/            migrations and seeds; owned by pv_migrator by construction
+    infra/         CDK; provisions the grants rather than issuing statements
+    tools/         lints and gates; opens no pool
+    **/tests/**    fixtures write rows directly, on purpose - counted below
+    rule W1-canonical-INSERT-is-kernel-only
+    rule W2-canonical-UPDATE-is-kernel-only
+    rule W3-canonical-DELETE-is-forbidden-everywhere
+    rule W4-evidence-and-proposal-INSERT-is-app-permitted
+    rule W5-outbox-UPDATE-is-dispatcher-permitted
+exit=0
+
+=== 7. the hermetic unit lane  (no socket, no credential, no model call) ===
+    pytest services/control_plane/tests/kernel -q
+........................................................................ [ 93%]
+.................................                                        [100%]
+537 passed in 1.60s
+    exit=0
+
+    pytest tools/tests/test_write_path_lint.py -q
+..........................                                               [100%]
+26 passed in 4.02s
+    exit=0
+
+=== 8. the database lane  (11 min lane, marker: db) ===
+    pytest services/control_plane/tests/db/test_kernel_hero.py \
+           services/control_plane/tests/db/test_kernel_required.py -q -m db
+...........................                                              [100%]
+27 passed in 445.17s (0:07:25)
+    exit=0
+
+=== 9. G4.1 / G4.2 - THE HERO COMMIT, OBSERVED FROM PERSISTED STATE ===
+
+Every query below runs on a connection opened AFTER the Kernel's pool was
+closed. 23_PHASE_GATES.md section 10: an in-transaction read-back is not
+evidence of a commit and is rejected at review.
+
+=== BEFORE (fresh connection) ===
+cases: ('RESOLVED', 12, 0)
+
+=== RECEIPT (returned by commit_proposal) ===
+decision            : ACCEPTED_WITH_CONFLICT
+case_revision       : 12 -> 13
+retry_count         : 0
+transaction_opened  : True
+reason_codes        : ['CONFLICT_VALUE_MUTUAL_EXCLUSION', 'HUMAN_REQUIRED_MONETARY_THRESHOLD', 'CASE_REOPENED_QUALIFYING_EVIDENCE']
+attention_required  : True
+
+=== PERSISTED STATE (every query on a connection opened AFTER the pool closed) ===
+
+-- Q1  cases (the aggregate)
+   SELECT status, revision, reopened_count FROM cases WHERE id = %(case)s
+   -> ('REOPENED', 13, 1)
+
+-- Q2  kernel_decisions (the ledger row)
+   SELECT decision, case_revision_before, case_revision_after, retry_count, transaction_opened, committed_at IS NOT NULL FROM kernel_decisions WHERE proposal_id = %(proposal)s
+   -> ('ACCEPTED_WITH_CONFLICT', 12, 13, 0, True, True)
+
+-- Q3  conflicts
+   SELECT conflict_type, status, severity, requires_human, resolution_reason_code FROM conflicts WHERE case_id = %(case)s
+   -> ('VALUE_CONFLICT', 'NEEDS_HUMAN', 'HIGH', True, None)
+
+-- Q4  belief lineage
+   SELECT version_no, epistemic_status, support_edge_count, supersedes_version_id IS NOT NULL, supersession_reason_code FROM belief_versions WHERE belief_id = %(belief)s ORDER BY version_no
+   -> (1, 'SUPERSEDED', 1, False, None)
+   -> (2, 'DISPUTED', 2, True, 'HUMAN_REQUIRED_MONETARY_THRESHOLD')
+
+-- Q5  belief_support (grounding + what it contradicts)
+   SELECT bs.relation, bs.source_kind FROM belief_support bs JOIN belief_versions bv ON bv.id = bs.belief_version_id WHERE bv.belief_id = %(belief)s ORDER BY bs.relation
+   -> ('CONTRADICTS', 'BELIEF_VERSION')
+   -> ('QUALIFIES', 'CLAIM')
+   -> ('SUPPORTS', 'CLAIM')
+
+-- Q6  state_transitions
+   SELECT from_state, to_state, reason_code, case_revision FROM state_transitions WHERE case_id = %(case)s
+   -> ('RESOLVED', 'REOPENED', 'CONTRADICTORY_EVIDENCE', 13)
+
+-- Q7  outbox_events
+   SELECT event_type, aggregate_version, status FROM outbox_events WHERE aggregate_id = %(case)s
+   -> ('case.reopened.v1', 13, 'PENDING')
+
+-- Q8  claims admitted from the invoice
+   SELECT predicate, object_json->>'amount', authority_score FROM claims WHERE case_id = %(case)s AND evidence_id = %(invoice)s
+   -> ('balance_owed', '186.0000', Decimal('0.9000'))
+
+-- Q9  the balance the case still shows (USD 0 stays canonical)
+   SELECT bv.value_json->>'currency', bv.value_json->>'amount', bv.epistemic_status FROM beliefs b JOIN belief_versions bv ON bv.id = b.current_version_id WHERE b.id = %(belief)s
+   -> ('USD', '0.0000', 'DISPUTED')
+
+-- Q10 exactly one revision increment (R1)
+   SELECT count(*) FROM kernel_decisions WHERE case_id = %(case)s AND case_revision_after = case_revision_before + 1
+   -> (2,)
+
+-- Q11 memory_proposals outcome
+   SELECT status, decided_at IS NOT NULL FROM memory_proposals WHERE id = %(proposal)s
+   -> ('ACCEPTED_WITH_CONFLICT', True)
+
+=== universe removed; the lane leaves no residue ===
+
+Canon check, against CANONICAL_DECISIONS.md -> Hero commit canon:
+  RESOLVED -> REOPENED                                Q1  ('REOPENED', 13, 1)      OK
+  revision 12 -> 13 exactly once                      Q1 + Q6 + Q7 all say 13      OK
+  balance stays USD 0 while the status becomes        Q9  ('USD','0.0000',
+    DISPUTED                                              'DISPUTED')              OK
+  one conflict with grounding and lineage rows        Q3 one row; Q5 SUPPORTS +
+                                                      QUALIFIES + CONTRADICTS      OK
+  one outbox event at aggregate version 13            Q7  case.reopened.v1, 13     OK
+  resolves on H5 (monetary exposure >= 100.00),       receipt reason code
+    not the authority margin                          HUMAN_REQUIRED_MONETARY_
+                                                      THRESHOLD, and the conflict
+                                                      is VALUE_CONFLICT rather
+                                                      than AUTHORITY_CONFLICT      OK
+
+Q10 returns 2, and that is not a double increment. The fixture's own seed
+decision row records 11 -> 12 for the state the hero starts from; the hero
+commit adds 12 -> 13. cases.revision is 13, and there is exactly one
+state_transitions row and exactly one outbox_events row, both at 13.
+
+=== 10. G4.3 COUNTERFACTUAL - the linter is proved able to fail ===
+
+A clean run of a lint nobody has seen fail is not evidence. A canonical
+INSERT and a canonical UPDATE were planted in a module outside the Kernel,
+alongside the outbox UPDATE that DDL section 12 permits the dispatcher, so
+the run shows the linter separating the two rather than flagging all SQL.
+
+--- PLANT: a canonical INSERT in a non-kernel module ---
+planted workers/_wpl_counterfactual_probe.py:
+INSERT_A_CONFLICT = "INSERT INTO conflicts (id, case_id) VALUES (%s, %s)"
+BUMP_THE_CASE = "UPDATE cases SET revision = revision + 1 WHERE id = %s"
+MARK_SENT = "UPDATE outbox_events SET status = 'SENT' WHERE id = %s"
+
+workers/_wpl_counterfactual_probe.py:2: W1-canonical-INSERT-is-kernel-only: INSERT on canonical table conflicts
+workers/_wpl_counterfactual_probe.py:3: W2-canonical-UPDATE-is-kernel-only: UPDATE on canonical table cases
+write_path_lint: 5 rules, 2 violations
+scanned 99 python modules and 47 non-python source files; 17 canonical write statements, 14 of them in the Kernel
+canonical write statements found in 2 modules: services/control_plane/app/memory_kernel, workers
+    agents/: 0    workers/: 2    apps/web/: 0    packages/: 0
+excluded 63 test modules, and these trees:
+    scripts/       CI fixture loader; runs as pv_migrator, never in the request path
+    db/            migrations and seeds; owned by pv_migrator by construction
+    infra/         CDK; provisions the grants rather than issuing statements
+    tools/         lints and gates; opens no pool
+    **/tests/**    fixtures write rows directly, on purpose - counted below
+    rule W1-canonical-INSERT-is-kernel-only
+    rule W2-canonical-UPDATE-is-kernel-only
+    rule W3-canonical-DELETE-is-forbidden-everywhere
+    rule W4-evidence-and-proposal-INSERT-is-app-permitted
+    rule W5-outbox-UPDATE-is-dispatcher-permitted
+exit=1
+--- REVERTED; git status for workers/ + agents/ ---
+?? workers/textract_complete/
+
+Read the numbers: 14 -> 17 canonical statements (all three were SEEN),
+0 -> 2 violations (only the two that break a rule), kernel_statements
+unchanged at 14, workers/: 2, and exit 1. The permitted
+'UPDATE outbox_events SET status' was counted and not flagged.
+The probe file was deleted in the same command that ran the lint.
+
+=== 11. SABOTAGE - tests/sabotage_matrix.yaml ===
+
+sabotage matrix entries: 8
+count exit=0
+
+Entries in the matrix now (5 before this task, 8 after; the count may
+never decrease - 72_DEFECT_PROTOCOL.md section 10.2 detector 2):
+  39:  - symbol: provenance_domain.money.outstanding
+  51:  - symbol: provenance_db.retry.is_retryable
+  65:  - symbol: memory_kernel.preflight.assert_grounded
+  79:  - symbol: state_proof.builder.load_grounding
+  100:  - symbol: retrieval.predicates.retraction_filter
+  122:  - symbol: memory_kernel.case_ops.revision_after
+  143:  - symbol: memory_kernel.case_ops.qualifies_for_reopen
+  158:  - symbol: memory_kernel.decisions.build_decision_row
+
+The three registered by T4.13 are case_ops.revision_after,
+case_ops.qualifies_for_reopen and decisions.build_decision_row.
+Each was neutered and the named selection observed going red:
+
+=== SABOTAGE VERIFICATION - T4.6-4.13 ===
+=== 2026-08-18T21:12:41Z ===
+
+--- CONTROL: no sabotage ---
+.................................                                        [100%]
+537 passed in 1.72s
+exit=0
+
+--- PV_SABOTAGE=memory_kernel.case_ops.revision_after
+    pytest services/control_plane/tests/kernel -q
+E        +  where 12 = CaseUpdate(case_id=UUID('00000000-0000-0000-0000-000000002001'), status_before=<CaseStatus.RESOLVED: 'RESOLVED'>, stat...d_at=datetime.datetime(2026, 6, 2, 13, 0, tzinfo=datetime.timezone.utc), reason_code='', changed=True, reason_codes=()).revision_after
+E        +  and   12 = CaseUpdate(case_id=UUID('00000000-0000-0000-0000-000000002001'), status_before=<CaseStatus.RESOLVED: 'RESOLVED'>, stat...d_at=datetime.datetime(2026, 6, 2, 13, 0, tzinfo=datetime.timezone.utc), reason_code='', changed=True, reason_codes=()).revision_before
+
+services\control_plane\tests\kernel\test_pipeline.py:347: AssertionError
+=========================== short test summary info ===========================
+FAILED services/control_plane/tests/kernel/test_case_ops.py::test_r1_a_canonical_commit_increments_exactly_once
+FAILED services/control_plane/tests/kernel/test_case_ops.py::test_the_hero_case_update_is_the_canon_shape
+FAILED services/control_plane/tests/kernel/test_case_ops.py::test_a_refused_reopen_keeps_the_status_and_the_revision_still_moves
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_hero_case_goes_resolved_to_reopened_at_revision_thirteen
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_outbox_event_is_case_reopened_at_the_new_revision
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_a_claim_is_canonical_even_when_no_belief_moves
+6 failed, 531 passed in 1.74s
+    exit=1
+
+--- PV_SABOTAGE=memory_kernel.case_ops.qualifies_for_reopen
+    pytest services/control_plane/tests/kernel -q
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_outbox_event_is_case_reopened_at_the_new_revision
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_every_belief_version_carries_at_least_one_grounding_edge
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_grounding_edge_records_that_it_contradicts
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_rule_n1_the_belief_stores_the_canonical_predicate
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_new_version_supersedes_the_incumbent_by_id
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_marketing_email_does_not_reopen_the_case
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_flapping_guard_withholds_the_transition_but_keeps_the_evidence
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_a_plan_with_only_a_claim_is_not_a_noop
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_every_row_id_in_the_plan_is_distinct
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_the_plan_is_frozen
+FAILED services/control_plane/tests/kernel/test_pipeline.py::test_two_identical_runs_produce_the_same_shape
+36 failed, 501 passed in 2.25s
+    exit=1
+
+--- PV_SABOTAGE=memory_kernel.decisions.build_decision_row
+    pytest services/control_plane/tests/kernel -q
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_the_receipt_status_follows_the_frozen_map[REJECTED_SCHEMA]
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_the_receipt_status_follows_the_frozen_map[RETRYABLE_CONCURRENCY]
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_retry_exhaustion_enqueues_nothing_and_commits_nothing
+FAILED services/control_plane/tests/kernel/test_decisions.py::test_a_rejection_receipt_describes_no_canonical_rows
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_plan_is_executed_in_the_declared_order
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_decision_row_precedes_every_row_that_references_it
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_case_update_precedes_the_outbox_row
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_outbox_row_carries_the_post_increment_revision
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_the_case_update_carries_the_optimistic_predicate
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_a_noop_plan_writes_no_case_row_and_no_outbox_row
+FAILED services/control_plane/tests/kernel/test_transaction_shape.py::test_retry_exhaustion_performs_no_side_effect
+46 failed, 491 passed in 2.12s
+    exit=1
+
+--- REGRESSION CHECK: the entry T4.2 already registered, at the new test count
+--- PV_SABOTAGE=memory_kernel.preflight.assert_grounded
+services\control_plane\tests\kernel\test_preflight.py:426: AssertionError
+=========================== short test summary info ===========================
+FAILED services/control_plane/tests/kernel/test_preflight.py::test_a_grounded_proposal_passes_the_grounding_check
+FAILED services/control_plane/tests/kernel/test_preflight.py::test_an_ungrounded_belief_version_is_refused
+FAILED services/control_plane/tests/kernel/test_preflight.py::test_no_sabotage_is_installed_on_a_normal_run
+3 failed, 534 passed in 1.84s
+    exit=1
+
+=== 12. G4.8  make db-verify, AFTER the Kernel suite has run ===
+
+The lane commits and then deletes, so this is the check that it deleted
+everything. Run after the 27 database tests above.
+
+CHECK V1 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions_evidence_grounded
+CHECK V2 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions_evidence_grounded
+CHECK V3 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_versions
+CHECK V4 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_support
+CHECK V5 returned=0 examined=0 expect=ZERO status=VACUOUS population=cases_with_ledger_rows
+CHECK V6 returned=0 examined=0 expect=ZERO status=VACUOUS population=belief_and_proposal_pointers
+CHECK V7 returned=0 examined=0 expect=ZERO status=VACUOUS population=commitments_with_committed_amount
+CHECK V8 returned=0 examined=18035 expect=ZERO status=HOLDS population=evidence_and_support_child_rows
+CHECK V9 returned=0 examined=5 expect=ZERO status=HOLDS population=grants_held_by_pv_agent_reader
+CHECK V10 returned=0 examined=18032 expect=ZERO status=HOLDS population=rows_visible_in_agent_evidence_retrieval_v1
+CHECK V11 returned=3 examined=18035 expect=ATLEAST3 status=HOLDS population=evidence_items
+SUMMARY V1 0  V2 0  V3 0  V4 0  V5 0  V6 0  V7 0  V8 0  V9 0  V10 0  V11 3
+VERDICT PASS_PARTIAL V1-V10 returned zero and V11 returned 3, but these checks examined no rows and are therefore unproven: V1, V2, V3, V4, V5, V6, V7.
+exit=0
+
+The SUMMARY line is G4.8's printed expectation verbatim:
+  V1 0  V2 0 ... V10 0  V11 3
+
+The verdict is PASS_PARTIAL rather than PASS, and that is worth reading
+rather than skipping. V1-V7 examined ZERO rows: provenance_ci holds
+18,035 evidence rows and no canonical aggregate rows at all, because the
+seeded corpus is evidence-only and this lane tears its own universe down
+on the way out. So V8, V9, V10 and V11 HOLD over real populations, and
+V1-V7 are unproven against this database rather than passing. Leaving
+rows behind to make them non-vacuous would break the same target for the
+next run, so the honest report is that G4.8's printed line matches and
+seven of its eleven checks examined nothing.

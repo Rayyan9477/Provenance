@@ -1,0 +1,133 @@
+T3 GREEN transcript — Phase 3, database runtime and retry (T3.1-T3.4)
+Captured 2026-08-18T12:30:13Z
+git HEAD c2a0c05 (working tree, uncommitted — the user owns git)
+Python 3.12.3 | psycopg 3.3.4 | psycopg_pool 3.3.1 | mypy 1.11.2 | ruff 0.6.9
+Cluster: CockroachDB CCL v26.2.5, BASIC, us-east-1. Layer-2 tests run
+against PROVENANCE_TEST_DB_URL (pv_migrator@provenance_ci) and create
+their own _pv_t3_-prefixed tables; the canonical schema does not exist yet.
+The RED transcript is ops/tdd/RED_T3.txt.
+
+
+================ 1. The whole of Phase 3, one run ================
+
+$ python -m pytest packages/python/provenance_db/tests tools/tests/test_txn_purity_lint.py -q
+........................................                                 [100%]
+40 passed in 68.60s (0:01:08)
+exit=0
+
+
+================ 2. G3.1 — the pools really are separate roles ================
+
+$ python -m pytest packages/python/provenance_db/tests/db/test_pool_and_roles.py -q -s
+app pool: current_user = pv_app_reader_writer
+.kernel pool: current_user = pv_kernel_writer
+.agent pool: current_user = pv_agent_reader
+....
+6 passed in 6.94s
+exit=0
+
+
+================ 3. G3.2 — an injected serialization failure is retried ================
+The 40001 is forced by two overlapping transactions on one row, not by
+monkeypatching the driver. See the module docstring for the interleaving.
+
+$ python -m pytest packages/python/provenance_db/tests/db/test_retry.py::test_injected_40001_retries_and_commits -q -s
+retry_count=2
+.
+1 passed in 16.85s
+exit=0
+
+
+================ 4. G3.3 — the retry budget is bounded ================
+
+$ python -m pytest packages/python/provenance_db/tests/db/test_retry.py::test_retry_exhaustion_raises -q
+.                                                                        [100%]
+1 passed in 19.08s
+exit=0
+
+
+================ 5. G3.4 — rollback leaves nothing behind ================
+
+$ python -m pytest packages/python/provenance_db/tests/db/test_retry.py::test_rollback_leaves_no_partial_writes -q -s
+rows before=1 after=1
+.
+1 passed in 16.13s
+exit=0
+
+
+================ 6. G3.5 — no network construct inside a transaction callback ================
+
+$ python -m tools.txn_purity_lint services packages workers
+scanned 6 transaction callbacks, 0 network constructs found
+exit=0
+
+
+================ 7. mypy --strict ================
+
+$ python -m mypy --strict packages/python/provenance_db
+Success: no issues found in 13 source files
+exit=0
+
+$ python -m mypy --strict packages/python/provenance_domain packages/python/provenance_contracts packages/python/provenance_db packages/python/provenance_telemetry
+Success: no issues found in 36 source files
+exit=0
+
+$ python -m mypy --strict tools/txn_purity_lint.py
+Success: no issues found in 1 source file
+exit=0
+
+
+================ 8. ruff ================
+
+$ python -m ruff check packages/python/provenance_db tools/txn_purity_lint.py tools/tests/test_txn_purity_lint.py
+All checks passed!
+exit=0
+
+$ python -m ruff format --check packages/python/provenance_db tools/txn_purity_lint.py tools/tests/test_txn_purity_lint.py
+20 files already formatted
+exit=0
+
+
+================ 9. import-linter — the four contracts ================
+NOTE: .importlinter is MISSING from the repository root in this working
+tree, so `lint-imports` reads no configuration and `make lint` fails its
+own "Contracts: N kept" check. Reported as a finding. The run below uses
+the identical config recovered from tmp/il/.importlinter, so the four
+contracts are evaluated rather than skipped.
+
+$ python -c from importlinter.cli import lint_imports_command; lint_imports_command() --config C:/Users/rayyan.a/AppData/Local/Temp/claude/d--Repo-neverreset/bd83625e-6b83-4392-952d-e5200433d36d/scratchpad/.importlinter
+=============
+Import Linter
+=============
+
+
+---------
+Contracts
+---------
+
+Analyzed 83 files, 220 dependencies.
+------------------------------------
+
+provenance_domain.kernel is pure KEPT
+provenance_domain does not depend on pydantic KEPT
+provenance_contracts performs no I/O KEPT
+the agent runtime cannot reach the canonical write path KEPT
+
+Contracts: 4 kept, 0 broken.
+exit=0
+
+
+================ 10. the db lane does not skip when nothing is exported ================
+A skip is the worst outcome for G3.1: a battery run without the environment
+exported would report "skipped" and read like a pass. The conftest falls back
+to the gitignored repository-root .env, the same way
+services/control_plane/tests/db/conftest.py does, so the run below has every
+DSN variable removed from the environment and still proves the three identities.
+
+$ env -u PROVENANCE_TEST_DB_URL -u COCKROACH_DATABASE_URL -u PV_DB_KERNEL -u PV_DB_AGENT_READER -u PV_DB_OPS_READER -u PV_DB_MIGRATOR python -m pytest packages/python/provenance_db/tests/db/test_pool_and_roles.py -q -s
+app pool: current_user = pv_app_reader_writer
+.kernel pool: current_user = pv_kernel_writer
+.agent pool: current_user = pv_agent_reader
+....
+6 passed in 6.98s
+exit=0
