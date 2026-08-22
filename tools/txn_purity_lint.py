@@ -76,6 +76,10 @@ BANNED_ROOTS: frozenset[str] = frozenset(
         "anthropic",
         "boto3",
         "botocore",
+        # The Gemini SDK, added 2026-08-24 with the pivot. `google` rather than
+        # `google.genai` because the ban resolves on the top-level root, and
+        # every `google.*` client here is an outbound call.
+        "google",
         "httpx",
         "requests",
         "urllib",

@@ -203,6 +203,34 @@ RULES: tuple[Rule, ...] = (
             "secret half may be one line away."
         ),
     ),
+    Rule(
+        name="google-api-key",
+        # `AIza` + at least 30 characters of base64url. A published Google key is
+        # 39 characters, but the quantifier is a FLOOR rather than that exact
+        # width: pinning it to 39 means a key of any other length passes through
+        # in full, and under-redaction is the failure mode that cannot be undone.
+        # The prefix is what makes this
+        # rule safe to apply with no keyword in front of it: a 40-character git
+        # sha is lowercase hex and cannot begin `AIza`, and the model ids,
+        # dimensions and row counts the probe transcript prints are far shorter
+        # than 39 characters.
+        #
+        # It has to match bare, because the Gemini Developer API takes the key
+        # as a QUERY PARAMETER rather than an Authorization header. Every
+        # google-genai error that renders its failing request URL therefore
+        # carries the live key inside the message body, where `url-credential`
+        # cannot see it -- that rule requires a `user:secret@` userinfo, and a
+        # query string has no userinfo at all. `ops/probes/gemini_probe.py`
+        # writes those messages to `ops/gemini-probe.txt`, which is committed.
+        pattern=re.compile(r"\bAIza[0-9A-Za-z_\-]{30,}\b"),
+        replacement="[REDACTED-GOOGLE-API-KEY]",
+        why=(
+            "The AI Studio key is the only credential the Gemini path uses -- there is no "
+            "service account, no ADC and no IAM binding -- so it is the single value whose "
+            "exposure hands over the whole model budget. It reaches a transcript through "
+            "the query string of a failed request, which no keyword-anchored rule matches."
+        ),
+    ),
     # ----------------------------------------------------------------------
     # The five shapes below were missing until D-00-005. `.gitleaks.toml`
     # lines 46-50 enumerate the six shapes "this project can actually leak";
@@ -277,7 +305,7 @@ RULES: tuple[Rule, ...] = (
         # credential, and G13.6 asserts on the ARNs bound to App Runner.
         pattern=re.compile(
             r"\b(?P<kw>[A-Z][A-Z0-9_]*"
-            r"(?:HMAC_KEY|SIGNING_KEY|PRIVATE_KEY|SECRET_KEY|_SECRET|_TOKEN|_PASSWORD))"
+            r"(?:HMAC_KEY|SIGNING_KEY|PRIVATE_KEY|SECRET_KEY|_API_KEY|_SECRET|_TOKEN|_PASSWORD))"
             + _SEP
             + r"[:=]"
             + _SEP

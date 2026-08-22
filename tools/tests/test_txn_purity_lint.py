@@ -209,3 +209,36 @@ def test_the_repository_tree_is_clean(capsys: pytest.CaptureFixture[str]) -> Non
         result.scanned > 0
     ), "0 scanned callbacks is the vacuous pass this lint exists to make impossible"
     assert "scanned" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# The Gemini SDK. Added 2026-08-24 with the pivot.
+#
+# `app/retrieval/embeddings.py` reaches the Gemini API through a lazy
+# `from google import genai` inside a method. Lazy and correctly placed -- but
+# the ban has to exist before a call site drifts into a callback, which is the
+# same reasoning that put `boto3` here before the Bedrock client was written.
+#
+# The cost is not hygiene: a transaction callback runs once per retry, so a
+# model call inside one is charged again on every attempt while the transaction
+# holds its locks.
+# ---------------------------------------------------------------------------
+
+GEMINI_IN_CALLBACK = """
+def commit(conn):
+    def _work(tx):
+        from google import genai
+        return genai.Client(api_key="x").models.embed_content(model="m", contents="t")
+    return run_in_transaction(conn, _work)
+"""
+
+
+def test_the_gemini_sdk_is_banned_inside_a_transaction_callback() -> None:
+    """A second model SDK must not reopen the hole the first one is closed for."""
+    result = scan_source(GEMINI_IN_CALLBACK, "gemini_callback.py")
+    assert result.violations, "google.genai inside a callback was not reported"
+    assert result.violations[0].root == "google"
+
+
+def test_google_is_in_the_banned_set() -> None:
+    assert "google" in BANNED_ROOTS

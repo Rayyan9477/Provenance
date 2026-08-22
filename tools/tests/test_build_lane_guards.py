@@ -698,3 +698,116 @@ def test_a_gate_battery_refuses_a_make_older_than_3_82() -> None:
             f"expected {'0' if want_zero else 'non-zero'}. Below 3.82 `.SHELLFLAGS` "
             "is ignored and the battery would report a pass it did not measure."
         )
+
+
+def test_the_unit_lane_actually_collects() -> None:
+    """A conftest ImportError aborts the whole session, so nothing runs.
+
+    **This test cannot detect that abort, and the real guard is in the
+    Makefile.** It carries ``pytest.mark.unit`` like every test in this module,
+    so it is inside the lane it describes -- and a collection abort ends the
+    session before any test executes, including this one. Measured: under
+    ``pytest -q -m unit`` the string ``test_the_unit_lane_actually_collects``
+    appears **zero** times in the output. The first version of this test claimed
+    to guard the abort and could only ever report when invoked in a scope narrow
+    enough to dodge the broken conftests. (``D-00-044``, finding 2 -- the
+    seventh description-versus-mechanism drift in this codebase, and the third
+    inside a remediation for one of the others.)
+
+    No in-session pytest test can guard against session-wide collection abort:
+    the abort is precisely what stops it running. ``require_collection`` in the
+    ``Makefile`` runs ``--collect-only`` in its own session *before* each lane,
+    which is the check that actually fires. ``test_the_makefile_prechecks_
+    collection`` below is what keeps it from being deleted.
+
+    What this test still buys, in the cases where collection does NOT abort: the
+    marker expression silently matching nothing, and the count falling through
+    the floor.
+
+    This is the third appearance of one shape in this repository. ``D-00-014``:
+    ``testpaths`` omitted ``tools/``, so 28 scrubber tests were never collected
+    -- not in ``make test``, not in ``make test-fast``, not in CI. ``D-00-005``:
+    the ``infra/`` omission hid 304 CDK tests the same way. Both were *suites
+    that existed and nothing ran*, and both read as a clean pass to anyone who
+    checked only the summary line.
+
+    A collection error is worse than either, because it is not scoped. pytest
+    aborts the **entire** session on a single ``conftest.py`` ImportError, so
+    one broken directory silences every other test in the run. The output says
+    ``N deselected, 2 errors`` and exits **2** -- and ``make`` reports its own
+    exit code on top of that, so a gate checking for ``1`` misreads it as
+    something else entirely.
+
+    The floor is deliberately far below the real count. Its job is to catch
+    "collection aborted" and "the marker expression now matches nothing", not
+    to track the suite's size -- a tight floor would fail on every legitimate
+    deletion and get raised until it meant nothing.
+    """
+    completed = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-m", "unit"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    rendered = "\n".join(completed.stdout.strip().splitlines()[-6:])
+
+    errors = re.search(r"(\d+)\s+errors?\b", completed.stdout)
+    error_count = int(errors.group(1)) if errors else 0
+    assert error_count == 0, (
+        f"{error_count} collection error(s): the unit lane ABORTED, so nothing in "
+        "the run executed. pytest ends the whole session on one conftest "
+        "ImportError, however healthy every other directory is.\n" + rendered
+    )
+    assert completed.returncode == 0, (
+        f"pytest --collect-only -m unit exited {completed.returncode}, not 0. "
+        "Exit 2 means collection was interrupted, which is not a failing test "
+        "and must not be read as one.\n" + rendered
+    )
+
+    # `N/M tests collected` when some are deselected, `N tests collected` when
+    # none are. Matching only the second spelling would read zero on the lane
+    # this guard exists for.
+    match = re.search(r"(\d+)(?:/\d+)?\s+tests? collected", completed.stdout)
+    assert match is not None, f"could not read a collected count from:\n{rendered}"
+    collected = int(match.group(1))
+    assert collected >= 500, (
+        f"only {collected} unit tests collected. Either collection is partially "
+        "aborting or the `unit` marker expression has stopped matching."
+    )
+
+
+def test_the_makefile_prechecks_collection() -> None:
+    """The guard above cannot fire during an abort; this is what does.
+
+    Asserting the recipe's *text* rather than its behaviour is a compromise and
+    worth naming as one: running ``make`` from a test would need a make binary
+    of the right version on PATH, which ``test_a_gate_battery_refuses_a_make_
+    older_than_3_82`` exists because we cannot assume. What this catches is the
+    realistic regression -- somebody deleting the precheck because a lane was
+    slow -- not a subtly broken one.
+    """
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "define require_collection" in makefile, (
+        "the collection precheck is gone; nothing now detects a lane that "
+        "aborts before running (D-00-044)"
+    )
+    assert "--collect-only" in makefile, "require_collection no longer collects"
+
+    live = [
+        line
+        for line in makefile.splitlines()
+        if "require_collection" in line and not line.lstrip().startswith("#")
+    ]
+    calls = [line for line in live if "$(call require_collection" in line]
+    assert len(calls) >= 4, (
+        f"only {len(calls)} lane(s) precheck collection; test, test-fast, test-db "
+        "and test-all each need it, or the lane they guard can abort silently"
+    )
+
+    for lane in ("test:", "test-fast:", "test-db:", "test-all:"):
+        recipe = makefile_recipe(lane[:-1])
+        assert "require_collection" in recipe, (
+            f"`make {lane[:-1]}` does not precheck collection, so it can report "
+            "a lane that never executed"
+        )

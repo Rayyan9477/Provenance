@@ -645,11 +645,27 @@ def _split_severity(cell: str) -> tuple[str, str | None]:
 
 
 def _looks_like_path(value: str) -> bool:
+    """One token that names a file, rather than prose describing one.
+
+    The punctuation test below (`/` or `.`) was the whole rule, and it rejected
+    `Makefile` — a root-level file with no extension, which is a perfectly good
+    repository-relative path and one this repository owns defects in.
+    `LICENSE`, `NOTICE` and `Dockerfile` fail identically.
+
+    Asking the filesystem is not a relaxation of `DL08`; it is what `DL08`
+    meant. The rule exists to reject "the seed module" where a path belongs,
+    and a token that names a real file is exactly what it was asking for.
+    Punctuation remains the fallback, because a defect may be owned by a file
+    the fix DELETES — `app/retrieval/ann_search.py` was one — and that record
+    must stay well-formed after the file is gone.
+    """
     text = _clean(value).strip()
     if " " in text and "/" not in text:
         return False
     if len(text.split()) > 1:
         return False
+    if (REPO_ROOT / text).exists():
+        return True
     return "/" in text or "." in text
 
 

@@ -113,6 +113,37 @@ LEAKS: list[tuple[str, str, str]] = [
         "PROVENANCE_CAPABILITY_HMAC_KEY=9f8e7d6c5b4a39281706f5e4d3c2b1a0",
         "9f8e7d6c5b4a39281706f5e4d3c2b1a0",
     ),
+    (
+        # The Gemini pivot put an AI Studio key in `.env`, and the Developer
+        # API takes it as a QUERY PARAMETER rather than a header. So every
+        # google-genai error that renders the failing request URL -- which is
+        # most of them -- carries the live key in the message, and
+        # `ops/probes/gemini_probe.py` writes exactly those messages into
+        # `ops/gemini-probe.txt`, a committed file in a repository that goes
+        # public at submission. No pre-existing rule matched: `url-credential`
+        # requires `user:secret@`, and a query string has neither.
+        "google-api-key",
+        "google.genai.errors.ClientError: 400 INVALID_ARGUMENT calling "
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        "gemini-3.7-flash:generateContent?key=AIzaSyC7QwErTyUiOpAsDfGhJkLzXcVbNm123",
+        "AIzaSyC7QwErTyUiOpAsDfGhJkLzXcVbNm123",
+    ),
+    (
+        "google-api-key",
+        # Bare, with no keyword in front of it -- the shape a traceback frame
+        # or a repr of the client config produces.
+        "Client(api_key='AIzaSyC7QwErTyUiOpAsDfGhJkLzXcVbNm123', http_options=None)",
+        "AIzaSyC7QwErTyUiOpAsDfGhJkLzXcVbNm123",
+    ),
+    (
+        # `_API_KEY` was NOT in the suffix list: it ran
+        # `HMAC_KEY|SIGNING_KEY|PRIVATE_KEY|SECRET_KEY|_SECRET|_TOKEN|_PASSWORD`.
+        # The keyword rule is kept alongside `google-api-key` because it covers
+        # a non-Google key that has no distinguishing prefix to anchor on.
+        "named-secret-assignment",
+        "GOOGLE_API_KEY=sk-notgoogle-0123456789abcdefghijklmnop",
+        "sk-notgoogle-0123456789abcdefghijklmnop",
+    ),
 ]
 
 
@@ -211,6 +242,18 @@ NOT_SECRETS: list[tuple[str, str]] = [
         "a *_SECRET_ARN names a reference; settings.py records that an ARN is safe to log",
         "COGNITO_WORKER_CLIENT_SECRET_ARN=arn:aws:secretsmanager:us-east-1:"
         "[REDACTED-ACCOUNT]:secret:provenance/worker",
+    ),
+    (
+        "a Gemini model id, which the probe transcript exists to print",
+        "PASS  gemini-3.7-flash  reply='ok' tokens=12  (Tier R canon)",
+    ),
+    (
+        "an unexpanded placeholder in an API key assignment",
+        "GOOGLE_API_KEY=$GOOGLE_API_KEY python ops/probes/gemini_probe.py",
+    ),
+    (
+        "the generativelanguage endpoint with no key parameter",
+        "endpoint=https://generativelanguage.googleapis.com/v1beta/models  sdk=google-genai",
     ),
 ]
 
