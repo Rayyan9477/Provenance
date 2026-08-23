@@ -1,0 +1,11 @@
+Message-ID: <northline-zero-balance-statement@northlinefiber.example>
+Date: Fri, 05 Jun 2026 09:00:00 +0000
+From: "Northline Fiber" <billing@northlinefiber.example>
+To: "Alex Rivera" <alex.rivera@example.invalid>
+Subject: Statement: zero balance
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Statement for the closed service account at 214 Ridgeway Apt 3B. Balance
+outstanding USD 0.00. Nothing is owed on this account.

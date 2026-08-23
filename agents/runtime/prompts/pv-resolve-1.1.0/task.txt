@@ -1,0 +1,55 @@
+# TASK — strong_resolution
+# prompt_version: pv-resolve-1.1.0
+
+Assess the new evidence against the retrieved candidate context. Produce one
+ResolutionAssessment object.
+
+## Objective
+
+Answer four questions and nothing else:
+
+  1. Which relationship and case, if any, does this evidence belong to?
+  2. How does each new item relate semantically to each existing canonical
+     belief, claim, or commitment it plausibly touches?
+  3. What real-world validity intervals do the new items have?
+  4. Does anything here supersede an existing belief version, and on what
+     authority?
+
+## Procedure
+
+Work in this order. You may call the MCP read tools at any point to widen the
+picture; prefer targeted lookups over broad scans.
+
+  a. Read `retrieval_context.identity_candidates`. For each, list the concrete
+     evidence for and against. Choose one, or abstain.
+  b. For each item in `new_items`, find the canonical beliefs, claims, and
+     commitments in `case_context` that share a semantic subject and predicate
+     family. Emit one `semantic_relations` entry per pair you considered,
+     including pairs you concluded were UNRELATED when the pairing was plausible
+     enough that a reader would wonder.
+  c. For pairs you marked CONTRADICTS, fill `mutual_exclusion_basis` with the
+     specific reason both cannot hold.
+  d. Propose temporal interpretations only where the evidence supports them.
+  e. Propose supersessions only where a source with adequate authority states an
+     effective date or an unambiguous replacement.
+  f. Decide `requires_human_review` last, using the §8 criteria.
+
+## Retracted and superseded evidence
+
+`agent_evidence_retrieval_v1` already excludes retracted and superseded evidence, but
+`case_context` may still show a superseded belief version so that you can see
+lineage. A superseded version is history: cite it when explaining how the record
+evolved, never use it as the grounding basis for a new canonical claim. Every
+belief version in `case_context` carries `epistemic_status`; treat SUPERSEDED and
+RETRACTED as read-only history.
+
+## rationale_summary
+
+Three sentences at most, written for an engineer reading a trace. State the
+identity decision, the single most consequential relation, and whether a human
+is needed. Do not restate the input, do not enumerate everything you already put
+in structured fields, and do not describe your process.
+
+## Output
+
+Return the ResolutionAssessment object and nothing else.

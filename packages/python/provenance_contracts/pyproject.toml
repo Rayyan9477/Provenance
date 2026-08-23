@@ -1,0 +1,32 @@
+# packages/python/provenance_contracts/pyproject.toml
+# Reproduced from specs/11_CONTRACTS.md section 19.
+#
+# `uuid6` is a soft dependency in code (ImportError falls back to uuid4) and a
+# hard dependency in this manifest. The fallback exists so a Lambda layer that
+# omits it still runs correctly; the manifest exists so it normally does not
+# have to.
+#
+# `pydantic-settings` is added by T0.4, which wrote settings.py — the only
+# importer, and the only module in the repository allowed to read the
+# environment.
+
+[project]
+name = "provenance-contracts"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2.9,<3",
+  "pydantic-settings>=2.4,<3",   # settings.py (T0.4); reads the environment once
+  "provenance-domain==1.0.0",
+  "uuid6>=2024.7.10",   # UUIDv7 until the stdlib ships uuid.uuid7
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov>=5"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/provenance_contracts"]

@@ -1,0 +1,34 @@
+# packages/python/provenance_db/pyproject.toml
+#
+# No section of the design pack prints this manifest, so it follows the shape
+# that specs/11_CONTRACTS.md section 19 prints for the two packages it does
+# specify. The dependency set is the minimum the package's stated
+# responsibility requires: a driver, and the contracts it returns.
+#
+# `provenance-domain` is a dependency of this package, and the dependency runs
+# ONE WAY: `provenance_domain.kernel` must never import `provenance_db`
+# (.importlinter contract `kernel-purity`). Added by T3.2, which needs
+# `KernelDecision` and `KernelReasonCode` to map SQLSTATEs to typed outcomes —
+# `12_KERNEL_ALGORITHMS.md` section 7.5 maps a unique-violation constraint name
+# to a decision and a reason code, and a stringly-typed pair there is how a
+# closed vocabulary leaks. Both enums live in `provenance_domain.enums`;
+# `provenance_contracts` re-exports them without listing them in `__all__`, so
+# importing them from there fails `mypy --strict`'s no-implicit-reexport rule.
+# `provenance_domain` is pure: no I/O, no pydantic, no psycopg.
+
+[project]
+name = "provenance-db"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+  "psycopg[binary,pool]>=3.2,<4",
+  "provenance-contracts==1.0.0",
+  "provenance-domain==1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/provenance_db"]

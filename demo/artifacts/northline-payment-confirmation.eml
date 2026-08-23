@@ -1,0 +1,11 @@
+Message-ID: <northline-payment-confirmation@northlinefiber.example>
+Date: Sun, 24 May 2026 09:00:00 +0000
+From: "Northline Fiber" <billing@northlinefiber.example>
+To: "Alex Rivera" <alex.rivera@example.invalid>
+Subject: Payment received
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+We have received your payment of USD 74.20 against the final invoice for
+the service at 214 Ridgeway Apt 3B. Thank you.

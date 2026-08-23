@@ -1,0 +1,11 @@
+Message-ID: <beltline-partial-payment-receipt@beltlinemovers.example>
+Date: Mon, 25 May 2026 09:00:00 +0000
+From: "Beltline Movers" <accounts@beltlinemovers.example>
+To: "Alex Rivera" <alex.rivera@example.invalid>
+Subject: Payment sent
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+A bank transfer of USD 200.00 has been sent to you as a first payment
+against the approved damage reimbursement for job 88214.

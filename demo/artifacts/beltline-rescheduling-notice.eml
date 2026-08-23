@@ -1,0 +1,11 @@
+Message-ID: <beltline-rescheduling-notice@beltlinemovers.example>
+Date: Fri, 24 Apr 2026 09:00:00 +0000
+From: "Beltline Movers" <dispatch@beltlinemovers.example>
+To: "Alex Rivera" <alex.rivera@example.invalid>
+Subject: Your move has been rescheduled
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Your booked move on job 88214 has been rescheduled by one day because of
+vehicle availability. The crew will now arrive on the following morning.

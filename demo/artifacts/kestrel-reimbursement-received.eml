@@ -1,0 +1,11 @@
+Message-ID: <kestrel-reimbursement-received@kestrelanalytics.example>
+Date: Thu, 28 May 2026 09:00:00 +0000
+From: "Kestrel Analytics" <payroll@kestrelanalytics.example>
+To: "Alex Rivera" <alex.rivera@example.invalid>
+Subject: Relocation reimbursement paid
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+A relocation reimbursement of USD 2,350.00 was included in your salary
+payment. Nothing remains outstanding on this claim.

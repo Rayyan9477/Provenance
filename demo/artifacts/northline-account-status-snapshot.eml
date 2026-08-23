@@ -1,0 +1,12 @@
+Message-ID: <northline-account-status-snapshot@northlinefiber.example>
+Date: Tue, 02 Jun 2026 09:00:00 +0000
+From: "Northline Fiber" <noreply@northlinefiber.example>
+To: "Alex Rivera" <alex.rivera@example.invalid>
+Subject: Account status summary
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Account status summary: service state TERMINATED, effective 31 May 2026.
+Billing state CLOSED. There are no scheduled future charges on this
+account.

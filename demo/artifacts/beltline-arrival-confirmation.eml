@@ -1,0 +1,11 @@
+Message-ID: <beltline-arrival-confirmation@beltlinemovers.example>
+Date: Sat, 02 May 2026 09:00:00 +0000
+From: "Beltline Movers" <dispatch@beltlinemovers.example>
+To: "Alex Rivera" <alex.rivera@example.invalid>
+Subject: Crew arrival confirmed
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+The crew for job 88214 arrived on site as rescheduled and the move was
+completed the same day.

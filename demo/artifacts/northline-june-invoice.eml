@@ -1,0 +1,12 @@
+Message-ID: <northline-june-invoice@northlinefiber.example>
+Date: Sun, 14 Jun 2026 08:00:00 +0000
+From: "Northline Fiber" <billing@northlinefiber.example>
+To: "Alex Rivera" <alex.rivera@example.invalid>
+Subject: Invoice for June service
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Invoice for internet service on account NF-4471-8802 covering
+1 June 2026 through 30 June 2026. Amount due USD 186.00 by 30 June 2026.
+Payment is due within twenty-one days of the invoice date.

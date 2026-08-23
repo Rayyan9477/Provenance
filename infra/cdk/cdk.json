@@ -1,0 +1,20 @@
+{
+  "app": "python app.py",
+  "watch": {
+    "include": ["provenance_infra/**", "app.py"],
+    "exclude": ["**/__pycache__", "cdk.out", "tests/**"]
+  },
+  "output": "cdk.out",
+  "context": {
+    "pv:root_domain": "provenance.app",
+    "pv:owner": "unset",
+    "pv:custom_domains": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+    "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/aws-ecr:lifecycleRuleMaxImageAgeRequiresTagStatus": true,
+    "@aws-cdk/core:target-partitions": ["aws"]
+  }
+}

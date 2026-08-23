@@ -1,0 +1,64 @@
+{
+  "manifest_version": "seed/1.0.0",
+  "profile": "all",
+  "seed_namespace": "6f2b1c40-0000-4000-8000-70726f76656e",
+  "demo_anchor": "2026-09-18T09:00:00-04:00",
+  "rng_seed": 20260817,
+  "embedding": {
+    "model_id": "amazon.titan-embed-text-v2:0",
+    "embedding_version": "v1",
+    "template_version": "tmpl1",
+    "dimensions": 1024,
+    "normalize": true,
+    "cache": "db/seeds/vectors.parquet",
+    "cache_vectors": 18043,
+    "cache_content_sha256": "30e0f63666476121d3250ee8b738ccb4a41f8a1440bcfa90db5b5995a730f703"
+  },
+  "corpus": {
+    "total": 18035,
+    "user_scoped_hero": 16035,
+    "hero_user_id": "88f54715-2808-58e8-8591-93f515ee21ba",
+    "decoys": {
+      "hero": 16000,
+      "iso-a": 1000,
+      "iso-b": 1000
+    },
+    "curated": 32,
+    "retraction_fixtures": 3,
+    "near_miss_quota": 120,
+    "decoy_corpus_sha256": "5e1af40a74c88845277c1aeec109bc4e50290f887b17fa7f11bf00936ef1b15c"
+  },
+  "deferred": {
+    "step": null,
+    "reason": "Nothing is deferred. Step 9 -- replaying the curated MemoryProposal fixtures through MemoryKernel.commit() as pv_kernel_writer -- landed 2026-08-24 together with the Kernel's commitment and trigger write path, and SEED_PROFILE flipped from schema-only to all in the same change. The row counts above are what --profile all produces and are asserted by services/control_plane/tests/db/test_seed_step9.py. conflicts stays 0 on purpose: the June invoice, the reopen and the 12 -> 13 revision increment are the demo's to perform, not the seed's.",
+    "tables": []
+  },
+  "tables": {
+    "action_executions": 0,
+    "action_intents": 0,
+    "agent_runs": 0,
+    "belief_support": 9,
+    "belief_versions": 9,
+    "beliefs": 9,
+    "cases": 10,
+    "claims": 36,
+    "commitments": 4,
+    "conflicts": 0,
+    "contexts": 1,
+    "counterparties": 5,
+    "evidence_items": 18035,
+    "fulfillments": 2,
+    "idempotency_records": 0,
+    "ingest_aliases": 0,
+    "kernel_decisions": 11,
+    "memory_proposals": 11,
+    "outbox_events": 8,
+    "processed_events": 0,
+    "prospective_triggers": 2,
+    "relationships": 6,
+    "source_artifacts": 18034,
+    "state_transitions": 8,
+    "tenants": 3,
+    "users": 3
+  }
+}

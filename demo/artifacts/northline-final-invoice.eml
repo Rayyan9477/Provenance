@@ -1,0 +1,12 @@
+Message-ID: <northline-final-invoice@northlinefiber.example>
+Date: Wed, 20 May 2026 11:00:00 +0000
+From: "Northline Fiber" <billing@northlinefiber.example>
+To: "Alex Rivera" <alex.rivera@example.invalid>
+Subject: Final invoice
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Final invoice for internet service at 214 Ridgeway Apt 3B covering
+1 May 2026 through 31 May 2026. Amount due USD 74.20, payable within
+twenty-one days. This is the final invoice for this account.

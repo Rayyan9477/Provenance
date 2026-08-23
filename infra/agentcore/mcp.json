@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "cockroachdb": {
+      "type": "http",
+      "url": "${MCP_SERVER_URL}",
+      "headers": {
+        "Authorization": "Bearer ${MCP_BEARER}"
+      },
+      "sqlRole": "pv_agent_reader",
+      "accessMode": "READ_ONLY",
+      "allowedRelations": [
+        "agent_case_context_v1",
+        "agent_active_beliefs_v1",
+        "agent_belief_lineage_v1",
+        "agent_evidence_retrieval_v1",
+        "agent_open_obligations_v1"
+      ]
+    }
+  }
+}

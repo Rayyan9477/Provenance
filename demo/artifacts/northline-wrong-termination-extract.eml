@@ -1,0 +1,11 @@
+Message-ID: <northline-wrong-termination-extract@northlinefiber.example>
+Date: Sat, 16 May 2026 10:00:00 +0000
+From: "Northline Fiber" <noreply@northlinefiber.example>
+To: "Alex Rivera" <alex.rivera@example.invalid>
+Subject: Service schedule notice
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Scheduled maintenance notice. Service termination effective 31 July for
+accounts in the Ridgeway maintenance window. No action is required.
