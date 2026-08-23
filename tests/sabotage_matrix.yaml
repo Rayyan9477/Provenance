@@ -1,0 +1,297 @@
+# Provenance — the sabotage matrix.
+#
+# Maps a production symbol to the test selection that MUST go red when that
+# symbol is neutered. `23_PHASE_GATES.md` §23.5 fixes the semantics; the shape
+# below is the one `tools/sabotage_guard.py` reads.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# A green test suite proves that the tests pass. It does not prove that they
+# would fail if the thing they test were broken. Every entry here is a claim of
+# the second kind, and `make sabotage` checks it by actually breaking the symbol
+# and requiring the named selection to fail.
+#
+# A GREEN RUN ON A SABOTAGE ENTRY IS A GATE FAILURE, NOT A PASS.
+#
+# HOW A SYMBOL IS NEUTERED
+# ------------------------
+# `PV_SABOTAGE=<dotted.symbol>` is read once at import by the owning module,
+# which then replaces the named attribute ON THE MODULE OBJECT with an identity
+# function. Callers must therefore reach the symbol through its module
+# (`money.outstanding(...)`), never through a `from`-import: a `from`-import
+# copies the reference before the rebind is visible and the sabotage silently
+# never arrives. `test_derive_outstanding_calls_money_outstanding_through_the_
+# module_global` asserts that wiring against the AST, and it is the reason this
+# entry can be trusted.
+#
+# COUNT DISCIPLINE
+# ----------------
+# `72_DEFECT_PROTOCOL.md` §10.2 detector 2 requires count(N) >= count(N-1) at
+# every gate: the matrix may grow, never shrink. It stood at 0 entries at G-0
+# because this file did not exist. Deleting an entry to make `make sabotage`
+# pass is the cheap fix the guard is built to catch — `--assert-symbol-gone`
+# requires that a removed symbol is genuinely absent from the tree.
+#
+# T14.5 reconciles this to the full 18 entries. T1.4 and T4.1 register the first.
+
+sabotages:
+  # --- Phase 1 -------------------------------------------------------------
+  - symbol: provenance_domain.money.outstanding
+    tests: packages/python/provenance_domain/tests
+    # Registered by T1.4. Verified 2026-08-18 against test_derivations.py
+    # (3 failed, 22 passed) and against test_invariants.py. Neutering the
+    # subtraction makes `outstanding` return its first argument, so a
+    # commitment reads as wholly unpaid and `derive_commitment_status` maps it
+    # to ACTIVE while the money says otherwise. If this ever runs green, either
+    # the identity is no longer reached through the module global or no test
+    # asserts the arithmetic.
+    feeds: G1.7
+
+  # --- Phase 3 -------------------------------------------------------------
+  - symbol: provenance_db.retry.is_retryable
+    tests: packages/python/provenance_db/tests/db/test_retry.py
+    # Registered by T3.2. Verified 2026-08-18: "3 failed, 1 passed", including
+    # FAILED test_injected_40001_retries_and_commits. ops/tdd/SABOTAGE_T3.txt.
+    #
+    # The neutering DEVIATES from the identity-function shape the matrix
+    # documents elsewhere, and the reason matters: is_retryable is a PREDICATE.
+    # An identity function returns the truthy SQLSTATE string it was handed, so
+    # the retry loop keeps retrying and the sabotage changes nothing -- a green
+    # run that proves the opposite of what it appears to. It is neutered to
+    # constant-False instead, which is G3.6's own wording: "remove the retry".
+    feeds: G3.6
+
+  # --- Phase 4 -------------------------------------------------------------
+  - symbol: memory_kernel.preflight.assert_grounded
+    tests: services/control_plane/tests/kernel
+    # Registered by T4.2. Verified 2026-08-18:
+    #   PV_SABOTAGE=memory_kernel.preflight.assert_grounded     #     pytest services/control_plane/tests/kernel  ->  3 failed, 279 passed, exit 1
+    #
+    # Grounding is invariant 5 and the one an LLM-authored belief violates most
+    # easily: a canonical belief version with no belief_support edge, unless it
+    # declares a deterministic derivation. The database CHECK
+    # (ck_belief_versions_grounded) is the other half and is exercised by the D2
+    # database test, which belongs to T4.13 -- this entry covers only the
+    # in-process refusal, and a green run here means the kernel stopped checking.
+    feeds: G4.9
+
+  # --- Phase 5 -------------------------------------------------------------
+  - symbol: state_proof.builder.load_grounding
+    tests: services/control_plane/tests/state_proof
+    # Registered by T5.3. Verified 2026-08-19:
+    #   PV_SABOTAGE=state_proof.builder.load_grounding
+    #     pytest services/control_plane/tests/state_proof  ->  11 failed, 6 passed
+    #
+    # G5.5 addresses this symbol as `read_models.state_proof.load_grounding`.
+    # The package T5.3 is permitted to write is `app/state_proof/`, not
+    # `app/read_models/`, so the label registered here is `state_proof.builder`
+    # and the gate string is reported as a discrepancy rather than resolved by
+    # inventing a second package the task plan does not name.
+    #
+    # The neutering returns the RAW support rows instead of GroundingEdgeProof
+    # objects, so `BeliefProof` fails validation on `belief_version_id` being an
+    # extra input. That is a louder failure than an empty support set and it
+    # still fails for the right reason: the grounding of a canonical belief was
+    # not loaded from `belief_support`. A green run here means the snapshot
+    # suite stopped depending on where grounding comes from.
+    feeds: G5.5
+
+  # --- Phase 6 -------------------------------------------------------------
+  - symbol: retrieval.predicates.retraction_filter
+    tests: tests/retrieval/test_retraction_filtering.py
+    # Registered by T6.5. Verified 2026-08-19:
+    #   PV_SABOTAGE=retrieval.predicates.retraction_filter
+    #     pytest tests/retrieval/test_retraction_filtering.py  ->  1 failed, 5 passed
+    #   FAILED test_layer_three_excludes_what_a_lost_sql_predicate_would_admit
+    #
+    # READ THIS BEFORE TRUSTING THE ENTRY. Section 13.3 has three enforcement
+    # layers and this symbol is layer 3 only. Layer 1 is the SQL predicate in
+    # the canonical ANN statement and layer 2 is baked into
+    # `agent_evidence_retrieval_v1`. So a sabotage run against the layer-1
+    # assertion (`test_no_retraction_fixture_survives_the_production_statement`)
+    # is GREEN with this symbol neutered -- the SQL still excludes the fixtures --
+    # and that green would have been read as G6.7 passing.
+    #
+    # The selection therefore names the file that contains the layer-3
+    # assertion: it feeds the identical unfiltered candidate set through
+    # `predicates.retraction_filter` and requires the SUPERSEDED fixture to be
+    # removed. Neutered, the filter is the identity function, the fixture
+    # survives, and the test goes red for the reason the gate intends.
+    feeds: G6.7
+
+  - symbol: memory_kernel.case_ops.revision_after
+    tests: services/control_plane/tests/kernel
+    # Registered by T4.13. Verified 2026-08-19:
+    #   PV_SABOTAGE=memory_kernel.case_ops.revision_after \
+    #     pytest services/control_plane/tests/kernel  ->  6 failed, 531 passed, exit 1
+    #   including FAILED test_r1_a_canonical_commit_increments_exactly_once and
+    #   FAILED test_the_hero_case_goes_resolved_to_reopened_at_revision_thirteen.
+    #
+    # Rule R1 in one line: exactly one increment per canonical commit, none on a
+    # no-op. The identity neutering returns `before`, which type-checks as an
+    # int and looks entirely plausible -- the aggregate simply never advances.
+    # Downstream that means `state_transitions.case_revision` and
+    # `outbox_events.aggregate_version` both carry a stale version while
+    # `ck_kernel_decisions_revision_step` is satisfied by an accepting decision
+    # that changed nothing, so the database cannot catch it either.
+    #
+    # `plan_case_update` calls it as a BARE NAME in the same module, so the
+    # rebind into `case_ops.globals()` is what the call resolves to. A green run
+    # here means either that wiring broke or no test asserts the increment.
+    feeds: G4.9
+
+  - symbol: memory_kernel.case_ops.qualifies_for_reopen
+    tests: services/control_plane/tests/kernel
+    # Registered by T4.13. Verified 2026-08-19:
+    #   PV_SABOTAGE=memory_kernel.case_ops.qualifies_for_reopen \
+    #     pytest services/control_plane/tests/kernel  ->  36 failed, 501 passed, exit 1
+    #   including FAILED test_the_marketing_email_does_not_reopen_the_case and
+    #   FAILED test_the_flapping_guard_withholds_the_transition_but_keeps_the_evidence.
+    #
+    # Gate G1: the reason a marketing email does not reopen a settled case. This
+    # is the product's most visible failure mode if it stops working -- a system
+    # that reopens cases on noise is worse than one that never reopens them,
+    # because the user stops reading the alerts. Neutered, the reopen guard is
+    # no longer consulted at all.
+    feeds: G4.9
+
+  - symbol: memory_kernel.decisions.build_decision_row
+    tests: services/control_plane/tests/kernel
+    # Registered by T4.13. Verified 2026-08-19:
+    #   PV_SABOTAGE=memory_kernel.decisions.build_decision_row \
+    #     pytest services/control_plane/tests/kernel  ->  46 failed, 491 passed, exit 1
+    #   including FAILED test_a_rejection_receipt_describes_no_canonical_rows,
+    #   FAILED test_retry_exhaustion_enqueues_nothing_and_commits_nothing and
+    #   FAILED test_the_decision_row_precedes_every_row_that_references_it.
+    #
+    # The object G4.4 reads. It is the single place that refuses a row with no
+    # reason code, DERIVES `transaction_opened` from the decision rather than
+    # accepting it from a caller, and enforces `ck_kernel_decisions_revision_step`
+    # and `ck_kernel_decisions_noop_no_bump` in application terms before the
+    # database has to. "A kernel_decisions row for every outcome, rejections and
+    # NOOPs included" is true because of this function and nothing else.
+    #
+    # `transaction.py` reaches it as `decisions.build_decision_row`, through the
+    # module object -- never a `from`-import. That is the whole reason this
+    # entry can be trusted, and `test_the_decision_row_precedes_every_row_that_
+    # references_it` failing under the neutering is the evidence.
+    feeds: G4.4, G4.9
+
+  - symbol: agents.runtime.graphs.ingestion_graph.should_resolve
+    tests: agents/runtime/tests
+    # Registered by T7.4, 2026-08-24. Verified the same day:
+    #   PV_SABOTAGE=agents.runtime.graphs.ingestion_graph.should_resolve \
+    #     pytest agents/runtime/tests -q  ->  93 failed, exit 1
+    #
+    # `should_resolve` is the route predicate that decides whether the Tier R
+    # resolver runs at all. Neutered, it answers the same way for every input,
+    # so the resolver either runs on all seven topology fixtures or on none --
+    # and G7.1 asserts it appears in exactly one, the ambiguous-identity case.
+    #
+    # It is deliberately a pure function of a `ResolutionSignals` value object
+    # rather than of the graph state, so all eight of section 5.7's triggers
+    # are reachable from a literal and the entry can be checked without running
+    # a graph or calling a model. A predicate that could only be exercised
+    # through a full run would make this entry expensive enough to skip, which
+    # is the same as not having it.
+    feeds: G7.1, G7.7
+
+  - symbol: actions.executor.revalidate_revision
+    tests: services/control_plane/tests/actions
+    # Registered by T9.4, 2026-08-24. Verified the same day:
+    #   PV_SABOTAGE=actions.executor.revalidate_revision \
+    #     pytest services/control_plane/tests/actions -q  ->  4 failed, 72 passed
+    #   FAILED test_a_moved_case_revision_aborts_the_send
+    #   FAILED test_the_expected_revision_in_the_request_is_checked_too
+    #   FAILED test_revalidate_revision_is_a_predicate_that_fails_closed
+    #   FAILED test_a_refusal_carries_the_timestamp_of_the_refusal
+    #
+    # Re-measured 2026-08-24. It read "3 failed, 66 passed" for a few hours,
+    # which was true when written and false once the suite grew. A recorded
+    # count is a timestamp; what a reader should check is that the NAMED tests
+    # go red, because those are the assertions the symbol actually protects.
+    # A number that no longer matches makes a reader doubt the entry rather
+    # than the sabotage.
+    #   including FAILED test_a_moved_case_revision_aborts_the_send and
+    #   FAILED test_revalidate_revision_is_a_predicate_that_fails_closed.
+    #
+    # This one is shaped deliberately, and the shape is the entry's whole value.
+    # PV_SABOTAGE replaces the symbol with an IDENTITY function, so a neutered
+    # predicate returns something truthy -- "the revision is still valid". That
+    # is the UNSAFE direction: a stale approval sends anyway. A guard written to
+    # return an error object instead would be neutered into a falsy value and
+    # fail closed, and the sabotage would pass while proving nothing.
+    #
+    # What it protects is the second half of the canon's action sentence: bind
+    # the approval to a case revision and a draft SHA-256, then REVALIDATE at
+    # execution time. Approval-time validation alone cannot see evidence that
+    # arrived in between, which is exactly the hero case -- an invoice landing
+    # after a human said yes.
+    feeds: G9.1, G9.7
+
+  - symbol: triggers.evaluator.reevaluate_predicate
+    tests: services/control_plane/tests/events
+    # Registered by T10.4, 2026-08-24. Verified the same day:
+    #   PV_SABOTAGE=triggers.evaluator.reevaluate_predicate \
+    #     pytest services/control_plane/tests/events -q  ->  38 failed, 194 passed, exit 1
+    #
+    # This is the entry that protects the difference between prospective memory
+    # and a reminder. A scheduler event says only that a moment arrived; it is
+    # never evidence about the world. The predicate is re-evaluated against
+    # current canonical state at wake time, so a deposit paid between arming and
+    # waking DISARMS instead of firing a demand for money already received.
+    #
+    # Neutered, the predicate answers the same way for every input, and a stale
+    # envelope fires against a satisfied commitment. That is the failure the
+    # product's second demo reveal would otherwise dramatise on stage.
+    #
+    # `service.py` reaches the symbol through the MODULE GLOBAL, never a
+    # `from`-import -- a `from`-import copies the reference before PV_SABOTAGE
+    # rebinds it and the sabotage silently never arrives. An AST test asserts
+    # that wiring, which is what makes this entry trustworthy rather than
+    # merely present.
+    feeds: G10.4, G10.7
+
+  - symbol: memory_kernel.trigger_commit.revision_is_current
+    tests: services/control_plane/tests/kernel/test_trigger_commit.py
+    # Registered 2026-08-24 with `commit_trigger_evaluation`. Verified the same
+    # day:
+    #   PV_SABOTAGE=memory_kernel.trigger_commit.revision_is_current     #     pytest services/control_plane/tests/kernel -q  ->  1 failed, 625 passed
+    #   FAILED test_a_moved_case_revision_refuses_the_commit_and_writes_nothing
+    #
+    # THE staleness guard of `16_TRIGGER_DSL.md` section 10.2 (b), on the Kernel
+    # side of prospective memory. The evaluation was computed against a case
+    # revision read minutes -- or, after a retry, milliseconds -- earlier. If the
+    # case moved since, the decision describes a world that no longer exists.
+    #
+    # Shaped as a PREDICATE on purpose, and the shape is the entry's whole value.
+    # PV_SABOTAGE substitutes an IDENTITY function, so the neutered predicate
+    # returns `revision_before` -- a truthy int, "the revision is still current".
+    # That is the UNSAFE direction: a stale decision commits, and for this
+    # subsystem that means firing a demand for money that may already have been
+    # paid, months after the promise. A guard written to return an error object
+    # would be neutered into something falsy, fail closed, and the sabotage would
+    # pass while proving nothing.
+    #
+    # Called as a BARE NAME inside `_callback` in the same module, so the rebind
+    # into `trigger_commit.globals()` is what the call resolves to.
+    feeds: G10.4, G10.7
+
+  - symbol: memory_kernel.trigger_commit.trigger_is_actionable
+    tests: services/control_plane/tests/kernel/test_trigger_commit.py
+    # Registered 2026-08-24 with `commit_trigger_evaluation`. Verified the same
+    # day:
+    #   PV_SABOTAGE=memory_kernel.trigger_commit.trigger_is_actionable     #     pytest services/control_plane/tests/kernel -q  ->  2 failed, 624 passed
+    #   FAILED test_a_trigger_that_is_no_longer_armed_refuses_the_commit
+    #   FAILED test_a_superseded_generation_refuses_the_commit
+    #
+    # Section 10.2 (a)'s generation guard, re-asserted under `FOR UPDATE`. The
+    # evaluator checked `state` and `evaluation_version` BEFORE the projection
+    # read; something else can commit in between, and only the lock settles it.
+    #
+    # Neutered to the identity it returns `state` -- a non-empty string, so
+    # truthy -- and an already `FIRED` trigger fires a second time while a wake
+    # from a superseded generation acts on the trigger that replaced it. Pressing
+    # the demo button twice would send two demands. Again the identity shape
+    # lands on the unsafe side, which is what makes the entry trustworthy.
+    feeds: G10.4, G10.7

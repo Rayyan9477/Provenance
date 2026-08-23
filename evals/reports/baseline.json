@@ -1,0 +1,390 @@
+{
+  "schema_version": "1.0",
+  "started_at": "2026-08-24T11:16:47+00:00",
+  "git_sha": "a26f278",
+  "database": "provenance",
+  "notes": [
+    "corpus counted at query time: 18035 evidence rows (18032 ACTIVE, 3 not), 34 hero artifacts, 16000 hero decoys, 0 without an embedding.",
+    "embedding space: amazon.titan-embed-text-v2:0 version v1, 1 distinct version(s) in the corpus. Nothing here embeds text; every query vector is a vector already stored in this corpus.",
+    "the harness holds a READ ONLY session and issues only SELECT. It writes to no table, canonical or otherwise."
+  ],
+  "totals": {
+    "pass": 9,
+    "fail": 0,
+    "cannot_run": 6,
+    "exit_code": 0
+  },
+  "suites": [
+    {
+      "suite_id": "RET",
+      "title": "retrieval under adversarial decoys",
+      "claim": "00_PRODUCT.md section 2.2: 'Whichever ranks higher wins the answer. Contradiction is resolved by cosine similarity.'",
+      "verdict": "PASS",
+      "checks": [
+        {
+          "check_id": "RET-01",
+          "verdict": "PASS",
+          "detail": "31 corpus-vector queries against 35 hero rows in an 18,035-row field; recall@20=0.7715 MRR@100=0.7609 decoy_share@20=0.6774",
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "check_id": "RET-02",
+          "verdict": "CANNOT RUN",
+          "detail": "natural-language query recall (the measurement a user's query would produce) is not taken: no Titan credential on this machine. The 18,035 stored vectors are amazon.titan-embed-text-v2:0 at 1024 dimensions; a query embedded by any other model lands in a different space and its distances stay ordered while meaning nothing. Needs AWS credentials with bedrock:InvokeModel on amazon.titan-embed-text-v2:0 in us-east-1, or the 0009 re-embed applied so the corpus and a Gemini query share a space.",
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "check_id": "RET-03",
+          "verdict": "CANNOT RUN",
+          "detail": "the hero June invoice cannot be ranked: demo/artifacts/northline-june-invoice.eml is deliberately absent from source_artifacts because the demo ingests it live to create the conflict. Ranking any row that merely mentions June and 186 ranks a decoy -- an earlier attempt did exactly that and reported FAIL, rank 2254 of 18035, against Aster Line Internet. Needs the live ingestion to have run.",
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "recall@1",
+          "value": 0.2849462365591398,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "recall@5",
+          "value": 0.6989247311827957,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "recall@10",
+          "value": 0.7715053763440861,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "recall@20",
+          "value": 0.7715053763440861,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "recall@50",
+          "value": 0.7903225806451613,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "recall@100",
+          "value": 0.8010752688172043,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "MRR@100",
+          "value": 0.7608870967741935,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "decoy_share@20",
+          "value": 0.6774193548387096,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "queries",
+          "value": 31.0,
+          "unit": "queries",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "gold_pairs",
+          "value": 110.0,
+          "unit": "pairs",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "gold_never_ranked_within_100",
+          "value": 25.0,
+          "unit": "pairs",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "natural_language_recall@20",
+          "value": null,
+          "unit": null,
+          "cannot_run_reason": "no Titan credential on this machine. The 18,035 stored vectors are amazon.titan-embed-text-v2:0 at 1024 dimensions; a query embedded by any other model lands in a different space and its distances stay ordered while meaning nothing. Needs AWS credentials with bedrock:InvokeModel on amazon.titan-embed-text-v2:0 in us-east-1, or the 0009 re-embed applied so the corpus and a Gemini query share a space.",
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        },
+        {
+          "name": "queries_with_no_gold_in_top_20",
+          "value": 3.0,
+          "unit": "queries",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retrieval)"
+        }
+      ],
+      "findings": [
+        "2 of 31 queries returned NO case-mate within the top 100; 1 more found their first only past rank 20 (K_FINAL, what retrieval returns in production). Named rather than averaged away:",
+        "  buried: harborview-lease-deposit-clause.pdf: 0 of 4 case-mates within the top 100",
+        "  buried: northline-final-invoice.eml: 0 of 3 case-mates within the top 100",
+        "  deep:   harborview-inspection-completion.eml: first case-mate at rank 48 of 99 returned"
+      ],
+      "exclusions": [
+        "1 of 32 ACTIVE hero rows are not queried: no other ACTIVE hero row shares a case with them, so recall has no denominator. Naming them rather than averaging a zero in: northline-new-install-credit-terms.eml",
+        "3 non-ACTIVE hero rows are excluded from both the query set and every gold set. They are the retraction fixtures and the RTR suite is where they are measured.",
+        "ranks deeper than 100 are not read. A gold row that did not appear within 100 contributes 0 to MRR and is counted in 'gold_never_ranked', which is a miss inside a stated bound and not a claim that the row is absent."
+      ]
+    },
+    {
+      "suite_id": "RTR",
+      "title": "retracted evidence does not resurface",
+      "claim": "00_PRODUCT.md section 2.2: 'Retracted or superseded documents keep their embeddings and keep resurfacing.'",
+      "verdict": "PASS",
+      "checks": [
+        {
+          "check_id": "RTR-01",
+          "verdict": "PASS",
+          "detail": "0 row(s) where is_retrieval_eligible disagrees with (retraction_status = 'ACTIVE') across the whole corpus",
+          "command": "make evals   (python -m evals.runner --suite retraction)"
+        },
+        {
+          "check_id": "RTR-02",
+          "verdict": "PASS",
+          "detail": "3 non-ACTIVE row(s) queried with their own vector (cosine distance 0.0, rank 1 in any unfiltered search); 0 resurfaced within the top 100",
+          "command": "make evals   (python -m evals.runner --suite retraction)"
+        },
+        {
+          "check_id": "RTR-03",
+          "verdict": "PASS",
+          "detail": "3 of 3 non-ACTIVE rows still hold their embedding and normalized_text. Evidence is append-only: a filter and a delete produce the same empty result set and are opposite claims about the record.",
+          "command": "make evals   (python -m evals.runner --suite retraction)"
+        },
+        {
+          "check_id": "RTR-04",
+          "verdict": "PASS",
+          "detail": "the rendered ANN statement carries \"retraction_status = 'ACTIVE'\". Read from services.control_plane.app.retrieval.ann.render_ann_sql(), which is the statement ann_search() executes -- not a copy.",
+          "command": "make evals   (python -m evals.runner --suite retraction)"
+        },
+        {
+          "check_id": "RTR-05",
+          "verdict": "PASS",
+          "detail": "0 claim(s) cite evidence whose retraction_status is not ACTIVE. Only ACTIVE evidence may ground a new belief.",
+          "command": "make evals   (python -m evals.runner --suite retraction)"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "lifecycle_flag_mismatches",
+          "value": 0.0,
+          "unit": "rows",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retraction)"
+        },
+        {
+          "name": "retracted_rows_resurfaced",
+          "value": 0.0,
+          "unit": "rows",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retraction)"
+        },
+        {
+          "name": "retracted_rows_retained",
+          "value": 3.0,
+          "unit": "rows",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retraction)"
+        },
+        {
+          "name": "claims_on_non_active_evidence",
+          "value": 0.0,
+          "unit": "claims",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite retraction)"
+        }
+      ],
+      "findings": [],
+      "exclusions": [
+        "the self-vector probe covers the 3 non-ACTIVE rows that exist in this corpus, one per lifecycle state. There is no fourth state to probe; RetractionStatus has four members and ACTIVE is the one being filtered for."
+      ]
+    },
+    {
+      "suite_id": "EXT",
+      "title": "an invoice is a claim, not a fact",
+      "claim": "00_PRODUCT.md section 2.2: 'The invoice is treated as a fact because it is in the index, not as a claim by an interested party.'",
+      "verdict": "PASS",
+      "checks": [
+        {
+          "check_id": "EXT-01",
+          "verdict": "PASS",
+          "detail": "16/16 gold expectations met across 3 artifact(s) with a recorded extraction; 3/3 artifacts met every expectation",
+          "command": "make evals   (python -m evals.runner --suite extraction)"
+        },
+        {
+          "check_id": "EXT-02",
+          "verdict": "CANNOT RUN",
+          "detail": "31 of the 34 hero artifacts have no recorded extraction. agent-graph-live-run.txt walked three. Scoring the rest needs 31 live Gemini calls (tier E gemini-3.5-flash-lite plus tier R gemini-3.7-flash, about 12k tokens each on the recorded run) and a hand-written gold label per artifact -- not a code change.",
+          "command": "make evals   (python -m evals.runner --suite extraction)"
+        },
+        {
+          "check_id": "EXT-03",
+          "verdict": "PASS",
+          "detail": "18/18 counterparty-authored claims over value-or-status evidence carry an interested-party claim_kind (COMMITMENT_CLAIM=2, COUNTERPARTY_CLAIM=10, FULFILLMENT_CLAIM=4, POLICY_TERM=2)",
+          "command": "make evals   (python -m evals.runner --suite extraction)"
+        },
+        {
+          "check_id": "EXT-04",
+          "verdict": "PASS",
+          "detail": "0 claim(s) cite no evidence; 0 counterparty-authored claim(s) are typed USER_CLAIM. The second inversion would put the counterparty's assertion into the user's mouth, which is the asymmetry this product exists to correct.",
+          "command": "make evals   (python -m evals.runner --suite extraction)"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "gold_expectations_met",
+          "value": 1.0,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite extraction)"
+        },
+        {
+          "name": "artifacts_exactly_right",
+          "value": 1.0,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite extraction)"
+        },
+        {
+          "name": "artifacts_scored",
+          "value": 3.0,
+          "unit": "artifacts",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite extraction)"
+        },
+        {
+          "name": "extraction_accuracy_over_all_hero_artifacts",
+          "value": null,
+          "unit": null,
+          "cannot_run_reason": "only 3 of 34 artifacts have a recorded extraction; a mean over 3 is not a rate",
+          "command": "make evals   (python -m evals.runner --suite extraction)"
+        },
+        {
+          "name": "interested_party_typing_rate",
+          "value": 1.0,
+          "unit": null,
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite extraction)"
+        },
+        {
+          "name": "ungrounded_claims",
+          "value": 0.0,
+          "unit": "claims",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite extraction)"
+        }
+      ],
+      "findings": [],
+      "exclusions": [
+        "EXT-01 covers 3 of 34 hero artifacts. Its numbers are reported with n beside them and must not be read as extraction accuracy for the corpus.",
+        "InjectionObservation.action_taken is Literal['TREATED_AS_DATA'] in provenance_contracts.ingestion -- one admissible value -- so an assertion that an injection was 'treated as data' cannot fail and is not scored. What is scored is that the injected artifact produced no commitment, which the type system does not guarantee."
+      ]
+    },
+    {
+      "suite_id": "MEM",
+      "title": "contradiction as a row, and a deadline as an event",
+      "claim": "00_PRODUCT.md section 2.2: 'Contradiction is resolved by cosine similarity' and 'there is no write path, so there is no state to be wrong about -- and no state to be right about either.'",
+      "verdict": "CANNOT RUN",
+      "checks": [
+        {
+          "check_id": "MEM-01",
+          "verdict": "CANNOT RUN",
+          "detail": "conflict detection is not scored. Measured: conflicts=0, and source_artifacts rows for northline-june-invoice.eml=0. The hero conflict is produced by ingesting that artifact, which the demo does live; seeding it would make the first reveal a replay. Needs: the live ingestion run against a writable database, then an assertion on conflict_type=VALUE_CONFLICT, status=NEEDS_HUMAN, severity=HIGH, requires_human=true (CANONICAL_DECISIONS.md, hero commit canon). This harness is read-only and will not write to evidence_items or any Kernel table to manufacture one.",
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        },
+        {
+          "check_id": "MEM-02",
+          "verdict": "CANNOT RUN",
+          "detail": "prospective memory is not scored. Measured: prospective_triggers=2 (2 ARMED, 0 not ARMED). Scoring a wake means firing one, which writes kernel_decisions, state_transitions and outbox_events. STATUS.md also records commit_trigger_evaluation as built and never verified against the cluster, and every curated commitment carrying local_id='cm_001' (scripts/seed/proposals.py:924), which refuses binding recovery for both curated triggers. Needs: a disposable database or an explicit write authorisation.",
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        },
+        {
+          "check_id": "MEM-03",
+          "verdict": "CANNOT RUN",
+          "detail": "the 51 labelled scenarios of docs/quality/22_EVAL_DATASETS.md section 4 do not exist. evals/datasets/memory_cases.jsonl is absent, and Rule E1 requires each expect block to be written by hand from the specs before the implementation is tuned -- so it cannot be generated from the running system without becoming a regression snapshot. Needs: 51 hand-authored scenarios and a KERNEL_REPLAY mode.",
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "conflicts_in_corpus",
+          "value": 0.0,
+          "unit": "rows",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        },
+        {
+          "name": "triggers_armed",
+          "value": 2.0,
+          "unit": "rows",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        },
+        {
+          "name": "belief_versions",
+          "value": 9.0,
+          "unit": "rows",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        },
+        {
+          "name": "commitments",
+          "value": 4.0,
+          "unit": "rows",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        },
+        {
+          "name": "state_transitions",
+          "value": 8.0,
+          "unit": "rows",
+          "cannot_run_reason": null,
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        },
+        {
+          "name": "conflict_detection_accuracy",
+          "value": null,
+          "unit": null,
+          "cannot_run_reason": "no conflict has been produced; the hero conflict is created by the live demo ingestion and this harness does not write",
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        },
+        {
+          "name": "trigger_wake_accuracy",
+          "value": null,
+          "unit": null,
+          "cannot_run_reason": "scoring a wake means firing one, which writes to the Kernel tables db/seeds/MANIFEST.json asserts exact row counts over",
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        },
+        {
+          "name": "scenario_pass_rate",
+          "value": null,
+          "unit": null,
+          "cannot_run_reason": "evals/datasets/memory_cases.jsonl does not exist; the 51 scenarios are unwritten",
+          "command": "make evals   (python -m evals.runner --suite memory)"
+        }
+      ],
+      "findings": [],
+      "exclusions": [
+        "every check in this suite is CANNOT RUN. The row counts above are printed so the blockers are evidenced rather than asserted; none of them is a score for the capability."
+      ]
+    }
+  ]
+}
