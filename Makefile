@@ -55,6 +55,24 @@ TYPED := packages/python/provenance_domain packages/python/provenance_contracts
 # The commit lane selection from 20_TDD_STRATEGY.md section 14.1.
 COMMIT_LANE := unit or contract or adversarial or (retrieval and not slow) or db or (concurrency and not slow)
 
+# T2.8 owns scripts/seed/**. Flipped from `schema-only` to `all` on 2026-08-24,
+# in the same change that landed the Phase 4 kernel replay -- which is what the
+# previous comment here asked for.
+#
+# Step 9 replays the curated MemoryProposal fixtures through
+# MemoryKernel.commit() as pv_kernel_writer. It could not run before, and the
+# seed did NOT work around that: seeding claims, beliefs or commitments by raw
+# INSERT would create a SECOND canonical writer, which is the one thing the
+# architecture forbids (70_TASK_PLAN.md T2.8 step 9). Twelve empty tables were
+# the honest cost of waiting.
+#
+# `schema-only` still exists and still skips the replay, with a stated reason
+# rather than a silent difference. db/seeds/MANIFEST.json now carries the row
+# counts `all` produces, so `26 tables checked, 26 match` is a claim about a
+# COMPLETE seed rather than about a known-partial one.
+SEED_PROFILE ?= all
+SEED_ARGS    ?=
+
 # ops/41_RUNBOOK.md section 1: uv is optional and bootstrap falls back to pip.
 INSTALLER := $(shell command -v uv >/dev/null 2>&1 && echo "uv pip" || echo "$(PY) -m pip")
 
@@ -97,6 +115,33 @@ define require_make_version
 	  exit 1; }
 endef
 
+# Refuse to report a test lane that never executed.
+#
+# pytest aborts the ENTIRE session on a single conftest ImportError -- it is not
+# scoped to the broken directory. The run prints "N/M tests collected" and then
+# "Interrupted: K errors during collection", and exits 2. A reader skimming for
+# a number finds a plausible one, and a gate checking for exit 1 misreads it.
+#
+# THIS CANNOT BE A PYTEST TEST. A test inside the lane is aborted by the very
+# error it exists to detect. That is not hypothetical: the first version of this
+# guard carried `pytest.mark.unit`, so `pytest -q -m unit` never executed it --
+# the name appeared zero times in the output -- and it only ever reported when
+# invoked in a scope narrow enough to dodge the broken conftests. (D-00-044.)
+#
+# --collect-only performs the same collection in its own session and exits 2 on
+# abort, so it fails before the lane is trusted. The status is taken from the
+# command directly and never through a pipe: piping discards the exit code,
+# which STATUS.md records as having produced a false green three separate times.
+define require_collection
+	@$(PYTEST) --collect-only -q $(1) >/dev/null 2>&1 || { \
+	  printf '\n  Collection aborted. NOTHING in this lane executed.\n\n' >&2; \
+	  $(PYTEST) --collect-only -q $(1) 2>&1 | grep -E '^ERROR|Interrupted|errors? in' >&2 || true; \
+	  printf '\n  One conftest ImportError ends the whole pytest session, so every\n' >&2; \
+	  printf '  other directory is silenced with it. This lane is not red -- it is\n' >&2; \
+	  printf '  not running. Fix the import above.\n\n' >&2; \
+	  exit 1; }
+endef
+
 # Refuse to pretend a gate ran when the capture harness does not exist yet.
 define require_gate_sh
 	@test -f $(GATE) || { \
@@ -107,11 +152,12 @@ define require_gate_sh
 	  exit 1; }
 endef
 
-.PHONY: help bootstrap lint test test-fast test-db test-all test-submission \
+.PHONY: seed-restore help bootstrap lint test test-fast test-db test-all test-submission \
         probe db-probe seed seed-perturb db-migrate db-verify db-reset \
         demo-reset demo-rehearse sabotage \
         run-api run-web run-crdb run-sink stop-local embeddings-warm \
         defects debt close-proof triage-round \
+        evals \
         clean \
         gate-0 gate-1 gate-2 gate-3 gate-4 gate-5 gate-6 gate-7 \
         gate-8 gate-9 gate-10 gate-11 gate-12 gate-13 gate-14 gate-15
@@ -226,15 +272,19 @@ lint:                   ## ruff + mypy --strict + import-linter contracts.
 #   Phase 15 scripts/check_vocabulary.py (Provenance / grounding / lineage)
 
 test:                   ## The commit lane from 20_TDD_STRATEGY.md 14.1.
+	$(call require_collection,-m "$(COMMIT_LANE)")
 	$(PYTEST) -q -m "$(COMMIT_LANE)"
 
 test-fast:              ## L1 only - hermetic; no database, no network, no credentials.
+	$(call require_collection,-m unit)
 	$(PYTEST) -q -m unit
 
 test-db:                ## L2 - requires a CockroachDB cluster (PROVENANCE_TEST_DB_URL).
+	$(call require_collection,-m "db and not slow")
 	$(PYTEST) -q -m "db and not slow"
 
-test-all:               ## Every layer including live_model. Needs a cluster and Bedrock.
+test-all:               ## Every layer including live_model. Needs a cluster and Gemini.
+	$(call require_collection,)
 	$(PYTEST) -q
 
 probe:                  ## Run the Phase 0 capability probes; writes ops/*.txt transcripts.
@@ -300,38 +350,236 @@ triage-round:           ## make triage-round PHASE=4 - merge inbox files report 
 db-migrate:             ## (Phase 2) alembic upgrade head against the target database.
 	$(call unimplemented,2,T2.1 through T2.6 - the 0001..0008 migration chain)
 
-db-verify:              ## (Phase 2) Run db/verify.sql - the V1..V11 verification queries.
-	$(call unimplemented,2,T2.7 - db/verify.sql from specs/10_DATABASE_DDL.md section 18)
+# THE DATABASE MUST BE QUIESCED. V1-V11 are whole-corpus invariants, so a
+# concurrent writer makes the result meaningless in BOTH directions: a failure
+# that is really someone else's half-built fixture, or a pass that read the
+# database a moment before the row that would have broken it.
+#
+# Measured, three reads four seconds apart while a builder was committing test
+# fixtures: belief_versions = 0, then 1, then 2. Two independent implementations
+# of V1-V11 -- `python -m scripts.seed --verify` and this file -- appeared to
+# CONTRADICT each other, one reporting all zeros and the other
+# FAIL_INVARIANT on V1-V3. Neither was wrong. They read at different moments.
+#
+# Before treating any db-verify result as evidence, confirm nothing else is
+# writing:
+#   SELECT count(*) FROM [SHOW SESSIONS] WHERE application_name NOT LIKE '%psql%';
+db-verify:              ## Run db/verify.sql - the V1..V11 verification queries.
+# specs/10_DATABASE_DDL.md section 18 and quality/23_PHASE_GATES.md G2.5.
+# db/verify.sql is ONE statement and computes its own verdict, so this target
+# parses, prints and maps to an exit status - it never decides an invariant.
+#   PASS / PASS_PARTIAL     0   PASS_PARTIAL names the checks that examined no rows
+#   FAIL_*                  1   an invariant returned rows, or V11 < 3 with a corpus
+#   VACUOUS_EMPTY_CORPUS    2   nothing was examined; V11 = 0 is correct and unproven.
+#                               PV_VERIFY_ALLOW_EMPTY=1 turns this into 0 for a
+#                               deliberately pre-seed database. It changes the exit
+#                               status only, never the verdict text.
+#   no VERDICT line         3   the file or the connection is broken
+#
+# Exit 2 is the point of this target. "V1..V10 returned zero rows" is trivially
+# true of an empty database, and a verification suite that reports success
+# against one is the vacuity failure section 23 exists to prevent. Every check
+# prints the size of the population it examined, so HOLDS (zero over a non-empty
+# population) is distinguishable from VACUOUS (zero over nothing).
+#
+# psql, not `cockroach sql`: the cockroach CLI is not installed on this machine
+# and CockroachDB is wire compatible. `tr -d '\r'` because psql on Windows emits
+# CRLF. Options precede -d: psql silently DROPS options placed after a
+# positional dbname.
+	@D="$${PV_VERIFY_URL:-}"; \
+	 if [ -z "$$D" ] && [ -f .env ]; then \
+	   D=$$(grep '^PROVENANCE_TEST_DB_URL=' .env | cut -d= -f2- | tr -d '\r\n' || true); \
+	 fi; \
+	 test -n "$$D" || { printf '\n  db-verify: no database URL. Set PV_VERIFY_URL, or PROVENANCE_TEST_DB_URL in .env.\n\n' >&2; exit 3; }; \
+	 if ! out=$$(psql -X -At -v ON_ERROR_STOP=1 -d "$$D" -f db/verify.sql | tr -d '\r'); then \
+	   printf '\n  db-verify: psql could not run db/verify.sql. The database must be at head first.\n\n' >&2; exit 3; \
+	 fi; \
+	 printf '%s\n' "$$out"; \
+	 code=$$(printf '%s\n' "$$out" | sed -n 's/^VERDICT \([A-Z0-9_]*\) .*/\1/p' | head -1); \
+	 case "$$code" in \
+	   PASS|PASS_PARTIAL) exit 0 ;; \
+	   FAIL_INVARIANT|FAIL_V11_UNDERSEEDED) \
+	     printf '\n  db-verify FAILED. The verdict line above says which invariant and why.\n\n' >&2; \
+	     exit 1 ;; \
+	   VACUOUS_EMPTY_CORPUS) \
+	     if [ "$${PV_VERIFY_ALLOW_EMPTY:-0}" = "1" ]; then \
+	       printf '\n  Exit 0 ONLY because PV_VERIFY_ALLOW_EMPTY=1. Nothing was examined; nothing was proved.\n\n' >&2; \
+	       exit 0; \
+	     fi; \
+	     printf '\n  db-verify FAILED: the corpus is empty, so V1-V10 returning zero proves nothing\n' >&2; \
+	     printf '  and V11 returning 0 is correct rather than passing. Run `make seed` (T2.8) and\n' >&2; \
+	     printf '  re-run. To acknowledge a deliberately pre-seed database, set PV_VERIFY_ALLOW_EMPTY=1.\n\n' >&2; \
+	     exit 2 ;; \
+	   *) \
+	     printf '\n  db-verify: db/verify.sql produced no VERDICT line. The file or the connection is broken.\n\n' >&2; \
+	     exit 3 ;; \
+	 esac
 
 db-reset:               ## (Phase 2) Drop and recreate the provenance_ci database.
 	$(call unimplemented,2,T2.1 - destructive reset of the CI database only)
 
-seed:                   ## (Phase 2) Load the hero corpus and the 18000 decoys.
-	$(call unimplemented,2,T2.8 - deterministic seed plus db/seeds/MANIFEST.json)
+seed:                   ## Load the hero corpus and the 18000 decoys.
+	$(PY) -m scripts.seed --profile $(SEED_PROFILE) $(SEED_ARGS)
+	$(PY) -m tools.manifest_check db/seeds/MANIFEST.json
 
-seed-perturb:           ## (Phase 2) Reseed with the outcome-bearing rows removed or shifted.
-	$(call unimplemented,2,T2.8 - the detector for a demo that passes on seeded state)
+seed-perturb:           ## Reseed with the outcome-bearing rows removed or shifted.
+# The leading `-` is REQUIRED. A perturbed seed fails its own verification by
+# design: V11 returns 0 because the retraction fixtures are gone. Without the
+# dash, make would stop here and the operator would read a deliberate failure as
+# a broken target.
+	-$(PY) -m scripts.seed --profile $(SEED_PROFILE) --perturb
+	@printf '\n  Seed perturbed. Cases 3 and 5 are RESOLVED, the three retraction\n'
+	@printf '  fixtures are deleted, and the 31 May termination window has moved\n'
+	@printf '  sixty days. The seed exits NON-ZERO on purpose: V11 now returns 0.\n'
+	@printf '  A suite that still passes is reading the seed rather than computing\n'
+	@printf '  from it.  Restore with:  make seed-restore\n\n'
 
-demo-reset:             ## (Phase 2) Destructive reset to clean demo state.
-	$(call unimplemented,2,T2.8 - drop/recreate then migrate; reseeding stays separate)
+seed-restore:           ## Undo make seed-perturb, row for row.
+	$(PY) -m scripts.seed --profile $(SEED_PROFILE) --restore
+
+demo-reset:             ## Destructive reset to clean demo state.
+	@test "$(CONFIRM)" = "yes" || { \
+	  printf '\n  make demo-reset DROPs and recreates the database. Every seeded row,\n' >&2; \
+	  printf '  every uploaded artifact row and every kernel commit goes with it.\n' >&2; \
+	  printf '  Re-run as:  make demo-reset CONFIRM=yes\n' >&2; \
+	  printf '  For a non-destructive rebuild use:  make seed SEED_ARGS=--reset\n\n' >&2; \
+	  exit 1; }
+	PROVENANCE_CONFIRM_DESTRUCTIVE=yes $(PY) -m scripts.seed \
+	  --recreate-database $${PV_APP_DATABASE:-provenance}
+	@D="$${PV_DB_MIGRATOR:-}"; \
+	 if [ -z "$$D" ] && [ -f .env ]; then \
+	   D=$$(grep '^PV_DB_MIGRATOR=' .env | cut -d= -f2- | tr -d '\r\n' || true); \
+	 fi; \
+	 test -n "$$D" || { printf '\n  demo-reset: no migrator URL. Set PV_DB_MIGRATOR, or put it in .env.\n\n' >&2; exit 1; }; \
+	 COCKROACH_DATABASE_URL="$$D" $(PY) -m alembic -c alembic.ini upgrade head
+	@printf '\n  Database recreated and migrated to head. Reseeding is deliberately a\n'
+	@printf '  separate command so a reset that half-succeeds is visible:\n'
+	@printf '      make seed\n'
+	@printf '  BUDGET AN HOUR. The ANN index build over 18,035 rows was measured at\n'
+	@printf '  52-55 minutes on this cluster, three times. ops/41_RUNBOOK.md section\n'
+	@printf '  4.2 used to predict one to two minutes; that was wrong by ~30x, and\n'
+	@printf '  S10 mandates this sequence near the deadline.\n\n'
+
+
 
 embeddings-warm:        ## (Phase 6) Populate the embedding cache without touching the database.
 	$(call unimplemented,6,T6.1 - Titan embeddings and db/seeds/vectors.parquet)
 
 run-api:                ## (Phase 8) Control plane on :8080.
-	$(call unimplemented,8,T8.1 - services/control_plane/app/main.py)
+	@printf '\n  Serving as a FACTORY, not a module-level `app`. A module-level\n'
+	@printf '  app resolves Settings at IMPORT, so any tool that merely imports\n'
+	@printf '  main.py -- a linter walking the tree, a stray test collection --\n'
+	@printf '  fails on an unset environment variable instead of doing its job.\n'
+	@printf '  A factory moves that resolution to the moment the server starts,\n'
+	@printf '  which is the only moment it means anything.\n\n'
+	@printf '  On Windows: psycopg async refuses the proactor loop, and\n'
+	@printf '  --loop asyncio SELECTS it -- uvicorn 0.40 resolves that flag to\n'
+	@printf '  ProactorEventLoop on win32. The old recipe passed it and got\n'
+	@printf '  db_ok=false against a cluster that was fine. scripts/run_api.py\n'
+	@printf '  supplies the loop factory instead; a policy cannot, because\n'
+	@printf '  uvicorn hands a factory to asyncio.run and ignores the policy.\n'
+	@printf '  Startup still survives a refused pool and reports db_ok=false\n'
+	@printf '  rather than crash-looping, so a 200 from /v1/version does NOT\n'
+	@printf '  imply a database. Read the field, do not infer it.\n\n'
+	@printf '  Settings reads the ENVIRONMENT and never parses .env itself\n'
+	@printf '  (settings.py:331 -- a repository-root dotenv holding a live\n'
+	@printf '  credential must not be parsed by every test that happens to\n'
+	@printf '  run from the repo root). So the SHELL exports it here, per\n'
+	@printf '  ops/41_RUNBOOK.md section 2.5. Without this line the server\n'
+	@printf '  exits with 8 missing-field errors and input_value={}.\n\n'
+	@printf '  GIT_SHA is READ FROM GIT, never written down. The status bar\n'
+	@printf '  renders it on every screen, and a stamp that has to be kept\n'
+	@printf '  in step by hand is a stamp that is eventually wrong -- which\n'
+	@printf '  is worse than absent, because it looks verified.\n\n'
+	set -a; [ -f .env ] && . ./.env; set +a; \
+	  export GIT_SHA="$$(git rev-parse HEAD 2>/dev/null || echo unknown)"; \
+	  $(PY) scripts/run_api.py --host 127.0.0.1 --port 8080
 
 run-web:                ## (Phase 12) Next.js on :3000.
-	$(call unimplemented,12,T12.1 - apps/web)
+	@printf '\n  PV_API_BASE_URL unset means FIXTURE mode, behind a permanent\n'
+	@printf '  banner. That is a supported mode, not a broken one -- but the\n'
+	@printf '  recorded submission must run LIVE. Set PV_API_BASE_URL to the\n'
+	@printf '  control plane and the banner goes away because the data is real.\n\n'
+	cd apps/web && npm run dev
+
+route-sweep:            ## (Phase 12) Load EVERY live route and report which break.
+	@printf '\n  The web suite runs against fixtures, so it cannot see a route\n'
+	@printf '  that dies on real data. Nine did: a contract that declared a\n'
+	@printf '  decimal where the API sends a Money object, a Record where it\n'
+	@printf '  sends null, a context every case was assumed to have. The\n'
+	@printf '  fixtures agreed with the types because both were written from\n'
+	@printf '  the same reading of the spec; only the server disagreed.\n\n'
+	@printf '  Needs `make run-api` AND `make run-web` already running.\n'
+	@printf '  Exit 2 means the sweep could not run, which is not the same\n'
+	@printf '  claim as a broken route and must not be recorded as one.\n\n'
+	$(PY) -m tools.route_sweep --warm
+
+evals:                  ## (Phase 14) Score the section 2.2 capability claims; print a report.
+	@printf '\n  Reads the live corpus. Nothing here embeds text: there is no Titan\n'
+	@printf '  credential on this machine and the 18,035 stored vectors are\n'
+	@printf '  amazon.titan-embed-text-v2:0 at 1024 dimensions, so every query\n'
+	@printf '  vector is one already in the corpus. The measurements that need a\n'
+	@printf '  fresh query vector report CANNOT RUN and name the credential.\n\n'
+	@printf '  Exit 0 means no measured behaviour contradicted a claim -- which\n'
+	@printf '  INCLUDES suites that could not run. Exit 1 is a real FAIL. Exit 2\n'
+	@printf '  means the harness could not start and NOTHING was measured; it is\n'
+	@printf '  a third code on purpose, because a gate reading 1 there would\n'
+	@printf '  force a fallback for a capability nobody looked at (D-00-005).\n\n'
+	@printf '  The session is READ ONLY and every statement is a SELECT. This\n'
+	@printf '  harness writes to no table, canonical or otherwise.\n\n'
+	$(PY) -m evals.runner
 
 sabotage:               ## (Phase 14) Neuter each symbol in the matrix; assert its tests go red.
-	$(call unimplemented,14,T14.6 - tests/sabotage_matrix.yaml reaches 18 entries)
+#
+# A GREEN selection is a gate FAILURE, not a pass: the tests pass with the
+# symbol neutered, so they do not depend on the behaviour they claim to test.
+#
+# CANNOT RUN is not a pass either, and the runner says so per entry. pytest
+# exit 5 means the selection collected nothing; exit 0 WITH SKIPS means the
+# discriminating tests may never have executed. The runner reported SURVIVED
+# for retraction_filter on its first run and was wrong for exactly that
+# reason -- the selection was `2 passed, 4 skipped` and the 4 skipped were the
+# ones that touch the filter.
+#
+# --min-count is the append-only guard (72_DEFECT_PROTOCOL section 10.2
+# detector 2): the matrix may grow, never shrink. Deleting an entry to make
+# this target pass is the cheap fix both tools exist to catch.
+	$(PY) -m tools.sabotage_guard --min-count 13
+	$(PY) -m tools.sabotage_run
 
-demo-rehearse:          ## (Phase 15) Scripted dress rehearsal.
-	$(call unimplemented,15,T15.9 - ops/41_RUNBOOK.md section 8.1)
+demo-rehearse:          ## (Phase 15) Can the dress rehearsal run right now, and where does it stop?
+#
+# ops/41_RUNBOOK.md section 8.1 lists twelve steps. This reports, per step,
+# whether it could run -- it does NOT perform them. Step 1 alone is
+# `demo-reset && seed && db-verify`, which destroys the demo corpus and takes
+# about 55 minutes for the ANN index; a tool you run to find out whether you
+# are ready must not cost an hour or consume the demo it is checking.
+#
+# BLOCKED names a capability that does not exist yet -- a build task, checked
+# against the live UNBOUND register rather than asserted from memory, so this
+# cannot keep claiming a step is blocked after the blocker is cleared.
+# NOT READY means the capability exists but the world is not in the right
+# state: a server to start, a corpus to reset. Minutes, not builds. Collapsing
+# the two into 'failed' would send a reader to the wrong place.
+	$(PY) -m tools.demo_readiness
 
-test-submission:        ## (Phase 15) Everything twice plus the Definition of Done checklist.
-	$(call unimplemented,15,T15.8 - the 18-assertion checklist runner from 06 section 20)
+
+test-submission:        ## (Phase 15) The Definition of Done, checked rather than recited.
+#
+# 05_RELIABILITY_EVAL_DEMO.md section 19. Five of its assertions require
+# Cognito, S3, SES, EventBridge and CloudWatch -- the AWS stack PIVOT.md
+# records as discarded by binding decision. Running them verbatim would report
+# five permanent failures for a product this build deliberately does not ship;
+# dropping them would report a green Definition of Done over a checklist nobody
+# had reconciled. They are carried as SUPERSEDED, each naming the decision and
+# the capability that replaced it, and the count is printed.
+#
+# CANNOT RUN blocks the exit code. MANUAL does not -- three assertions genuinely
+# need a human (is the State Proof *understandable*?) and are never auto-passed.
+#
+# Needs `make run-api` and `make run-web` up for the route sweep.
+	$(PY) -m tools.submission_check
+
 
 # =============================================================================
 # Gate batteries
@@ -425,8 +673,106 @@ gate-0:                 ## G0.1..G0.7 - scaffold licence settings and cluster ve
 gate-1:                 ## (Phase 1) G1.x - contracts and domain.
 	$(call unimplemented,1,T1.1 through T1.8 - provenance_contracts and provenance_domain)
 
-gate-2:                 ## (Phase 2) G2.x - schema migrations and seed.
-	$(call unimplemented,2,T2.1 through T2.8 - the 26 canonical tables and the seed)
+gate-2:                 ## G2.1..G2.8 - schema migrations grants views and seed.
+	$(call require_make_version)
+	$(call require_gate_sh)
+# THREE DEVIATIONS FROM THE BATTERY AS WRITTEN IN 23_PHASE_GATES.md section 8,
+# each stated here rather than silently applied.
+#
+# 1. `cockroach sql --url` is replaced by `psql`. The cockroach CLI is not
+#    installed on this machine; CockroachDB is wire-compatible and every
+#    statement below is server-side SQL, so the client is not load-bearing.
+#    Recorded the same way in ops/cluster-probe.txt.
+#
+# 2. G2.2 counts base tables and expects 26. The LIVE count is 27, because
+#    Alembic creates `alembic_version` in `public` and it is a BASE TABLE.
+#    It is migration bookkeeping, not a canonical table, and db/expected_tables.txt
+#    correctly does not list it. The exclusion is EXPLICIT here so that the
+#    number 26 keeps meaning "the canonical set" - filtering it silently would
+#    let a genuine 27th table hide behind the same adjustment.
+#
+# 3. psql on Windows emits CRLF. `diff` against a LF file then reports all 26
+#    lines as different while the content is identical. The `tr -d` is a
+#    line-ending normaliser, NOT a content filter: it removes only \r, so a real
+#    difference in any table name still fails. Without it G2.2 fails on arrival
+#    for a reason that has nothing to do with the schema.
+# WARNING, learned the hard way: G2.1's FIRST act is `downgrade base`, and the
+# four cycles take well over ten minutes against a cloud cluster. Interrupting
+# this target part-way leaves provenance_ci with NO SCHEMA, and every assertion
+# after it then fails with "relation does not exist" -- which reads like a
+# migration defect and is not one. If you kill it, restore with
+#   COCKROACH_DATABASE_URL=$$PROVENANCE_TEST_DB_URL python -m alembic upgrade head
+# before drawing any conclusion from a later assertion.
+#
+# Safe to interrupt ONLY because it runs against provenance_ci, which is
+# disposable by design. It must never be pointed at `provenance`.
+	@printf '\n=== G2.1  migrate from zero, down, and up again ===\n'
+	$(GATE) G2.1 -- bash -c 'set -euo pipefail; \
+	  export COCKROACH_DATABASE_URL="$$(grep "^PROVENANCE_TEST_DB_URL=" .env | cut -d= -f2- | tr -d "\r\n")"; \
+	  $(PY) -m alembic -c alembic.ini downgrade base; \
+	  $(PY) -m alembic -c alembic.ini upgrade head; \
+	  $(PY) -m alembic -c alembic.ini downgrade base; \
+	  $(PY) -m alembic -c alembic.ini upgrade head; \
+	  $(PY) -m alembic -c alembic.ini current'
+	@printf '\n=== G2.2  the canonical table set is complete and has nothing extra ===\n'
+	$(GATE) G2.2 -- bash -c 'set -euo pipefail; \
+	  D="$$(grep "^PROVENANCE_TEST_DB_URL=" .env | cut -d= -f2- | tr -d "\r\n")"; \
+	  n=$$(psql -At -d "$$D" -c "SELECT count(*) FROM information_schema.tables WHERE table_schema=\"'"'"'public'"'"'\" AND table_type=\"'"'"'BASE TABLE'"'"'\" AND table_name <> \"'"'"'alembic_version'"'"'\";" | tr -d "\r"); \
+	  echo "canonical base tables: $$n (alembic_version excluded, see note above)"; \
+	  test "$$n" = "26"'
+	$(GATE) G2.2b -- bash -c 'set -euo pipefail; \
+	  D="$$(grep "^PROVENANCE_TEST_DB_URL=" .env | cut -d= -f2- | tr -d "\r\n")"; \
+	  diff <(psql -At -d "$$D" -c "SELECT table_name FROM information_schema.tables WHERE table_schema=\"'"'"'public'"'"'\" AND table_type=\"'"'"'BASE TABLE'"'"'\" AND table_name <> \"'"'"'alembic_version'"'"'\" ORDER BY 1;" | tr -d "\r") \
+	       <(sort db/expected_tables.txt | tr -d "\r"); \
+	  echo "expected_tables.txt matches the live schema"'
+	@printf '\n=== G2.3  the five agent views exist under the canon names ===\n'
+	$(GATE) G2.3 -- bash -c 'set -euo pipefail; \
+	  D="$$(grep "^PROVENANCE_TEST_DB_URL=" .env | cut -d= -f2- | tr -d "\r\n")"; \
+	  got=$$(psql -At -d "$$D" -c "SELECT table_name FROM information_schema.views WHERE table_schema=\"'"'"'public'"'"'\" ORDER BY 1;" | tr -d "\r" | paste -sd,); \
+	  echo "$$got"; \
+	  test "$$got" = "agent_active_beliefs_v1,agent_belief_lineage_v1,agent_case_context_v1,agent_evidence_retrieval_v1,agent_open_obligations_v1"'
+	@printf '\n=== G2.4  the ANN index exists and is prefixed by user_id ===\n'
+	$(GATE) G2.4 -- bash -c 'set -euo pipefail; \
+	  D="$$(grep "^PROVENANCE_TEST_DB_URL=" .env | cut -d= -f2- | tr -d "\r\n")"; \
+	  psql -At -d "$$D" -c "SELECT column_name, seq_in_index FROM [SHOW INDEXES FROM evidence_items] WHERE index_name=\"'"'"'evidence_embedding_ann_idx'"'"'\" ORDER BY seq_in_index;" | tr -d "\r" | tee /dev/stderr | head -1 | grep -q "^user_id"'
+	@printf '\n=== G2.6b  pv_agent_reader holds NO grant outside the five views ===\n'
+	$(GATE) G2.6b -- bash -c 'set -euo pipefail; \
+	  D="$$(grep "^PROVENANCE_TEST_DB_URL=" .env | cut -d= -f2- | tr -d "\r\n")"; \
+	  n=$$(psql -At -d "$$D" -c "SELECT count(*) FROM information_schema.role_table_grants WHERE grantee=\"'"'"'pv_agent_reader'"'"'\" AND table_name NOT LIKE \"'"'"'agent\_%\_v1'"'"'\";" | tr -d "\r"); \
+	  echo "non-view grants held by pv_agent_reader: $$n"; \
+	  test "$$n" = "0"'
+# ORDERING, corrected 2026-08-18. This ran db-verify BEFORE seed, which can never
+# satisfy G2.5: on a freshly migrated database V11 is necessarily 0 and V1-V10
+# return zero over an empty population, so the assertion would have reported
+# success for a database with nothing in it. db-verify now runs TWICE, and the
+# pre-seed run is the more interesting of the two - it proves the suite REFUSES
+# an empty corpus rather than passing it.
+#
+# ASSERTED ON THE VERDICT TEXT, NOT ON AN EXIT CODE, and that is load-bearing.
+# `make` reports its OWN status, not the recipe's: a recipe exiting 1 makes
+# `make` print "Error 1" and exit 2. Testing $$? against 2 here would therefore
+# accept FAIL_INVARIANT, FAIL_V11_UNDERSEEDED and VACUOUS_EMPTY_CORPUS alike -
+# a green log for three outcomes that mean opposite things. Measured, not
+# assumed: a FAIL_V11_UNDERSEEDED run produced "Error 1" and make exit 2.
+	@printf '\n=== G2.5a  the verification suite REFUSES an empty corpus ===\n'
+	$(GATE) G2.5a -- bash -c 'set -uo pipefail; \
+	  out=$$($(MAKE) db-verify 2>&1 || true); \
+	  printf "%s\n" "$$out" | grep -E "^VERDICT" | tee /dev/stderr | grep -q "^VERDICT VACUOUS_EMPTY_CORPUS" || { \
+	    printf "\n  expected VERDICT VACUOUS_EMPTY_CORPUS on the pre-seed database.\n" >&2; \
+	    printf "  A different verdict here means the database was not empty, so this\n" >&2; \
+	    printf "  assertion proved nothing about the suite refusing an empty corpus.\n\n" >&2; \
+	    exit 1; }'
+	@printf '\n=== G2.6  seeding is idempotent and matches its manifest ===\n'
+	$(MAKE) seed
+	@printf '\n=== G2.5  every verification query, against the SEEDED corpus ===\n'
+	$(GATE) G2.5 -- bash -c 'set -euo pipefail; \
+	  out=$$($(MAKE) db-verify 2>&1); rc=0; \
+	  printf "%s\n" "$$out"; \
+	  printf "%s\n" "$$out" | grep -qE "^VERDICT PASS" ; \
+	  printf "%s\n" "$$out" | grep -qE "^V1 0 .* V11 [3-9]"'
+	@printf '\n=== G2.7 / G2.8  the schema refuses impossible money and ungrounded beliefs ===\n'
+	$(GATE) G2.7-G2.8 -- $(PYTEST) -q services/control_plane/tests/db/test_kernel_required.py
+	@printf '\nG-2 battery complete. Record every result in ops/gates/PHASE_02.md.\n'
 
 gate-3:                 ## (Phase 3) G3.x - database runtime and retry.
 	$(call unimplemented,3,T3.1 through T3.6 - pools SERIALIZABLE retry and 40001 mapping)

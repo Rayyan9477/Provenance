@@ -1,0 +1,125 @@
+# =============================================================================
+# import-linter — structural enforcement, not discipline
+#
+# quality/20_TDD_STRATEGY.md section 2.3 mechanism E1. The Memory Kernel must be
+# fully testable without Bedrock and without a database. That is a property of
+# the import graph, so it is checked against the import graph rather than
+# trusted to code review.
+#
+# Run with `lint-imports` (wired into `make lint` and into the commit CI lane).
+#
+# Two deliberate deviations from the snippet printed in section 2.3, both
+# recorded here rather than made silently:
+#
+#  1. `include_external_packages = True` is added. Without it, grimp does not
+#     build nodes for modules outside the root packages, so every external arm
+#     of the kernel-purity contract — boto3, botocore, anthropic, httpx,
+#     requests, psycopg, asyncio — would pass vacuously while an import sat
+#     there in plain sight. A contract that cannot fail is decoration.
+#
+#  2. List values are written one module per line rather than comma-separated
+#     on a single line. import-linter's INI reader splits multi-value fields on
+#     newlines; a comma-separated line is read as one module name with commas
+#     in it, which is not the same contract.
+#
+# `agents` and `services` are added to `root_packages` so the fourth contract,
+# required by EXECUTION/70_TASK_PLAN.md T0.1, is executable rather than
+# aspirational. Both are importable from the repository root today; they hold
+# only __init__.py docstrings until Phases 7 and 8 fill them.
+# =============================================================================
+
+[importlinter]
+root_packages =
+    provenance_domain
+    provenance_contracts
+    provenance_db
+    provenance_telemetry
+    services
+    agents
+include_external_packages = True
+
+[importlinter:contract:kernel-purity]
+name = provenance_domain.kernel is pure
+type = forbidden
+source_modules =
+    provenance_domain.kernel
+forbidden_modules =
+    provenance_db
+    boto3
+    botocore
+    anthropic
+    httpx
+    requests
+    psycopg
+    asyncio
+
+[importlinter:contract:domain-has-no-pydantic]
+name = provenance_domain does not depend on pydantic
+type = forbidden
+source_modules =
+    provenance_domain
+forbidden_modules =
+    pydantic
+
+[importlinter:contract:contracts-have-no-io]
+name = provenance_contracts performs no I/O
+type = forbidden
+source_modules =
+    provenance_contracts
+forbidden_modules =
+    boto3
+    psycopg
+    httpx
+    provenance_db
+
+[importlinter:contract:agents-cannot-import-the-kernel]
+name = the agent runtime cannot reach the canonical write path
+type = forbidden
+source_modules =
+    agents
+forbidden_modules =
+    services.control_plane.app.memory_kernel
+
+# ---------------------------------------------------------------------------
+# The Memory Kernel's decision modules are pure.
+#
+# Added at T4.1. The existing `kernel-purity` contract guards
+# provenance_domain.kernel, which 70_TASK_PLAN.md section 7 leaves as an empty
+# importable stub -- the actual decision modules live in
+# services/control_plane/app/memory_kernel/, which that contract does not reach.
+# So kernel-purity currently protects nothing and this block is what makes the
+# rule real.
+#
+# It names MODULES rather than the package deliberately: transaction.py (T4.10)
+# legitimately needs provenance_db and asyncio, and a package-wide contract
+# would have to be weakened the moment it lands. Weakening a contract to admit
+# expected code is how a contract stops meaning anything.
+#
+# Verified both directions before landing: as written -> KEPT; with `import
+# asyncio` planted in disposition.py -> BROKEN, exit 1. A contract that cannot
+# fail is decoration.
+# ---------------------------------------------------------------------------
+[importlinter:contract:memory-kernel-decisions-are-pure]
+name = the Memory Kernel's decision modules are pure
+type = forbidden
+source_modules =
+    services.control_plane.app.memory_kernel.config
+    services.control_plane.app.memory_kernel.families
+    services.control_plane.app.memory_kernel.propositions
+    services.control_plane.app.memory_kernel.contradiction
+    services.control_plane.app.memory_kernel.disposition
+    services.control_plane.app.memory_kernel.money_ops
+    services.control_plane.app.memory_kernel.preflight
+    services.control_plane.app.memory_kernel.temporal
+    services.control_plane.app.memory_kernel.case_ops
+    services.control_plane.app.memory_kernel.decisions
+    services.control_plane.app.memory_kernel.pipeline
+forbidden_modules =
+    provenance_db
+    boto3
+    botocore
+    anthropic
+    httpx
+    requests
+    psycopg
+    asyncio

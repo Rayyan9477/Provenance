@@ -1,0 +1,409 @@
+# =============================================================================
+# Provenance - continuous integration
+#
+# Authority
+#   quality/20_TDD_STRATEGY.md section 14.1   the lane table
+#   quality/20_TDD_STRATEGY.md section 14.2   the commit lane, job by job
+#   quality/20_TDD_STRATEGY.md section 2.3    E1 (import-linter) and E3 (the
+#                                             no-credentials, no-socket lane)
+#   quality/23_PHASE_GATES.md section 6       G0.3 (gitleaks), G0.4 (clean clone)
+#   quality/23_PHASE_GATES.md section 3       evidence before assertion
+#   EXECUTION/70_TASK_PLAN.md T0.7            the task that creates this file
+#
+# Four jobs, and deliberately only four
+# -------------------------------------
+# Section 14.2 describes a five-job commit lane: lint, unit, db, agents,
+# guards. Three of those select tests that do not exist yet - there are no `db`
+# rows without the Phase 2 migrations, no `contract` cassettes without the
+# Phase 7 graphs, and no guard suites without the packages they lint. A job
+# whose selection matches nothing exits 5 ("no tests ran"), and a job written
+# to tolerate that is a job that will still be tolerating it in Phase 8. Each
+# missing job is added by the phase that first has something for it to run:
+#
+#   db       Phase 2, with a cockroachdb/cockroach service container
+#   agents   Phase 7, once evals/fixtures/model/ holds recorded cassettes
+#   guards   Phase 4, once test_no_kernel_mocks.py and its siblings exist
+#   e2e      Phase 13, and it carries PV_FORBID_MOCKS=1 (T0.7 sub-task 2).
+#            It is not stubbed here: an e2e job with no e2e suite would set an
+#            environment variable no conftest reads, which looks like
+#            enforcement and is not.
+#
+# No job in this file needs a cloud credential, and none may be given one. The
+# deployed-stack lanes arrive at Phase 13; the Bedrock lane (`live_model`) is
+# nightly by section 14.3 because it is nondeterministic and costs money.
+#
+# The Windows half of T0.7 - proving `make bootstrap` in both Git Bash and
+# PowerShell on the developer machine - is a recorded transcript, not a job.
+# GitHub's windows runners are not the machine the gate is signed on.
+# =============================================================================
+
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+# Read-only. Nothing here publishes, comments, or writes to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # 3.12.x, not 3.13: pyproject.toml pins `requires-python = ">=3.12,<3.13"`
+  # and `make bootstrap` refuses to install on anything else.
+  PYTHON_VERSION: "3.12"
+
+  # The floor .gitleaks.toml documents is 8.30.0. It was raised from 8.21.0
+  # after measurement: on 8.21.x the top-level [[allowlists]] array is applied
+  # to the extended DEFAULT ruleset only and is silently ignored for every
+  # custom pv-* rule - which is precisely the set covering the six credential
+  # shapes this project can leak.
+  #
+  # The old comment here claimed the stale-binary failure direction was safe
+  # ("this job goes red"). It was not. An allowlist that is ignored for a rule
+  # that never fires in CI is indistinguishable from one that works, so nothing
+  # went red and nothing was protected. tools/tests/test_gitleaks_config.py
+  # asserts the floor at runtime so a downgrade fails loudly.
+  GITLEAKS_VERSION: "8.30.1"
+
+  # `make bootstrap` prefers uv when it is on PATH (ops/41_RUNBOOK.md section
+  # 1). A hosted runner has no active virtualenv, and `uv pip install` refuses
+  # to touch a bare interpreter without this. Inert when uv is absent.
+  UV_SYSTEM_PYTHON: "1"
+
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  # ===========================================================================
+  # 1. lint - ruff, mypy --strict, and the E1 import-linter contracts
+  # ===========================================================================
+  lint:
+    name: "lint (ruff, mypy --strict, import-linter E1)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements-dev.txt
+
+      - name: make bootstrap
+        run: make bootstrap
+
+      # ruff check + ruff format --check + mypy --strict on provenance_domain
+      # and provenance_contracts + lint-imports. The target is the authority;
+      # spelling the four commands out here would let CI and `make lint`
+      # disagree, and the gate battery runs `make lint`.
+      - name: make lint
+        run: make lint
+
+      # E1 again, on its own, because `make lint` grows over the phases
+      # (Phase 1 adds contract_lint, Phase 3 adds txn_purity_lint, and so on)
+      # and a failure in any of them would otherwise be reported as one opaque
+      # red step. The kernel-purity contract is the one this project cannot
+      # ship without: provenance_domain.kernel may not import provenance_db,
+      # boto3, botocore, anthropic, httpx, requests, psycopg or asyncio.
+      - name: "import-linter contracts, named (20_TDD_STRATEGY.md section 2.3 E1)"
+        run: lint-imports --verbose
+
+      # 23_PHASE_GATES.md section 3: evidence before assertion. A gate ledger
+      # row may not read PASS unless tools/gate.sh wrote a log for it. This is
+      # the mechanical half of a rule that is otherwise cultural, and T0.7
+      # sub-task 4 asks for it here rather than in a reviewer's head.
+      - name: "evidence-before-assertion (ops/gates ledger vs ops/gates/logs)"
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          # This step used to be a filename-existence check wearing an evidence
+          # check's name: it never opened a log, so a PASS row whose only
+          # evidence recorded `exit=7` was accepted, and a log captured at some
+          # older commit proved a row at HEAD. Both are closed here (D-00-005).
+          #
+          # tools/gate.sh writes ops/gates/logs/<ID>.<sha8>.log with a first
+          # line of the form:
+          #   # gate=G0.1 sha=<40 hex> at=<iso> cmd=<scrubbed> exit=<code>
+          # A re-run at the same commit OVERWRITES that file, so the sha check
+          # is what stops a stale green from surviving a red re-run.
+
+          gates = Path("ops/gates")
+          head = os.environ.get("GITHUB_SHA") or subprocess.run(
+              ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+          ).stdout.strip()
+
+          # Assertion ids come in two families and BOTH must be covered:
+          # G<phase>.<n> for G0.1..G14.7, and S<n> for the ten G-15
+          # pre-submission items. ops/gates/PHASE_15.md states outright that
+          # there is no G15.x, so a G-only regex left the submission gate -
+          # the one this step exists to protect - entirely unguarded.
+          ident = r"(?:G\d+\.\d+[a-z]?|S\d+)"
+          log_name = re.compile(rf"^({ident})\.[0-9a-f]+\.log$")
+          header = re.compile(
+              r"^#\s*gate=(?P<id>\S+)\s+sha=(?P<sha>[0-9a-fA-F]+).*?\bexit=(?P<exit>\S+)\s*$"
+          )
+
+          captured: dict[str, tuple[Path, str, str]] = {}
+          malformed: list[str] = []
+          for path in sorted((gates / "logs").glob("*.log")):
+              name = log_name.match(path.name)
+              if not name:
+                  continue
+              first = path.read_text(encoding="utf-8", errors="replace").splitlines()
+              match = header.match(first[0]) if first else None
+              if match is None:
+                  malformed.append(f"{path}: first line is not a tools/gate.sh header")
+                  continue
+              captured[name.group(1)] = (path, match.group("sha"), match.group("exit"))
+
+          # | G0.4 | PASS | ops/gates/logs/G0.4.c2a0c05e.log |
+          row = re.compile(rf"^\|\s*({ident})\s*\|\s*([^|]*?)\s*\|")
+          unproven = list(malformed)
+          ledgers = sorted(gates.glob("PHASE_*.md")) + [gates / "SUBMISSION.md"]
+          for ledger in ledgers:
+              if not ledger.exists():
+                  continue
+              for lineno, line in enumerate(ledger.read_text(encoding="utf-8").splitlines(), 1):
+                  match = row.match(line)
+                  if match is None:
+                      continue
+                  assertion, result = match.group(1), match.group(2)
+                  if not re.search(r"\bPASS\b", result, re.IGNORECASE):
+                      continue
+                  where = f"{ledger}:{lineno}: {assertion} is recorded as {result!r} but"
+                  evidence = captured.get(assertion)
+                  if evidence is None:
+                      unproven.append(
+                          f"{where} ops/gates/logs/{assertion}.<sha8>.log does not exist"
+                      )
+                      continue
+                  path, sha, exit_code = evidence
+                  if exit_code != "0":
+                      unproven.append(f"{where} {path} records exit={exit_code}")
+                  if not head.startswith(sha) and not sha.startswith(head):
+                      unproven.append(
+                          f"{where} {path} was captured at sha={sha}, not at the commit "
+                          f"under test ({head}). Re-run the assertion at this commit."
+                      )
+
+          if unproven:
+              print("\n".join(unproven), file=sys.stderr)
+              print(
+                  "\nquality/23_PHASE_GATES.md section 3: an assertion is not complete "
+                  "until its captured output is pasted. Run the assertion through "
+                  "tools/gate.sh, or set the row back to NOT RUN with a reason.",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+
+          print(
+              f"gate ledgers checked against {len(captured)} captured log file(s) at "
+              f"sha={head}; every PASS row has a log whose header reads exit=0 at this commit"
+          )
+          PY
+
+  # ===========================================================================
+  # 2. unit - the hermetic lane. E3.
+  # ===========================================================================
+  unit:
+    name: "unit (hermetic; no credentials, no sockets, E3)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements-dev.txt
+
+      - name: make bootstrap
+        run: make bootstrap
+
+      # This step fires if anyone ever gives this job credentials - an
+      # aws-actions/configure-aws-credentials step, an organisation-level env
+      # block, a self-hosted runner with an instance profile exported into the
+      # environment. It is the reason the check is a separate step from the
+      # `env -u` below: `env -u` would hide the mistake instead of reporting
+      # it, and E3's whole point is that a lane which passes because the
+      # machine is logged in proves nothing.
+      - name: "Refuse to run the unit lane on a machine that has credentials"
+        run: |
+          set -uo pipefail
+          leaked=0
+          for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_PROFILE \
+                      AWS_REGION COCKROACH_DATABASE_URL; do
+            if [ -n "${!name-}" ]; then
+              printf '%s is set in the unit job.\n' "$name" >&2
+              leaked=1
+            fi
+          done
+          if [ "$leaked" -ne 0 ]; then
+            printf '\nquality/20_TDD_STRATEGY.md section 2.3 E3: the unit lane runs with\n' >&2
+            printf 'AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_PROFILE, AWS_REGION and\n' >&2
+            printf 'COCKROACH_DATABASE_URL unset. A unit test that can reach AWS or the\n' >&2
+            printf 'cluster is a unit test that can pass for the wrong reason. Whatever\n' >&2
+            printf 'needs those variables belongs in the db, e2e or live_model lane.\n' >&2
+            exit 1
+          fi
+          printf 'no AWS or database credentials in this environment\n'
+
+      # `env -u` removes the variables rather than blanking them, so
+      # os.environ has no key at all and botocore's credential chain has
+      # nothing to find. The root conftest.py does the same thing in-process
+      # for every `unit`-marked test, plus the socket guard, so a developer
+      # laptop runs the lane CI runs; tests/test_socket_guard.py proves that
+      # guard fires rather than merely existing.
+      #
+      # `make test-fast` is `pytest -q -m unit`. It is spelled as the make
+      # target so that CI and the developer command cannot drift.
+      #
+      # No --cov-fail-under yet: section 14.2 puts 95% on this lane and
+      # section 15.1 puts 88% on the repository, but Phase 0 ships four
+      # __init__.py files and one settings module, so a coverage gate here
+      # would measure the size of the tree rather than the quality of the
+      # tests. Phase 1 lands the first real package and the threshold with it.
+      - name: "make test-fast, with the five variables unset (E3)"
+        run: |
+          env -u AWS_ACCESS_KEY_ID \
+              -u AWS_SECRET_ACCESS_KEY \
+              -u AWS_PROFILE \
+              -u AWS_REGION \
+              -u COCKROACH_DATABASE_URL \
+              make test-fast
+
+  # ===========================================================================
+  # 3. secrets - gitleaks over the whole history. G0.3, and submission item S8.
+  # ===========================================================================
+  secrets:
+    name: "secrets (gitleaks, full history)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # fetch-depth: 0 is load-bearing. `gitleaks detect` scans git history,
+      # and the default shallow checkout would scan the last commit only -
+      # which is precisely the case G0.3 exists to catch, since a credential
+      # committed once and reverted is still a credential leaked permanently.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Install gitleaks ${{ env.GITLEAKS_VERSION }}"
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --silent --show-error --location "$url" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      # Byte-identical to the G0.3 command in the Makefile, except for
+      # --config: gitleaks resolves a bare config path relative to --source,
+      # so the second scan below would silently fall back to the default
+      # ruleset without it. Passing it on both keeps the two scans running the
+      # same rules.
+      - name: "gitleaks detect --source . (G0.3)"
+        run: gitleaks detect --source . --config .gitleaks.toml --redact --no-banner --exit-code 1
+
+      # ops/ is the evidence directory: probe transcripts, gate ledgers and
+      # decision records, all of them pasted command output. It is the place an
+      # unscrubbed credential is most likely to land.
+      #
+      # --no-git is load-bearing and this scan was useless without it. In git
+      # mode gitleaks scans the repository containing --source and ignores the
+      # path entirely, so the old `--source ops/gates` command re-ran the scan
+      # above byte for byte; and ops/ is untracked, so a git-mode scan cannot
+      # reach it in any case. A CockroachDB DSN with a real-shaped password
+      # planted at ops/gates/_canary.md produced "no leaks found" under the old
+      # command and "leaks found: 1" under this one.
+      #
+      # --source stays relative to the checkout root: the working directory
+      # determines what gitleaks reports as `File`, and an absolute --source
+      # makes every repo-relative expression in the config stop matching.
+      - name: "gitleaks detect --source ops --no-git (G0.3b)"
+        run: |
+          gitleaks detect --source ops --config .gitleaks.toml \
+            --redact --no-banner --no-git --exit-code 1
+
+      # T0.7's acceptance criterion "a pushed commit containing a fake AWS key
+      # fails CI" is proved once, on a throwaway branch, and the transcript is
+      # filed with the gate. It is deliberately not automated here: the only
+      # way to automate it is to commit a key-shaped string, and a key-shaped
+      # string in this repository turns G0.3 red for every future run.
+
+  # ===========================================================================
+  # 4. bootstrap - a clean clone installs and runs the unit lane from zero.
+  #    G0.4.
+  # ===========================================================================
+  bootstrap:
+    name: "bootstrap (clean clone, from zero, G0.4)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: worktree
+
+      # No pip cache in this job, on purpose. "From zero" that reuses a
+      # populated wheel cache is not from zero: it would keep passing after
+      # someone deleted a dependency from pyproject.toml.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # G0.4 clones the repository URL. Cloning the checked-out worktree is
+      # the same assertion without a network round trip and without needing a
+      # token for a repository that is private until submission: what is being
+      # tested is whether the committed tree can install itself, not whether
+      # GitHub can serve it. The URL form runs on the developer machine, under
+      # `make gate-0`, and its log lands in ops/gates/logs/.
+      #
+      # --no-hardlinks forces real copies, so nothing in the new tree can
+      # reach back into the original .git and make the clone look healthier
+      # than it is.
+      - name: "Clone into an empty directory"
+        run: |
+          set -euo pipefail
+          git clone --no-hardlinks --quiet "${GITHUB_WORKSPACE}/worktree" "${RUNNER_TEMP}/pv-clean"
+          cd "${RUNNER_TEMP}/pv-clean"
+          git log --oneline -1
+          test ! -e .env    # untracked and gitignored; a clone must never carry it
+
+      - name: make bootstrap
+        working-directory: ${{ runner.temp }}/pv-clean
+        run: make bootstrap
+
+      - name: make lint
+        working-directory: ${{ runner.temp }}/pv-clean
+        run: make lint
+
+      # G0.4 runs `make test`, which is the full commit lane and includes the
+      # `db` selection. That needs a CockroachDB service container, which
+      # arrives with the db job in Phase 2. Until then the honest assertion is
+      # the unit lane: a clean clone installs from zero and its hermetic tests
+      # pass. `make test` on a Phase 0 tree would collect the same tests and
+      # report a stronger claim than it checked.
+      - name: "make test-fast (the clean-clone unit lane)"
+        working-directory: ${{ runner.temp }}/pv-clean
+        run: make test-fast

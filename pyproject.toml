@@ -17,9 +17,10 @@
 name = "provenance"
 version = "0.1.0"
 description = "A system of record for the institutions that already have one of you."
-# No `readme = "README.md"` yet: the root README is written in Phase 15 (T15.1)
-# and hatchling fails metadata generation on a readme file that does not exist.
-# Add the field in the same change that adds the file.
+# Added 2026-08-24 with the file itself, as the note here required. The README
+# is a hard submission requirement ("Spin-up Instructions: a step-by-step guide
+# in your README.md"), so it landed ahead of Phase 15 rather than in it.
+readme = "README.md"
 license = { text = "Apache-2.0" }
 # 3.12.x, not 3.13. provenance_contracts targets 3.12 typing, and the
 # AgentCore Runtime and LangGraph pins are validated on 3.12
@@ -37,6 +38,10 @@ dependencies = []
 # The toolchain named in ops/41_RUNBOOK.md section 2.2 and
 # quality/20_TDD_STRATEGY.md section 14.
 dev = [
+  # The CDK tests import these. They were installed by hand during T13.1 and
+  # were undeclared, so a clean clone collects 304 tests that cannot import.
+  "aws-cdk-lib>=2.160,<3",
+  "constructs>=10,<11",
   # CockroachDB reports version() as "CockroachDB CCL v26.2.5 ...", which
   # SQLAlchemy's generic postgresql dialect cannot parse -- it raises
   # "Could not determine version from string" before a single statement runs.
@@ -84,6 +89,17 @@ dev = [
 control-plane = [
   "fastapi>=0.115,<1",
   "uvicorn[standard]>=0.30,<1",
+  # Reads `db/seeds/vectors.parquet`, the seed's 18,035-vector cache, in
+  # `app/retrieval/embeddings.py`. The import is lazy but NOT guarded, so the
+  # first cache read on a clean clone raises ModuleNotFoundError rather than
+  # degrading -- which is correct behaviour and a missing declaration away from
+  # being a spin-up failure a judge hits and we never would.
+  "pyarrow>=16,<22",
+  "mcp>=1.21,<2",
+  # Phase 11's MCP server over the five agent_*_v1 views. Only
+  # `app/mcp/server.py` imports it -- the tool registry, the statement composer
+  # and the scope binding are all SDK-free, so the boundary this package
+  # enforces does not depend on the SDK behaving.
   "provenance-contracts==1.0.0",
   "provenance-db==1.0.0",
   "provenance-domain==1.0.0",
@@ -93,8 +109,10 @@ control-plane = [
 # Runtime dependencies of deployment unit 3, `agent-runtime`. Same reasoning.
 # Phase 7 pins these.
 agent-runtime = [
-  "langgraph>=0.2,<1",
-  "boto3>=1.35",
+  # Rewritten 2026-08-24. LangGraph and boto3 are gone with the pivot: Phase 7
+  # was never built, so there was no graph code to port and the agent layer is
+  # written once, natively on the Google SDK.
+  "google-genai>=1.60,<2",
   "provenance-contracts==1.0.0",
   "provenance-telemetry==1.0.0",
 ]
@@ -142,7 +160,15 @@ minversion = "8.0"
 # `make test`, not in `make test-fast`, not in CI. The scrubber that keeps
 # credentials out of committed gate logs had a suite that nothing ran.
 # (D-00-005.)
-testpaths = ["packages", "services", "agents", "tests", "tools"]
+testpaths = ["packages", "services", "agents", "tests", "tools", "infra", "evals"]
+# `infra` added 2026-08-18. Without it `make test` and CI collected ZERO of the
+# 304 CDK template tests -- the suite existed and nothing ran it, which is the
+# same shape as D-00-014 (tools/ omitted, 28 scrubber tests never collected).
+#
+# `evals` added 2026-08-24 with the Phase 14 harness, for the same reason a
+# third time. The layout canon puts per-package tests beside their package, so
+# the harness suite lives at evals/tests/; without this entry `pytest -q -m
+# unit` collects none of it and `make evals` would be a runner nothing checks.
 addopts = [
     "--strict-markers",
     "--strict-config",

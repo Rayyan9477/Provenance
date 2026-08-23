@@ -1,0 +1,130 @@
+# Provenance — known findings, ignored by exact fingerprint.
+#
+# ===========================================================================
+# WHAT THIS FILE IS FOR, AND WHY IT IS NOT AN ALLOWLIST
+# ===========================================================================
+# Every entry below is a credential-shaped fixture inside the SECRET SCANNER'S
+# OWN TESTS. That is a genuine bootstrap problem, not carelessness:
+#
+#   tools/tests/test_scrub.py           asserts tools/scrub.py REMOVES a DSN
+#                                       password, a JWT, an AWS secret key and
+#                                       an ARN account id from a log line.
+#   tools/tests/test_gitleaks_config.py asserts .gitleaks.toml still REPORTS a
+#                                       real-shaped credential beside each
+#                                       documented fake — the positive-control
+#                                       half of every allowlist.
+#
+# A test that proves the scanner detects a real-shaped credential must contain
+# a real-shaped credential. So these findings are true positives about test
+# inputs, and they are all invented or published-example values. None is live.
+#
+# They CANNOT be handled by an allowlist in .gitleaks.toml. An allowlist
+# matches by value, and the value is exactly what those tests assert gets
+# reported — allowlisting the invented AKIA-shaped key on line 189 of test_gitleaks_config.py would make
+# `test_aws_example_key_excused_but_a_real_shaped_key_is_not` pass while
+# asserting nothing. The allowlist would silently disarm the test written to
+# catch a silently disarmed allowlist.
+#
+# ===========================================================================
+# WHY A FINGERPRINT IS THE RIGHT GRANULARITY
+# ===========================================================================
+# A fingerprint is `commit:file:rule:startline`. It names ONE finding, of ONE
+# rule, at ONE line, in ONE commit. It cannot widen:
+#
+#   * a new credential elsewhere in the same file      -> different line   -> REPORTED
+#   * a different rule firing on the same line         -> different rule   -> REPORTED
+#   * one of these fixtures changed or moved           -> different commit -> REPORTED
+#   * a real credential committed anywhere else        -> no entry         -> REPORTED
+#
+# Compare the two mechanisms this replaced, both of which failed in the
+# widening direction:
+#   - `allowlist.paths` is a FILE-LEVEL SKIP applied before the file is read,
+#     so `condition = "AND"` never runs. It exempted eight whole files.
+#   - splitting each literal into adjacent string fragments left the secret in
+#     the text and merely moved where the rule anchored; the finding count went
+#     UP, from 13 to 19, and it broke five tests.
+#
+# Fingerprints pin to a commit, so this file goes stale the moment those files
+# change. That is the intended failure direction: stale entries stop matching
+# and the findings come back loud. Regenerate deliberately, never in bulk:
+#
+#     gitleaks detect --source . --config .gitleaks.toml \
+#       --report-format json --report-path /tmp/gl.json
+#
+# and add only the entries you have personally read and confirmed are test
+# inputs. An entry added without reading the line it silences is how a real
+# credential gets in here.
+#
+# ===========================================================================
+# Entries — commit 62e3f1c, added 2026-08-18. All read and confirmed.
+# ===========================================================================
+
+# --- tools/tests/test_gitleaks_config.py ----------------------------------
+# The positive controls. Each of these is the "a real one is NOT excused" half
+# of an allowlist test; the value beside it in the same test is the documented
+# fake that IS excused.
+#
+# :189  an invented AKIA-shaped key -- proves allowlist A is
+#                               value-scoped and does not cover every AKIA key.
+# :212  Kj8sQ2mNvR4tL9xW      — invented DSN password, proves `hunter2` being
+#                               excused does not excuse a real one.
+# :231  Kj8sQ2mNvR4tL9xW      — same value in a SQL PASSWORD '...' literal.
+# :278  realpw123456          — masked-line fixture for the ops/ transcripts.
+# :279  sneaky7654321         — the bare credential on the NEXT line, which the
+#                               test requires to still be reported.
+# :309  sk_live_...           — opaque non-UUID key, proves allowlist E excuses
+#                               a shape and not a delimiter.
+# :343  9uQ3xZpL7vK2mR8t...   — a fourth base64 key, proves allowlist G does not
+#                               extend to new key material in the same file.
+# :372  R3alPassw0rdHere      — the ops/ canary that proved G0.3b was blind.
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-aws-access-key-id:189
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:212
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-sql-password-literal:231
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:278
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:279
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:stripe-access-token:309
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:generic-api-key:343
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:372
+
+# --- tools/tests/test_scrub.py --------------------------------------------
+# The parametrised table of (rule name, raw line, secret) that proves
+# tools/scrub.py redacts each shape. The secret must stay literal in the table
+# or the assertion `secret not in scrubbed` proves nothing.
+#
+# These five were invisible until 2026-08-18. `.gitleaks.toml` allowlist D
+# named this file in a `paths` entry, and a path entry is a whole-file skip —
+# the file was never scanned at all. Removing path scoping surfaced them, which
+# is the clearest available evidence that the file-level skip was hiding real
+# matches rather than excusing three named fakes as it claimed.
+#
+# :74   eyJraWQiOiJhYmMi...   — invented Cognito id_token header segment.
+# :97   Kj8sQ2mNvR4tL9xW      — invented password in CREATE USER ... PASSWORD.
+# :102  Kj8sQ2mNvR4tL9xW      — same value as PGPASSWORD=... on a psql line.
+# :108  wJalrXUtnFEMI/...     — AWS's OWN published example secret access key.
+# :113  9f8e7d6c5b4a3928...   — invented hex HMAC key.
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_scrub.py:generic-api-key:74
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_scrub.py:pv-sql-password-literal:97
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_scrub.py:pv-password-assignment:102
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_scrub.py:pv-aws-secret-access-key:108
+62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_scrub.py:generic-api-key:113
+
+# --- tools/tests/test_build_lane_guards.py --------------------------------
+# Added 2026-08-18 by the close-proof sweep, which wrote this file to give
+# 24 of its verifying assertions somewhere to live.
+#
+# :388  an invented DSN password on a line that also reads "never committed".
+#       This is the positive control for D-00-038: the phrase is PROSE, not a
+#       redaction marker, and the test asserts that a live-shaped value beside
+#       it is still reported. Allowlisting the value would invert the very
+#       assertion the test makes.
+98c9a504d5887ddafc8740453368d213f165b6d8:tools/tests/test_build_lane_guards.py:pv-db-connection-url-with-password:388
+
+# ---------------------------------------------------------------------------
+# A note on this file's own comments.
+#
+# gitleaks scans .gitleaksignore like any other file. The first version of the
+# comments above quoted the AKIA fixture verbatim to explain which finding each
+# entry silenced, and that turned G0.3 red with two findings in the ignore file
+# itself. Describe a value here; never quote one. The irony is instructive: the
+# file that lists known findings became a source of new ones.
+# ---------------------------------------------------------------------------

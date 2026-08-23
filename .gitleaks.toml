@@ -1,0 +1,500 @@
+# Provenance - secret scan configuration
+#
+# Gate G0.3 (quality/23_PHASE_GATES.md section 6) and submission item S8
+# (section 24) are:
+#
+#     gitleaks detect --source .   --config .gitleaks.toml --redact --exit-code 1
+#     gitleaks detect --source ops --config .gitleaks.toml --redact --exit-code 1 --no-git
+#
+# They ask DIFFERENT questions and neither substitutes for the other. The first
+# is a git-history scan: was a secret ever committed. The second is a
+# working-tree scan of the evidence directory: is a secret sitting there now.
+#
+# The second one used to read `--source ops/gates` without --no-git and was
+# measurably useless - in git mode gitleaks scans the whole repository and
+# ignores the path scoping, and ops/ is untracked so a git-mode scan cannot
+# reach it regardless. A planted DSN with a real-shaped password in
+# ops/gates/ produced "no leaks found". See the Makefile gate-0 target.
+#
+# Both must print "no leaks found". This repository becomes PUBLIC at
+# submission (G0.2, S1), and git history survives deletion: a credential
+# committed once is a credential leaked permanently. If G0.3 ever fails after a
+# push, rotate the credential FIRST and treat the history rewrite as secondary
+# (23_PHASE_GATES.md section 6, "Cannot be undone").
+#
+# Required tool version: gitleaks >= 8.30.0. This floor was RAISED from 8.21.0
+# on 2026-08-18 after measurement, and the reason matters more than the number.
+#
+#   On 8.21.2 the top-level [[allowlists]] array is applied to the EXTENDED
+#   DEFAULT ruleset ONLY. It is silently ignored for the custom [[rules]]
+#   declared in this same file - with or without `targetRules`, with or without
+#   `condition = "AND"`. Every pv-* rule below therefore ran with NO allowlist
+#   at all, which is exactly the set of rules covering the six shapes this
+#   project can actually leak. Allowlist B was the starkest case: its
+#   `targetRules` names three custom rules explicitly and protected none of
+#   them. Allowlist C was the most dangerous: it is what keeps the committed
+#   probe transcripts under ops/ from reporting, and it was inert for precisely
+#   the rules that fire on them.
+#
+#   Measured, both against a fixture holding `key = AKIAIOSFODNN7EXAMPLE`:
+#     8.21.2  custom rule + global [[allowlists]]  -> 1 finding (ignored)
+#     8.21.2  custom rule + inline [rules.allowlist] -> 0 findings (applied)
+#     8.30.1  custom rule + global [[allowlists]]  -> 0 findings (applied)
+#
+# The failure direction was NOT safe. The old comment claimed a stale scanner
+# "makes noise rather than silently passing"; the opposite was true for the
+# rules that matter, because an ignored allowlist on a rule that never fires in
+# CI is indistinguishable from a working one. Nothing was noisy. Recorded as a
+# defect; ops/41_RUNBOOK.md section 2 and .github/workflows/ci.yml both pin
+# 8.30.1, and tools/tests/test_gitleaks_config.py asserts the floor at runtime
+# so that a downgraded binary fails loudly instead of quietly widening scope.
+#
+# ---------------------------------------------------------------------------
+# Allowlist policy - read before adding an entry
+# ---------------------------------------------------------------------------
+# ONE RULE, and it replaces the four that used to be here:
+#
+#     USE VALUE-SCOPED `regexes` ONLY. NEVER USE `paths`.
+#
+# The old policy said "never allowlist a path on its own - every path-scoped
+# entry carries `condition = "AND"` plus a regex matching only an already-masked
+# value, so an unmasked credential in the same file is still reported."
+#
+# That intent was right. The mechanism does not implement it. gitleaks applies
+# `allowlist.paths` as a FILE-LEVEL SKIP decided before the file is read; there
+# is no content at that point, so the `regexes` half of the AND condition is
+# never evaluated. Every entry that named a path excluded those files from
+# scanning outright. Measured, on a file holding one live-shaped DSN and no
+# redaction marker at all:
+#     at a path the old allowlist C named -> scanned ~0 bytes, no leaks found
+#     the identical bytes, renamed        -> scanned ~109 bytes, leaks found: 1
+# Eight files were exempt, including the transcript the probe scripts write
+# credentials through the scrubber into. Recorded as a defect.
+#
+# A value-scoped entry cannot be widened by adding a file, cannot suppress a
+# neighbouring line, and cannot be defeated by a path-anchoring mismatch. It is
+# strictly less powerful than a path entry, and that is precisely why it is the
+# only form permitted here.
+#
+# Two further standing rules:
+#   * Never use `disabledRules`. It turns a rule off everywhere at once.
+#   * `.env` is deliberately absent from every allowlist. It is untracked and
+#     gitignored, so the git-mode scan never reaches it; a `--no-git` scan that
+#     flags it is reporting a true positive about a live credential on the
+#     developer machine, not a configuration error to be silenced.
+#
+# tools/tests/test_gitleaks_config.py asserts both halves of every entry below:
+# that the documented fake IS excused, and that a real credential of the same
+# shape IS still reported. An allowlist with only the first half is
+# indistinguishable from `disabledRules`.
+# ---------------------------------------------------------------------------
+
+title = "Provenance secret scan"
+
+[extend]
+# The upstream ruleset (GitHub/GitLab/Slack/Stripe tokens, private keys, and
+# ~150 more) runs in addition to the rules below. The rules below exist because
+# the upstream set does not cover, or does not cover strictly enough, the six
+# shapes this project can actually leak: a CockroachDB/Postgres DSN carrying a
+# password, an AWS access key id, an AWS secret access key, a 12-digit AWS
+# account id inside an ARN, a JWT, and a Cognito app-client secret.
+#
+# If an upstream rule ever fires on design-pack prose, the fix is a
+# value-scoped entry in the [[allowlists]] section at the bottom of this file -
+# never `paths`, and never `disabledRules`.
+useDefault = true
+
+
+# ===========================================================================
+# 1. Database connection URLs carrying a password
+# ===========================================================================
+# The single most common real-world leak, and the one this project is most
+# exposed to: every role URL in AWS Secrets Manager (`provenance/db`, five
+# keys) is of this shape, and a driver error message quotes the URL back.
+#
+# The password group deliberately excludes `<`, `>`, `'`, `"`, backtick and
+# backslash so the documented placeholder forms - `<password>`, the PowerShell
+# string-concatenation form in ops/probes/phase0-probe.ps1, and quoted shell
+# fragments - cannot match at all. Short documented fakes (`pw`, `p`, `pass`,
+# `hunter2`) are handled by the value-scoped allowlist, not by a length floor:
+# a length floor would also excuse a short real password.
+[[rules]]
+id = "pv-db-connection-url-with-password"
+description = "CockroachDB/PostgreSQL (or other) connection URL with an inline password"
+regex = '''(?i)\b(?:postgres(?:ql)?|cockroach(?:db)?|mysql|mongodb(?:\+srv)?|rediss?|amqps?)://[A-Za-z0-9._%+~-]{1,64}:([^@\s'"`\\/<>]{1,256})@[A-Za-z0-9._-]{1,255}'''
+secretGroup = 1
+keywords = ["postgres", "postgresql", "cockroach", "mysql", "mongodb", "redis", "amqp"]
+
+  [rules.allowlist]
+  description = "Documented placeholder passwords used throughout the design pack and the observability redaction tests."
+  regexes = [
+    '''(?i)^(?:p|pw|pwd|pass|passwd|password|secret|changeme|placeholder|example|redacted|masked|hunter2|s3cr3t-rot4te-me)$''',
+    '''(?i)^x{3,}$''',
+    '''^\*{2,}$''',
+    '''^\.{3,}$''',
+    '''^…+$''',
+    '''^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$''',
+    '''^%[A-Za-z_][A-Za-z0-9_]*%$''',
+    '''^\{\{resolve:''',
+  ]
+
+
+# ===========================================================================
+# 2. Password literals in SQL
+# ===========================================================================
+# `CREATE USER pv_kernel_writer WITH PASSWORD '...'` is run for each of the
+# five SQL roles (pv_migrator, pv_app_reader_writer, pv_kernel_writer,
+# pv_agent_reader, pv_ops_reader), and the statement is echoed into
+# ops/grant-probe.txt. The character class excludes `<`, `$`, `[` and `{` so
+# the committed placeholder forms - '<generated, 24 chars, never committed>',
+# '$probePw', '[REDACTED]' - do not match.
+[[rules]]
+id = "pv-sql-password-literal"
+description = "SQL PASSWORD '...' literal (CREATE/ALTER USER or ROLE)"
+regex = '''(?i)\bPASSWORD\s+'([^'\s<>$\[\]{}]{6,128})'''
+secretGroup = 1
+keywords = ["password"]
+
+
+# ===========================================================================
+# 3. Password assignment in configuration, JSON, env files and DSN key/value
+# ===========================================================================
+# Requires an explicit `=` or `:` delimiter. Prose such as
+# "FATAL: password authentication failed for user" has no delimiter and is not
+# a finding; `{"password": "hunter2"}` is one, and is allowlisted by value.
+[[rules]]
+id = "pv-password-assignment"
+description = "password/pwd assignment carrying a literal value"
+regex = '''(?i)\b(?:pgpassword|password|passwd|pwd)["']?\s*[:=]\s*["']?([^\s'"`;,)\\<>$\[\]{}]{6,128})'''
+secretGroup = 1
+keywords = ["password", "passwd", "pwd", "pgpassword"]
+
+  [rules.allowlist]
+  description = "Documented placeholder passwords; same set as the DSN rule."
+  regexes = [
+    '''(?i)^(?:changeme|placeholder|example|redacted|masked|hunter2|s3cr3t-rot4te-me|password|secret)$''',
+    '''(?i)^x{3,}$''',
+    '''^\*{2,}$''',
+    '''^\{\{resolve:''',
+    '''(?i)^authentication$''',
+  ]
+
+
+# ===========================================================================
+# 4. AWS access key id
+# ===========================================================================
+[[rules]]
+id = "pv-aws-access-key-id"
+description = "AWS access key id (AKIA/ASIA/AIDA/AROA/ANPA/... prefix)"
+regex = '''\b((?:A3T[A-Z0-9]|ABIA|ACCA|AGPA|AIDA|AIPA|AKIA|ANPA|ANVA|APKA|AROA|ASIA)[A-Z0-9]{16})\b'''
+secretGroup = 1
+keywords = ["a3t", "abia", "acca", "agpa", "aida", "aipa", "akia", "anpa", "anva", "apka", "aroa", "asia"]
+
+
+# ===========================================================================
+# 5. AWS secret access key
+# ===========================================================================
+# Keyword-anchored on purpose. An unanchored 40-character base64 rule fires on
+# hashes, cursors and vector fixtures, and a noisy rule gets allowlisted into
+# uselessness. `aws sts get-caller-identity` output (probe PB-5) does not
+# contain a secret key; `aws configure` output and CI env files do.
+[[rules]]
+id = "pv-aws-secret-access-key"
+description = "AWS secret access key assigned to an aws_secret_access_key-shaped name"
+regex = '''(?i)\b(?:aws)?_?secret_?(?:access)?_?key["']?[ \t]{0,10}[:=][ \t]{0,10}["']?([A-Za-z0-9/+=]{40})(?:[^A-Za-z0-9/+=]|$)'''
+secretGroup = 1
+entropy = 3.5
+keywords = ["secret_access_key", "secretaccesskey", "secret_key", "secretkey"]
+
+
+# ===========================================================================
+# 6. AWS account id inside an ARN
+# ===========================================================================
+# gitleaks' default ruleset does not flag an account id, and ops/probes/README
+# section 6 records that the probe scrubber is "the only thing standing
+# between" a `sts get-caller-identity` transcript and a public repository. An
+# account id is not a credential, but it is a targeting primitive for a
+# confused-deputy attack against the S3 bucket policy and the Bedrock role
+# (ops/40_INFRA_IAC.md section 757, aws:SourceAccount / aws:SourceArn), and
+# every ARN in this repository is committed. Masked forms such as
+# `arn:aws:iam::<ACCOUNT-MASKED>:user/...` contain no digits and never match.
+[[rules]]
+id = "pv-aws-account-id-in-arn"
+description = "12-digit AWS account id inside an ARN"
+regex = '''arn:aws[a-z0-9-]*:[a-z0-9-]*:[a-z0-9-]*:(\d{12}):'''
+secretGroup = 1
+keywords = ["arn:aws"]
+
+
+# ===========================================================================
+# 7. JSON Web Token
+# ===========================================================================
+# A Cognito access or id token pasted into an error message or a gate log.
+# Three dot-separated segments, the first two base64url-encoded JSON objects
+# (`eyJ`). A single `eyJ...` segment is a pagination cursor, not a token, and
+# is not matched - 15_API_SPEC.md section 12 uses that shape for cursors.
+[[rules]]
+id = "pv-jwt"
+description = "JSON Web Token (Cognito access/id/refresh token shape)"
+regex = '''\beyJ[A-Za-z0-9_=-]{8,}\.eyJ[A-Za-z0-9_=-]{8,}\.[A-Za-z0-9_=-]{8,}'''
+keywords = ["eyj"]
+
+
+# ===========================================================================
+# 8. Bearer token in an Authorization header
+# ===========================================================================
+[[rules]]
+id = "pv-bearer-token"
+description = "Bearer token in an Authorization header echoed into text"
+regex = '''(?i)\b(?:proxy-)?authorization\s*[:=]\s*["']?bearer\s+([A-Za-z0-9._~+/=-]{16,})'''
+secretGroup = 1
+keywords = ["bearer"]
+
+
+# ===========================================================================
+# 9. Cognito app-client secret
+# ===========================================================================
+# ops/40_INFRA_IAC.md section 3 provisions three Cognito app clients; the
+# confidential ones carry a generated client secret (a long lowercase
+# alphanumeric string) that reaches the worker through
+# COGNITO_WORKER_CLIENT_SECRET and Secrets Manager. Keyword-anchored, with an
+# entropy floor so an English word following `client_secret:` is not a finding.
+# `{{resolve:secretsmanager:...:SecretString:client_secret}}` does not match:
+# the dynamic reference closes with `}}`, which is not in the delimiter class.
+[[rules]]
+id = "pv-cognito-client-secret"
+description = "Cognito app-client secret assigned to a client_secret-shaped name"
+regex = '''(?i)\b(?:cognito[_-]?(?:app[_-]?)?client[_-]?secret|client[_-]?secret)\b["'\s:=>]{0,12}([a-z0-9]{26,64})\b'''
+secretGroup = 1
+entropy = 3.0
+keywords = ["client_secret", "clientsecret", "client-secret", "cognito"]
+
+
+# ===========================================================================
+# Allowlists
+# ===========================================================================
+
+# --- A. AWS's own published example key ------------------------------------
+# AKIAIOSFODNN7EXAMPLE is the access key id AWS prints in its own
+# documentation. It appears in quality/21_OBSERVABILITY_ANALYTICS.md as the
+# input to the redaction unit test that proves the scrubber fires on it, and
+# it will appear again in that test file when Phase 6 lands it. Value-scoped:
+# no path is opened, and only this exact string is excused.
+[[allowlists]]
+description = "AWS documentation example access key id, used as redaction-test input"
+regexes = [
+  '''^AKIAIOSFODNN7EXAMPLE$''',
+]
+
+# --- A2. Reserved placeholder identifiers ----------------------------------
+# 000000000000 is the all-zeros account id used in the settings tests
+# (packages/python/provenance_contracts/tests/) and in fixture ARNs. AWS never
+# issues it, so excusing it by value opens nothing. Value-scoped, all rules.
+[[allowlists]]
+description = "All-zeros AWS account id used in fixture ARNs"
+regexes = [
+  '''^0{12}$''',
+]
+
+# --- B. Documented fake passwords ------------------------------------------
+# `hunter2` and `S3cr3t-Rot4te-Me` are the two fake credentials the
+# observability specification uses to demonstrate that redact_record removes a
+# DSN password from a driver error message. They are inputs to assertions, so
+# they must remain literal in the test that proves the redactor works.
+# Value-scoped and rule-scoped: they are excused as secrets, everywhere, and
+# nothing else about those files is excused.
+[[allowlists]]
+description = "Fake passwords that are inputs to the redaction tests"
+targetRules = [
+  "pv-db-connection-url-with-password",
+  "pv-password-assignment",
+  "pv-sql-password-literal",
+]
+regexes = [
+  '''^hunter2$''',
+  '''^S3cr3t-Rot4te-Me$''',
+]
+
+
+# ===========================================================================
+# WHY THERE IS NO `paths` KEY ANYWHERE BELOW THIS LINE
+# ===========================================================================
+# The policy at the top of this file says: never allowlist a path on its own;
+# every path-scoped entry must carry `condition = "AND"` plus a regex matching
+# only an already-masked value, so that an unmasked credential in the same file
+# is still reported.
+#
+# That policy was correct and the mechanism did not implement it. gitleaks
+# applies `allowlist.paths` as a FILE-LEVEL SKIP, decided before the file is
+# ever read. There is no content at that point, so the `regexes` half of the
+# AND condition cannot be evaluated and is simply not applied. The file is not
+# scanned at all.
+#
+# Measured, against a file containing one live-shaped DSN and NO redaction
+# marker anywhere in it:
+#     at ops/cluster-probe.txt (a path the old allowlist C named):
+#         scanned ~0 bytes ... no leaks found
+#     the same bytes renamed to ops/zzz.txt:
+#         scanned ~109 bytes ... leaks found: 1
+#
+# So the old allowlist C did not excuse masked lines in eight transcripts. It
+# excluded eight whole files from scanning, one of which is the file the probe
+# scripts write live credentials THROUGH the scrubber into. It was the largest
+# hole in this configuration and it was introduced by the entry written to
+# close a smaller one (D-00-010).
+#
+# The rule that follows, and it is not negotiable:
+#
+#     USE VALUE-SCOPED `regexes` ONLY. NEVER USE `paths`.
+#
+# A value-scoped entry cannot be widened by adding a file, cannot suppress a
+# neighbouring line, and cannot be silently defeated by a path-anchoring
+# mismatch. It is strictly less powerful than a path entry and that is the
+# point.
+#
+# Allowlist C is DELETED rather than rewritten, because it turned out to be
+# unnecessary. Scanning the real 310 KB ops/ tree with C removed produces
+# exactly one finding — the model-id false positive handled by entry C2 below.
+# tools/scrub.py already keeps the transcripts clean; C was protecting against
+# a problem that does not occur. An allowlist that excuses nothing real is pure
+# attack surface.
+# ===========================================================================
+
+
+# --- C2. Anthropic model identifiers -------------------------------------
+# The default `generic-api-key` rule fires on `anthropic.claude-opus-5` and its
+# siblings: they follow a `key`-ish delimiter in the defect ledger and the probe
+# ledger, and they are dotted high-entropy-looking strings.
+#
+# A Bedrock model id is public product nomenclature. It is printed in AWS
+# documentation, returned by `list-foundation-models` to any caller, and is
+# recorded deliberately in ops/ and in CANONICAL_DECISIONS.md so that a reader
+# can check which model actually served a run. Value-scoped, so the exemption
+# travels with the string and opens no file.
+[[allowlists]]
+description = "Bedrock/Anthropic model identifiers, which are public product names"
+targetRules = ["generic-api-key"]
+regexes = [
+  '''^(?:us\.|eu\.|apac\.|global\.)?anthropic\.claude-[a-z0-9.\-]+(?::[0-9]+)?$''',
+  '''^(?:amazon|meta|mistral|cohere|deepseek|google|moonshotai?|zai|qwen|openai|minimax|nvidia|writer|ai21)\.[a-z0-9.\-]+(?::[0-9]+)?$''',
+]
+
+
+# --- D. Secret-shaped inputs to the scrubber's own tests --------------------
+# tools/tests/test_scrub.py asserts that tools/scrub.py removes a DSN password,
+# a JWT and an ARN account id. The inputs to those assertions must stay literal
+# in the test file, or the test proves nothing.
+#
+# They are fakes: 210987654321 is a descending-digit run, not an issued account
+# id, and the two passwords are invented for the fixture.
+#
+# Rewritten from a `condition = "AND"` + `paths` entry to a value-scoped one.
+# The old form excluded tools/tests/test_scrub.py from scanning entirely, which
+# meant a real credential pasted into the scrubber's own test file would never
+# have been reported. Value scoping costs only this: these exact three strings
+# are excused everywhere rather than in one file. Since all three are fixed,
+# published-in-this-repo fakes, that is not a loss.
+[[allowlists]]
+description = "Exact fake credentials that are inputs to the scrubber unit tests"
+regexes = [
+  '''^s3cr3t-Pa55$''',
+  '''^tok$''',
+  '''^210987654321$''',
+]
+
+
+# --- E. Idempotency keys in the API specification's curl examples -----------
+# 15_API_SPEC.md documents the idempotency contract with seven worked examples.
+# The default `generic-api-key` rule fires on all seven because the value sits
+# after a `KEY=` / `key":` / `Idempotency-Key:` delimiter.
+#
+# An idempotency key is not a credential. It is a client-chosen deduplication
+# token, echoed back in responses by design (15_API_SPEC.md section 4).
+#
+# Value-scoped, and the value shape is narrow: a UUIDv7 specifically — version
+# nibble `7`, variant `[89ab]` — or the `ses-<16hex>-<8hex>` message-id form.
+# Stated plainly because it is the one real trade-off in this file: a random
+# UUIDv7 used as an API key elsewhere in the repository would be excused. This
+# project issues no such credential — capability tokens and cursors are HMAC,
+# session tokens are JWTs, database credentials are DSNs, and each has its own
+# rule above. If a UUID-shaped secret is ever introduced, delete this entry and
+# rewrite those seven examples instead.
+[[allowlists]]
+description = "UUIDv7 idempotency keys and SES message ids used as documentation examples"
+targetRules = ["generic-api-key"]
+regexes = [
+  '''^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$''',
+  '''^ses-[0-9a-f]{16}-[0-9a-f]{8}$''',
+]
+
+
+# --- F. The fake refresh token in the redaction unit test -------------------
+# 21_OBSERVABILITY_ANALYTICS.md section 12 demonstrates that redact_record
+# removes a refresh token from a structured log record. The value must stay
+# literal or the demonstration proves nothing.
+#
+# It cannot be a real token: the middle segment is EMPTY (`..`) and the whole
+# string is 23 characters. A Cognito refresh token has three populated
+# base64url segments and is orders of magnitude longer. The pv-jwt rule already
+# declines to match it for that same structural reason; this entry only silences
+# the looser default rule. Exact value, so nothing else is covered.
+[[allowlists]]
+description = "Structurally-invalid fake refresh token, input to the redaction test"
+targetRules = ["generic-api-key"]
+regexes = [
+  '''^eyJjdHkiOiJKV1QifQ\.\.x\.y$''',
+]
+
+
+# --- G. HMAC key fixtures in the settings unit test ------------------------
+# packages/python/provenance_contracts/tests/test_settings.py builds a complete
+# valid environment so the "rejects a missing required variable" tests can
+# remove ONE key at a time and assert the failure names it. Three of those keys
+# are base64 cryptographic material and the default rule fires on them.
+#
+# They are self-describing fakes: each base64-decodes to the ASCII string that
+# says what it is — "capability-hmac-key-32-bytes-000",
+# "cursor-hmac-key-32-bytes-0000000", "ingest-alias-hmac-key-32-bytes00". Real
+# key material does not decode to its own description.
+#
+# Three exact values, nothing more. A FOURTH key added to that fixture is not
+# covered and will be reported — which is intended. Adding cryptographic
+# material to a test should require a deliberate decision recorded here, not an
+# exemption inherited from its neighbours. tools/tests/test_gitleaks_config.py
+# asserts exactly that.
+[[allowlists]]
+description = "Self-describing base64 HMAC fixtures in the settings test"
+targetRules = ["generic-api-key"]
+regexes = [
+  '''^Y2FwYWJpbGl0eS1obWFjLWtleS0zMi1ieXRlcy0wMDA=$''',
+  '''^Y3Vyc29yLWhtYWMta2V5LTMyLWJ5dGVzLTAwMDAwMDA=$''',
+  '''^aW5nZXN0LWFsaWFzLWhtYWMta2V5LTMyLWJ5dGVzMDA=$''',
+]
+
+
+# --- H. Ingestion idempotency keys in the live agent-run transcript ---------
+# `ops/agent-graph-live-run.txt` and any `MemoryProposal` dump beside it carry
+# `MemoryProposal.idempotency_key`, which the ingestion graph derives as
+# `pv-ingest-<40 hex>` from SHA-256 over
+# `content_sha256 | graph_name | graph_version | case_id`
+# (agents/runtime/nodes/ingestion.py `_idempotency_key`). The default
+# `generic-api-key` rule fires on it because it sits after a `keys=` or
+# `"idempotency_key":` delimiter.
+#
+# It is not a credential and cannot become one. Every input to that digest is
+# already public in this repository -- the artifact hash is in
+# `source_artifacts`, the graph name and version are constants in
+# `agents/runtime/state.py`, and the case id is a seeded UUID -- so the value is
+# reproducible by anyone holding the repository and grants nothing. It exists so
+# that re-driving the same artifact through the same graph version is a no-op
+# rather than a duplicate, which is the same reasoning as allowlist E above.
+#
+# Value-scoped and narrow: the literal `pv-ingest-` prefix plus exactly 40 hex
+# characters. No other shape is covered, and a real credential that happened to
+# appear in the same file is still reported.
+[[allowlists]]
+description = "Deterministic pv-ingest-<40hex> MemoryProposal idempotency keys"
+targetRules = ["generic-api-key"]
+regexes = [
+  '''^pv-ingest-[0-9a-f]{40}$''',
+]

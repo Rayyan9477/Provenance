@@ -1,0 +1,52 @@
+# =============================================================================
+# coverage.py configuration
+#
+# quality/20_TDD_STRATEGY.md section 15. Coverage is a floor for noticing
+# untested code, not a measure of test quality — every target in section 15.1 is
+# paired with a mutation-kill threshold for exactly that reason, and `mutmut`
+# on provenance_domain is the real gate.
+#
+# The repository gate is 88% line coverage, enforced on the merge lane by the
+# CLI flag `--cov-fail-under=88` rather than by `fail_under` here, so that a
+# local run can report a number without failing and a merge cannot.
+# =============================================================================
+
+[run]
+# Branch mode, per section 15.1: every target in that table is a line/branch
+# pair, and line coverage alone would report a half-tested conditional as done.
+branch = True
+relative_files = True
+source =
+    packages/python/provenance_contracts/src
+    packages/python/provenance_domain/src
+    packages/python/provenance_db/src
+    packages/python/provenance_telemetry/src
+    services/control_plane/app
+    agents/runtime
+    workers
+
+[report]
+exclude_also =
+    if TYPE_CHECKING:
+    raise NotImplementedError
+    @overload
+    class .*\(Protocol\):
+    assert_never\(
+omit =
+    */tests/*
+    */scripts/seed/decoys.py      # 18k synthetic rows; generation is not logic
+    */migrations/versions/*       # asserted by test_migrations.py running them
+
+# Nothing in provenance_domain/kernel/ is ever added to `omit`. A PR that does
+# is rejected. That directory is the product: anything unreachable there is dead
+# code and should be deleted rather than excused.
+
+precision = 1
+show_missing = True
+skip_covered = False
+
+[html]
+directory = build/coverage-html
+
+[xml]
+output = build/coverage.xml
