@@ -120,3 +120,7 @@ tmp/
 # investigation and was caught only by reading `git add -A` output.
 *-report.json
 gitleaks-report.json
+
+# Playwright MCP scratch output (console logs, page snapshots, screenshots).
+# Written into the working tree by browser verification runs; never a deliverable.
+.playwright-mcp/
