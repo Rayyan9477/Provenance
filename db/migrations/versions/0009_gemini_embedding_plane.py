@@ -160,7 +160,7 @@ revision = "0009_gemini_embedding_plane"
 # rebuilding evidence_items.embedding destroys 18,035 Titan vectors. They
 # were bundled because they arrived in the same pivot, not because they
 # belong together. Chain stays linear: 0008 -> 0009a -> 0009.
-down_revision = "0009a_widen_proposal_model_check"
+down_revision = "0009b_kernel_idempotency_grant"
 branch_labels = None
 depends_on = None
 

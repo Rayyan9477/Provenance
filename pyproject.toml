@@ -35,9 +35,35 @@ dependencies = []
 
 [project.optional-dependencies]
 
+# The set a SERVING container installs. Mirrored in requirements-runtime.txt,
+# which carries the reasoning for every entry and every deliberate omission;
+# tools/tests/test_runtime_requirements_match_pyproject.py fails if the two
+# lists disagree. Added 2026-08-27: before it, every runtime import lived in
+# `dev` beside aws-cdk-lib and pytest, so `make bootstrap` on a clean clone
+# installed no fastapi, no uvicorn and no google-genai, and a container built
+# from `.[dev]` would have shipped the AWS CDK.
+runtime = [
+  "fastapi==0.128.0",
+  "starlette==0.41.3",
+  "uvicorn==0.40.0",
+  "python-multipart==0.0.20",
+  "pydantic==2.13.4",
+  "pydantic-settings==2.12.0",
+  "psycopg[binary,pool]==3.3.4",
+  "google-genai==1.60.0",
+  "mcp==1.21.2",
+  "uuid6==2024.7.10",
+]
+
 # The toolchain named in ops/41_RUNBOOK.md section 2.2 and
 # quality/20_TDD_STRATEGY.md section 14.
+#
+# `runtime` is included rather than restated: the dev lane serves the same
+# application it tests, and a dev environment that resolves fastapi to a
+# different version than the container is a dev environment that cannot
+# reproduce a production failure.
 dev = [
+  "provenance[runtime]",
   # The CDK tests import these. They were installed by hand during T13.1 and
   # were undeclared, so a clean clone collects 304 tests that cannot import.
   "aws-cdk-lib>=2.160,<3",
@@ -70,9 +96,10 @@ dev = [
   "mypy>=1.11,<2",
   "import-linter>=2.0,<3",      # .importlinter — 20_TDD_STRATEGY section 2.3 E1
   "pre-commit>=3.8",
-  # database and migrations
+  # database and migrations. psycopg is NOT here: it is a runtime dependency and
+  # provenance[runtime] pins it exactly. A second, looser pin here meant a
+  # developer could resolve a psycopg the container never runs.
   "alembic>=1.13,<2",
-  "psycopg[binary,pool]>=3.2,<4",
   # AWS and model clients used by the nightly live_model lane
   "boto3>=1.35",
   "botocore>=1.35",

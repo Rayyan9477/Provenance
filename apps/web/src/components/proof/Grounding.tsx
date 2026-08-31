@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type {
   Belief,
   BeliefVersion,
@@ -6,7 +7,7 @@ import type {
   GroundingEdge,
   ProofConflict,
 } from "@/lib/api/contract";
-import { abbreviateHash, formatDateOrRaw, formatInstantOrRaw } from "@/lib/format";
+import { formatBeliefValue, formatDateOrRaw, formatInstantOrRaw } from "@/lib/format";
 import { Absent } from "@/components/primitives/Absent";
 import { RelationLabel, RetractionBadge } from "@/components/primitives/Chips";
 
@@ -44,8 +45,23 @@ function EvidenceBody({
   return (
     <>
       <blockquote className="pv-quote">“{source.exact_text}”</blockquote>
+      {/*
+       * A subject line is a subject line.
+       *
+       * This paragraph used to read `sha256:{abbreviateHash(subject ?? evidence_id)}`. It
+       * took the email subject off the artifact -- or, when the artifact had no subject,
+       * the evidence UUID -- elided its middle so it took the head-tail shape of a digest,
+       * and prefixed it with the name of a hash function. Nothing on `EvidenceSource` is a
+       * hash, so every row on the State Proof carried a cryptographic claim the payload
+       * never made, on the one screen whose entire job is proof.
+       *
+       * The real digest is `ArtifactResponse.content_sha256`, and the artifact page renders
+       * it from the row that holds it. So this row names the artifact and links there,
+       * rather than manufacturing a hash from whatever string was to hand.
+       */}
       <p className="pv-mono" style={{ marginTop: "var(--pv-space-2)" }}>
-        sha256:{abbreviateHash(source.artifact.subject ?? source.evidence_id)} ·{" "}
+        subject:{" "}
+        {source.artifact.subject ?? <Absent describe="this artifact carries no subject line" />} ·{" "}
         {source.artifact.source_type}
         {source.source_locator === null ? null : (
           <>
@@ -57,6 +73,11 @@ function EvidenceBody({
         )}
       </p>
       <p className="pv-mono">observed {formatInstantOrRaw(source.observed_at, timeZone)}</p>
+      <p className="pv-mono">
+        <Link href={`/artifacts/${source.artifact_id}`}>
+          open the artifact for its content_sha256
+        </Link>
+      </p>
       <RetractionBadge status={source.retraction_status} />
     </>
   );
@@ -109,7 +130,18 @@ export function GroundingEdgeRow({
       >
         <RelationLabel relation={edge.relation} />
         <span className="pv-mono">
-          weight={edge.weight} · reason_code={edge.reason_code}
+          weight={edge.weight} · reason_code=
+          {/*
+            `reason_code` is `string | null` and the null went straight into the
+            JSX, so every grounding row on every State Proof read
+            "reason_code=" with nothing after it -- on the screen that exists to
+            show why the system believes something, and on both cases the demo
+            uses. Three other nullables in this same file were already guarded;
+            this one was missed.
+          */}
+          {edge.reason_code ?? (
+            <Absent describe="no reason code was recorded for this grounding edge" />
+          )}
         </span>
       </div>
 
@@ -144,12 +176,13 @@ export function LineageChain({
   readonly belief: Belief;
   readonly timeZone: string;
 }) {
-  const describeValue = (version: BeliefVersion): string | null => {
-    if (version.value_json === undefined) return null;
-    const value = version.value_json as { currency?: string; amount?: string };
-    if (value.currency && value.amount) return `${value.currency} ${value.amount}`;
-    return JSON.stringify(version.value_json);
-  };
+  // Was: money built by hand as `${currency} ${amount}`, everything else
+  // stringified. That printed USD 1800.0000 in this rail while the beliefs
+  // docket printed USD 1,800.00 for the same value on the same screen, and
+  // printed raw JSON for a state belief. formatBeliefValue is the one place a
+  // belief value becomes text.
+  const describeValue = (version: BeliefVersion): string | null =>
+    formatBeliefValue(version.value_json);
 
   return (
     <ol className="pv-lineage">

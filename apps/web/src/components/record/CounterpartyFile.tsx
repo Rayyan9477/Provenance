@@ -1,5 +1,5 @@
 import type { ClaimSource, EvidenceSource, StateProofResponse } from "@/lib/api/contract";
-import { formatDate, formatInstantOrRaw, formatMoney } from "@/lib/format";
+import { formatBeliefValue, formatDate, formatInstantOrRaw, formatMoney } from "@/lib/format";
 import { Absent } from "@/components/primitives/Absent";
 import { RelationLabel } from "@/components/primitives/Chips";
 
@@ -126,11 +126,11 @@ export function CanonicalPosition({ proofs, timeZone }: PanelProps) {
         <ul className="pv-stack-tight">
           {beliefs.map((belief) => {
             const version = belief.current_version;
-            const value = version.value_json as { currency?: string; amount?: string } | undefined;
-            const money =
-              value?.currency !== undefined && value.amount !== undefined
-                ? formatMoney({ currency: value.currency, amount: value.amount })
-                : null;
+            // One formatter for every belief value. This used to narrow to a
+            // money shape and JSON.stringify anything else, so a state belief
+            // rendered {"state":"TERMINATED"} in the headline slot beside a
+            // money belief rendering USD 1,800.00.
+            const shown = formatBeliefValue(version.value_json);
 
             return (
               <li
@@ -139,15 +139,12 @@ export function CanonicalPosition({ proofs, timeZone }: PanelProps) {
                 data-belief-id={belief.belief_id}
               >
                 <p className="pv-figure">
-                  {money ??
-                    (version.value_json === undefined ? (
-                      <Absent
-                        reason="NULL_COLUMN"
-                        describe="this belief version carries no value payload"
-                      />
-                    ) : (
-                      JSON.stringify(version.value_json)
-                    ))}
+                  {shown ?? (
+                    <Absent
+                      reason="NULL_COLUMN"
+                      describe="this belief version carries no value payload"
+                    />
+                  )}
                 </p>
                 <p className="pv-mono">
                   {belief.predicate} · v{version.version_no} · {version.epistemic_status} ·

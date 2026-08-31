@@ -38,7 +38,22 @@ export type AbsenceReason =
   /** The API returned no row at all for this subject. */
   | "NO_ROW"
   /** The row exists and the column is null. The system genuinely does not know. */
-  | "NULL_COLUMN";
+  | "NULL_COLUMN"
+  /**
+   * The row exists, the column is present, and it holds an empty collection.
+   *
+   * A different claim from either of the two above: the system DOES know, and
+   * what it knows is "none". It needs its own reason because it renders in the
+   * same slot and a reader must be able to tell "no reason codes were recorded"
+   * from "we could not read the reason codes".
+   *
+   * Added because an empty array is neither null nor undefined, so it passed
+   * both guards above and reached the formatter, where `[].join(",")` produced
+   * the empty string. That rendered on the dashboard -- the first screen a
+   * reader sees -- as `reason_codes=` followed by nothing, which is the exact
+   * bare-empty pattern this whole module exists to prevent.
+   */
+  | "EMPTY_COLLECTION";
 
 export interface PresentField {
   readonly state: "PRESENT";
@@ -115,14 +130,18 @@ export function field<T extends object, K extends keyof T & string>(
   if (value === null || value === undefined) {
     return { state: "ABSENT", key, ref, reason: "NULL_COLUMN" };
   }
+  if (Array.isArray(value) && value.length === 0) {
+    return { state: "ABSENT", key, ref, reason: "EMPTY_COLLECTION" };
+  }
 
   const format = options.format ?? defaultFormat;
-  return {
-    state: "PRESENT",
-    key,
-    text: format(value as NonNullable<T[K]>),
-    ref,
-  };
+  const text = format(value as NonNullable<T[K]>);
+  if (text === "") {
+    // A formatter that produces nothing is the same bare-empty render by
+    // another route. The value was there; what it renders to is not.
+    return { state: "ABSENT", key, ref, reason: "EMPTY_COLLECTION" };
+  }
+  return { state: "PRESENT", key, text, ref };
 }
 
 /**

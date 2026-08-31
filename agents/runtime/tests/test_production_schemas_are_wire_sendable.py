@@ -37,6 +37,7 @@ import pytest
 from pydantic import BaseModel
 
 from agents.runtime.model_router.wire_schema import to_wire_schema
+from agents.runtime.schemas.counterfactual import CounterfactualReading
 from provenance_contracts.ingestion import ExtractionResult
 
 pytestmark = pytest.mark.unit
@@ -45,7 +46,10 @@ pytestmark = pytest.mark.unit
 #: Named explicitly rather than discovered: a discovery rule that found none
 #: would make this file pass while proving nothing, which is the failure it
 #: exists to close.
-PRODUCTION_RESPONSE_SCHEMAS: tuple[type[BaseModel], ...] = (ExtractionResult,)
+PRODUCTION_RESPONSE_SCHEMAS: tuple[type[BaseModel], ...] = (
+    ExtractionResult,
+    CounterfactualReading,
+)
 
 #: Keywords `google.genai.types.Schema` forbids. `extra="forbid"` means any one
 #: of these anywhere in the document is a hard validation error, not a warning

@@ -12,10 +12,26 @@ import { usePathname } from "next/navigation";
  *
  * `frontend/30_UX_SPEC.md` section 2.2 separately requires that exactly five destinations
  * be *primary*: Dashboard, Approvals, Add a document, Judge Mode (only when
- * `judge_mode_enabled`), and Sign out. Both are honoured: the index shows fourteen, and
- * the five carry `data-primary="true"` so the spec's requirement stays checkable from the
- * DOM. Case detail, State Proof, and individual approvals are absent from the index
- * entirely, because each needs an id the reader must first have chosen.
+ * `judge_mode_enabled`), and Sign out. Four of those five are here and carry
+ * `data-primary="true"` so the requirement stays checkable from the DOM. Case detail,
+ * State Proof, and individual approvals are absent from the index entirely, because each
+ * needs an id the reader must first have chosen.
+ *
+ * Sign out is absent, and its absence is the honest reading of what this build does.
+ *
+ * The spec describes signing out as clearing a memory token, calling `POST /auth/logout`
+ * to clear the cookie, and redirecting to the identity provider's logout endpoint. None
+ * of those three exists here. This deployment authenticates server-side with a single
+ * `PV_API_TOKEN` held in the server environment (see `lib/api/client.ts`), so there is no
+ * per-reader session in the browser to end. The entry that used to sit at ordinal 14
+ * linked to `/login`, which signed nobody out, ended nothing, and offered no way back to
+ * the record -- a primary destination that was a dead end pretending to be a control.
+ *
+ * Restoring it needs the session this build does not have: a per-user cookie issued at
+ * callback, a logout route that clears it, and a redirect to the provider's own logout.
+ * Until those exist, no entry here can truthfully be called Sign out, and a control that
+ * does nothing is worse than a control that is missing -- the missing one at least does
+ * not tell the reader their session ended.
  */
 
 interface Destination {
@@ -68,7 +84,6 @@ const GROUPS: readonly Group[] = [
         flag: "counterfactual",
       },
       { ordinal: "13", label: "Settings", href: "/settings" },
-      { ordinal: "14", label: "Sign out", href: "/login", primary: true },
     ],
   },
 ];

@@ -105,8 +105,13 @@ export function getTriggers(): Promise<ApiResult<Paginated<TriggerItem>>> {
   return apiGet<Paginated<TriggerItem>>("/v1/triggers");
 }
 
-export function getArtifacts(): Promise<ApiResult<Paginated<ArtifactListItem>>> {
-  return apiGet<Paginated<ArtifactListItem>>("/v1/artifacts");
+export function getArtifacts(
+  sourceTypes: readonly string[] = [],
+): Promise<ApiResult<Paginated<ArtifactListItem>>> {
+  // `source_type` repeats, which is how the route reads it
+  // (routes/artifacts.py: params.get("source_type", ())).
+  const query = sourceTypes.map((t) => `source_type=${encodeURIComponent(t)}`).join("&");
+  return apiGet<Paginated<ArtifactListItem>>(`/v1/artifacts${query ? `?${query}` : ""}`);
 }
 
 export function getArtifact(id: string): Promise<ApiResult<ArtifactResponse>> {

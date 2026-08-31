@@ -204,3 +204,61 @@ export function formatDateOrRaw(instant: Instant, timeZone: string): string {
 export function formatInstantOrRaw(instant: Instant, timeZone: string): string {
   return formatInstant(instant, timeZone) ?? instant;
 }
+
+/**
+ * One belief value, formatted for display, or `null` when there is nothing to show.
+ *
+ * Three components rendered `value_json` and all three ended in
+ * `JSON.stringify`, so a state belief printed the literal string
+ * `{"state":"TERMINATED"}` in the same `.pv-figure` slot where a money belief
+ * printed `USD 1,800.00` — on the relationship file, at the largest type on the
+ * card. `docs/frontend/30_UX_SPEC.md` section 1113 is explicit that
+ * `value_json` is rendered *by* `value_type`, with raw JSON available in a
+ * disclosure rather than in the headline.
+ *
+ * The lineage rail had a second bug of the same family: it built money by hand
+ * as `` `${currency} ${amount}` ``, so one screen showed `USD 1,800.00` in the
+ * beliefs docket and `USD 1800.0000` for the same value three inches below.
+ * Both now come through `formatMoney`, which is the only place a currency and
+ * an amount become a string.
+ *
+ * Returning `null` rather than a placeholder keeps the absence decision with
+ * the caller, which is what lets each surface use `<Absent>` with a reason that
+ * fits it.
+ */
+export function formatBeliefValue(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (typeof value !== "object") return null;
+
+  const record = value as Record<string, unknown>;
+
+  const currency = record["currency"];
+  const amount = record["amount"];
+  if (typeof currency === "string" && typeof amount === "string") {
+    return formatMoney({ currency, amount });
+  }
+
+  const entries = Object.entries(record).filter(([, v]) => v !== null && v !== undefined);
+  if (entries.length === 0) return null;
+
+  // The common shape: a single-key envelope such as {"state": "TERMINATED"}.
+  // The key names the predicate, which is already printed beside this value, so
+  // showing the key again would be noise. The scalar is the fact.
+  if (entries.length === 1) {
+    const [, only] = entries[0] as [string, unknown];
+    if (typeof only === "string" || typeof only === "number" || typeof only === "boolean") {
+      return String(only);
+    }
+  }
+
+  // Anything genuinely composite reads as key=value pairs rather than as JSON
+  // punctuation. Still not the spec's definition list, and deliberately not a
+  // stringify.
+  return entries
+    .map(([key, v]) => `${key}=${typeof v === "object" ? "{…}" : String(v)}`)
+    .join(" · ");
+}

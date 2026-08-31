@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   abbreviateHash,
   daysBetween,
+  formatBeliefValue,
   formatDate,
   formatDateOrRaw,
   formatDecimal,
@@ -122,5 +123,60 @@ describe("hashes are abbreviated visibly, never silently", () => {
 
   it("returns a short hash untouched rather than padding it", () => {
     expect(abbreviateHash("abcd")).toBe("abcd");
+  });
+});
+
+/**
+ * One belief value, one formatter.
+ *
+ * Three components rendered `value_json` and all three fell through to
+ * `JSON.stringify`, so a state belief printed the literal `{"state":"TERMINATED"}`
+ * in the same headline slot where a money belief printed `USD 1,800.00`. The
+ * lineage rail additionally built money by hand, so one screen showed
+ * `USD 1,800.00` and `USD 1800.0000` for the same value.
+ */
+describe("formatBeliefValue", () => {
+  it("formats money through formatMoney, with separators and two places", () => {
+    expect(formatBeliefValue({ currency: "USD", amount: "1800.0000" })).toBe("USD 1,800.00");
+  });
+
+  it("never renders a money value two different ways", () => {
+    const money = { currency: "USD", amount: "1800.0000" };
+    expect(formatBeliefValue(money)).toBe(formatMoney(money));
+  });
+
+  it("unwraps a single-key envelope to its scalar", () => {
+    expect(formatBeliefValue({ state: "TERMINATED" })).toBe("TERMINATED");
+    expect(formatBeliefValue({ state: "ACTIVE" })).toBe("ACTIVE");
+  });
+
+  it("renders primitives as themselves", () => {
+    expect(formatBeliefValue("OPEN")).toBe("OPEN");
+    expect(formatBeliefValue(42)).toBe("42");
+    expect(formatBeliefValue(false)).toBe("false");
+  });
+
+  it("returns null for absence, so the caller can render <Absent>", () => {
+    expect(formatBeliefValue(null)).toBeNull();
+    expect(formatBeliefValue(undefined)).toBeNull();
+    expect(formatBeliefValue({})).toBeNull();
+  });
+
+  it("never emits JSON punctuation for a composite value", () => {
+    const out = formatBeliefValue({ state: "ACTIVE", since: "2026-05-15", nested: { a: 1 } });
+    expect(out).not.toBeNull();
+    expect(out).not.toContain('{"');
+    expect(out).not.toContain('":"');
+    expect(out).toContain("state=ACTIVE");
+  });
+
+  it("never returns the string 'undefined' or 'null'", () => {
+    for (const value of [{ state: undefined }, { a: null }, { a: null, b: "x" }]) {
+      const out = formatBeliefValue(value);
+      if (out !== null) {
+        expect(out).not.toContain("undefined");
+        expect(out).not.toContain("null");
+      }
+    }
   });
 });

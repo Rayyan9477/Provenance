@@ -1510,3 +1510,112 @@ def test_a_new_run_reconstructs_everything_from_the_deterministic_tools() -> Non
     assert [p.idempotency_key for p in first.memory_proposals] == [
         p.idempotency_key for p in second.memory_proposals
     ]
+
+
+# ---------------------------------------------------------------------------
+# The loop never raises — enforced, not just documented
+# ---------------------------------------------------------------------------
+#
+# `run_ingestion` has always *documented* that the loop never raises. On
+# 2026-08-29 a live run proved it did: a `ValidationError` from
+# `MemoryProposal` ("commitment cm_1 cites unknown claim cl_1") unwound the
+# whole walk and `ops/agent-graph-live-run.txt` recorded
+# `FAIL  graph walk raised`. The model's inconsistent proposal was ordinary and
+# the validator refusing it was correct; the exception escaping was the defect,
+# because it discards the visit order, the partial state and the reason code —
+# the three things a pending-review row needs to be actionable.
+#
+# These tests fail if the guard is removed.
+
+
+def _exploding_node(exc: Exception) -> Any:
+    def node(state: Any, deps: Any) -> Any:
+        raise exc
+
+    return node
+
+
+@pytest.mark.parametrize(
+    "node_name",
+    ["load_artifact_metadata", "extract_structured_evidence", "build_memory_proposal"],
+)
+def test_a_node_that_raises_becomes_fail_safe_rather_than_an_exception(
+    node_name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An exception from any dispatched node is recorded, not propagated."""
+    from agents.runtime.graphs import ingestion_graph as graph
+
+    boom = RuntimeError("the database went away mid-node")
+    monkeypatch.setitem(graph._NODE_FUNCTIONS, node_name, _exploding_node(boom))
+
+    deps, _parts = build_deps()
+    state = run_ingestion(start_state(), deps)  # must not raise
+
+    assert state.outcome is IngestionOutcome.FAIL_SAFE
+    assert state.halted is True
+    assert state.visits[-1] == node_name, "the failing node is in the visit order"
+    assert state.errors, "the failure is recorded"
+    error = state.errors[-1]
+    assert error.node == node_name
+    assert error.code == "NODE_RAISED"
+    assert "RuntimeError" in error.detail
+    assert "the database went away mid-node" in error.detail
+
+
+def test_the_validation_error_that_actually_escaped_is_now_contained(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The exact 2026-08-29 shape: a Pydantic refusal inside proposal building."""
+    from agents.runtime.graphs import ingestion_graph as graph
+
+    try:
+        MemoryProposal(proposal_id="not-a-uuid")  # type: ignore[call-arg]
+    except ValidationError as exc:
+        real = exc
+    else:  # pragma: no cover - MemoryProposal is strict; this branch means it stopped being
+        pytest.fail("MemoryProposal accepted an invalid payload")
+
+    monkeypatch.setitem(graph._NODE_FUNCTIONS, "build_memory_proposal", _exploding_node(real))
+
+    deps, _parts = build_deps()
+    state = run_ingestion(start_state(), deps)
+
+    assert state.outcome is IngestionOutcome.FAIL_SAFE
+    assert state.errors[-1].code == "NODE_RAISED"
+    assert "ValidationError" in state.errors[-1].detail
+
+
+def test_a_long_exception_message_is_bounded_in_the_recorded_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A traceback repr must not become the recorded row."""
+    from agents.runtime.graphs import ingestion_graph as graph
+
+    monkeypatch.setitem(
+        graph._NODE_FUNCTIONS,
+        "load_artifact_metadata",
+        _exploding_node(RuntimeError("x" * 5000)),
+    )
+
+    deps, _parts = build_deps()
+    state = run_ingestion(start_state(), deps)
+
+    assert len(state.errors[-1].detail) <= graph._DETAIL_MAX
+    assert state.errors[-1].detail.endswith("…")
+
+
+def test_keyboard_interrupt_is_not_written_down_as_a_graph_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An operator stopping a run is not a defect of the graph."""
+    from agents.runtime.graphs import ingestion_graph as graph
+
+    monkeypatch.setitem(
+        graph._NODE_FUNCTIONS,
+        "load_artifact_metadata",
+        _exploding_node(KeyboardInterrupt()),  # type: ignore[arg-type]
+    )
+
+    deps, _parts = build_deps()
+    with pytest.raises(KeyboardInterrupt):
+        run_ingestion(start_state(), deps)

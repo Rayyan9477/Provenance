@@ -172,3 +172,55 @@ describe("the typed view of the hero belief traces to real rows", () => {
     expect(text).not.toContain("belief_confidence=0.71 ");
   });
 });
+
+/**
+ * An empty collection is a fact, and it must not render as nothing.
+ *
+ * `field()` guarded null and undefined and stopped there. An empty array is
+ * neither, so it reached the formatter, where `[].join(",")` produced the empty
+ * string — and the dashboard, the first screen a reader sees, printed
+ * `reason_codes=` followed by nothing on a case with no reason codes.
+ *
+ * "None were recorded" and "we could not read them" are different claims that
+ * land in the same slot, which is why EMPTY_COLLECTION is its own reason rather
+ * than being folded into NULL_COLUMN.
+ */
+describe("an empty collection is an explicit absence", () => {
+  const src = { table: "cases", id: "case-1", row: { codes: [] as string[], name: "x" } };
+
+  it("does not render an empty array as an empty string", () => {
+    const f = field(src, "codes", { format: (c) => c.join(",") });
+    expect(f.state).toBe("ABSENT");
+    if (f.state === "ABSENT") expect(f.reason).toBe("EMPTY_COLLECTION");
+  });
+
+  it("distinguishes an empty collection from an unknown one", () => {
+    const nullSrc = { table: "cases", id: "case-1", row: { codes: null } };
+    const unknown = field(nullSrc as never, "codes" as never);
+    const empty = field(src, "codes", { format: (c) => c.join(",") });
+    expect(unknown.state).toBe("ABSENT");
+    expect(empty.state).toBe("ABSENT");
+    if (unknown.state === "ABSENT" && empty.state === "ABSENT") {
+      expect(unknown.reason).not.toBe(empty.reason);
+    }
+  });
+
+  it("treats a formatter that yields nothing the same way", () => {
+    const f = field(src, "name", { format: () => "" });
+    expect(f.state).toBe("ABSENT");
+  });
+
+  it("still renders a non-empty collection", () => {
+    const has = { table: "cases", id: "case-1", row: { codes: ["COMMITMENT_OVERDUE"] } };
+    const f = field(has, "codes", { format: (c) => c.join(",") });
+    expect(f.state).toBe("PRESENT");
+    if (f.state === "PRESENT") expect(f.text).toBe("COMMITMENT_OVERDUE");
+  });
+
+  it("still renders a genuine zero as a zero", () => {
+    const zero = { table: "cases", id: "case-1", row: { revision: 0 } };
+    const f = field(zero, "revision");
+    expect(f.state).toBe("PRESENT");
+    if (f.state === "PRESENT") expect(f.text).toBe("0");
+  });
+});

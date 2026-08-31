@@ -182,27 +182,75 @@ def test_a_missing_api_key_is_refused_at_the_point_of_use_not_at_startup() -> No
     assert "GOOGLE_API_KEY" in str(caught.value)
 
 
-def test_the_ids_carry_a_probe_required_marker_in_the_source() -> None:
-    """Documented-but-unprobed is a state the source must admit to.
+def test_the_probe_markers_agree_with_the_transcript() -> None:
+    """The marker beside each id is derived from the evidence, not maintained.
 
-    ``ops/gemini-probe.txt`` exists but records ``CANNOT RUN`` -- no key, no
-    invocation. Until it carries a PASS line, every id in this package is a
-    hypothesis, and the comment says so at the constant.
+    This assertion used to require ``# PROBE REQUIRED`` beside every id, with a
+    docstring explaining that the transcript recorded CANNOT RUN and that
+    "until it carries a PASS line, every id in this package is a hypothesis."
+    The transcript then carried PASS lines for all of them, and the markers --
+    and the module docstring saying ``ops/gemini-probe.txt`` "does not exist"
+    -- stayed as they were for a week, in the file that defines this
+    submission's single most load-bearing claim.
+
+    Two facts kept in step by intention drift. So neither state is hardcoded
+    here: the verdict comes from the transcript through ``smoke.probe_verdict``
+    -- the same function the smoke tool uses, so "probed" has one definition
+    and the prefix collision it guards against (``gemini-3.5-flash`` inside
+    ``gemini-3.5-flash-lite``) is handled once -- and the marker must match it.
+
+    Removing a marker before the probe lands fails. Leaving one behind after it
+    lands fails too.
     """
     from pathlib import Path
 
     import agents.runtime.model_router.models as models_module
+    from agents.runtime.tools.smoke import probe_verdict, read_probe_transcript
 
-    source = Path(models_module.__file__).read_text(encoding="utf-8")
+    module_path = Path(models_module.__file__).resolve()
+    repo_root = next(parent for parent in module_path.parents if (parent / "ops").is_dir())
+    transcript = read_probe_transcript(repo_root)
+    source_lines = module_path.read_text(encoding="utf-8").splitlines()
+
     for default in (
         DEFAULT_REASONING_MODEL_ID,
         DEFAULT_EXTRACTION_MODEL_ID,
         DEFAULT_REASONING_FALLBACK_MODEL_ID,
     ):
-        line = next(row for row in source.splitlines() if f'"{default}"' in row)
-        index = source.splitlines().index(line)
-        window = "\n".join(source.splitlines()[max(0, index - 6) : index + 1])
-        assert "# PROBE REQUIRED" in window, f"{default} has no PROBE REQUIRED marker"
+        index = next(i for i, row in enumerate(source_lines) if f'"{default}"' in row)
+        window = chr(10).join(source_lines[max(0, index - 6) : index + 1])
+        passed = probe_verdict(default, transcript) == "PASS"
+
+        if passed:
+            assert "# PROBED" in window, (
+                f"{default} has a PASS line in ops/gemini-probe.txt but its "
+                "source marker still says the id is unprobed"
+            )
+            assert "PROBE REQUIRED" not in window, (
+                f"{default} is probed; the PROBE REQUIRED marker should have "
+                "been removed in the change that committed the transcript"
+            )
+        else:
+            assert "# PROBE REQUIRED" in window, (
+                f"{default} has no PASS line in ops/gemini-probe.txt, so the "
+                "source must admit the id is documented but unprobed"
+            )
+
+
+def test_the_module_docstring_does_not_deny_the_committed_transcript() -> None:
+    """The header said the transcript "does not exist" while it sat in ops/."""
+    from pathlib import Path
+
+    import agents.runtime.model_router.models as models_module
+
+    docstring = models_module.__doc__ or ""
+    module_path = Path(models_module.__file__).resolve()
+    repo_root = next(parent for parent in module_path.parents if (parent / "ops").is_dir())
+    if (repo_root / "ops" / "gemini-probe.txt").is_file():
+        assert "does not exist" not in docstring, (
+            "ops/gemini-probe.txt is committed, but this module's docstring "
+            "still tells the reader it does not"
+        )
 
 
 # ===========================================================================

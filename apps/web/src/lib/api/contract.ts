@@ -32,6 +32,26 @@ export type AttentionLevel = (typeof ATTENTION_LEVELS)[number];
 export const RETRACTION_STATUSES = ["ACTIVE", "RETRACTED", "SUPERSEDED", "QUARANTINED"] as const;
 export type RetractionStatus = (typeof RETRACTION_STATUSES)[number];
 
+/**
+ * How strongly Provenance holds a belief version (`EpistemicStatus` in
+ * `specs/11_CONTRACTS.md`).
+ *
+ * `BeliefVersion.epistemic_status` stays typed as `string` rather than as this union.
+ * The value arrives from the control plane, and a payload carrying a seventh status must
+ * render as that seventh status rather than fail to type-check in the browser. The
+ * vocabulary is exported so a surface can ask whether a value is one it recognises, which
+ * is a question about the payload, not a promise about it.
+ */
+export const EPISTEMIC_STATUSES = [
+  "CONFIRMED",
+  "PROBABLE",
+  "UNCERTAIN",
+  "DISPUTED",
+  "SUPERSEDED",
+  "RETRACTED",
+] as const;
+export type EpistemicStatus = (typeof EPISTEMIC_STATUSES)[number];
+
 export const TRIGGER_TYPES = [
   "COMMITMENT_DEADLINE",
   "RESPONSE_DEADLINE",
@@ -156,7 +176,16 @@ export interface VersionResponse {
   readonly contracts_schema_version: string;
   readonly region: string;
   readonly built_at: Instant;
-  readonly schema_revision: string;
+  /**
+   * Nullable, and the type said otherwise until 2026-08-31.
+   *
+   * `SCHEMA_REVISION` is an ordinary environment variable with no default, so a
+   * deployment that does not set it serves `null` here -- which is what Cloud
+   * Run did. Declaring it `string` did not make it one; it just moved the
+   * discovery to the render, where `schema={null}` came out as a bare
+   * `schema=` on the status strip of every screen.
+   */
+  readonly schema_revision: string | null;
   readonly fixture_mode: boolean;
   readonly agent_mode: "LIVE" | "FIXTURE" | "DEGRADED";
   readonly otlp_export: "ENABLED" | "DISABLED" | "FAILING";
@@ -285,14 +314,24 @@ export interface RelationshipResponse {
   // that happened to sit inside a context rendered fine.
   readonly context: { readonly context_id: Uuid; readonly title: string } | null;
   readonly cases: readonly RelationshipCaseRef[];
+  /**
+   * Exactly the three keys the API builds.
+   *
+   * This declared seven. `adapters/read.py` constructs `total_cases`,
+   * `open_cases` and `outstanding` and nothing else, so `active_conflicts`,
+   * `unresolved_commitments`, `first_evidence_at` and `last_evidence_at` were
+   * types with no values behind them. The relationship page read three of them
+   * and rendered the results: an empty `.pv-figure` under the heading
+   * "Unresolved commitments", and the line " active conflicts" with no number
+   * in front of it, on every relationship file.
+   *
+   * Declaring a field does not make the server send it. Narrowing the type to
+   * what is actually built turns that class of bug into a compile error.
+   */
   readonly summary: {
     readonly total_cases: number;
     readonly open_cases: number;
-    readonly active_conflicts: number;
-    readonly unresolved_commitments: number;
     readonly outstanding: readonly Money[];
-    readonly first_evidence_at: Instant | null;
-    readonly last_evidence_at: Instant | null;
   };
 }
 
@@ -608,6 +647,26 @@ export type PredicateAst =
   | { readonly op: "CONST"; readonly value: string }
   | { readonly op: string; readonly args: readonly PredicateAst[] };
 
+/**
+ * What `predicate_ast` actually carries on the wire.
+ *
+ * The stored column is a wrapper around the node, not the node:
+ * `{ast_version, bindings, predicate}`. This type said `PredicateAst`, which is
+ * the node, so `renderAst` read `.op` off the wrapper, found nothing, and
+ * printed the literal string `(undefined )` on the Watches screen. The API made
+ * the mirror mistake on the same value and returned
+ * `predicate_summary: "No predicate recorded."` for a trigger carrying seven
+ * clauses.
+ *
+ * Both are fixed at their own end. The type is widened so the wrapper cannot be
+ * mistaken for a node again.
+ */
+export interface PredicateAstDocument {
+  readonly ast_version: string;
+  readonly bindings: Readonly<Record<string, { readonly id: Uuid; readonly kind: string }>>;
+  readonly predicate: PredicateAst | null;
+}
+
 export interface TriggerItem {
   readonly trigger_id: Uuid;
   readonly case_id: Uuid;
@@ -624,7 +683,7 @@ export interface TriggerItem {
   readonly schedule_name: string | null;
   /** Deterministic template output, not a model sentence. */
   readonly predicate_summary: string;
-  readonly predicate_ast: PredicateAst;
+  readonly predicate_ast: PredicateAstDocument | PredicateAst;
   readonly last_evaluation: {
     readonly evaluated_at: Instant;
     readonly result: TriggerResult;

@@ -320,11 +320,7 @@ export const heroRelationships: Readonly<Record<string, RelationshipResponse>> =
     summary: {
       total_cases: 1,
       open_cases: 1,
-      active_conflicts: 0,
-      unresolved_commitments: 1,
       outstanding: [{ currency: "USD", amount: "1800.0000" }],
-      first_evidence_at: "2026-04-02T16:12:00.000Z",
-      last_evidence_at: "2026-07-14T18:22:00.000Z",
     },
   },
   [REL_ISP_OLD]: {
@@ -361,11 +357,7 @@ export const heroRelationships: Readonly<Record<string, RelationshipResponse>> =
     summary: {
       total_cases: 1,
       open_cases: 1,
-      active_conflicts: 1,
-      unresolved_commitments: 0,
       outstanding: [],
-      first_evidence_at: "2023-08-01T09:00:00.000Z",
-      last_evidence_at: NOW,
     },
   },
   [REL_MOVER]: {
@@ -402,11 +394,7 @@ export const heroRelationships: Readonly<Record<string, RelationshipResponse>> =
     summary: {
       total_cases: 1,
       open_cases: 1,
-      active_conflicts: 0,
-      unresolved_commitments: 1,
       outstanding: [{ currency: "USD", amount: "220.0000" }],
-      first_evidence_at: "2026-04-02T12:00:00.000Z",
-      last_evidence_at: "2026-06-12T21:40:00.000Z",
     },
   },
   [REL_EMPLOYER]: {
@@ -430,11 +418,7 @@ export const heroRelationships: Readonly<Record<string, RelationshipResponse>> =
     summary: {
       total_cases: 1,
       open_cases: 0,
-      active_conflicts: 0,
-      unresolved_commitments: 0,
       outstanding: [],
-      first_evidence_at: "2026-04-20T09:00:00.000Z",
-      last_evidence_at: "2026-06-20T00:00:00.000Z",
     },
   },
   [REL_ISP_NEW]: {
@@ -458,11 +442,7 @@ export const heroRelationships: Readonly<Record<string, RelationshipResponse>> =
     summary: {
       total_cases: 0,
       open_cases: 0,
-      active_conflicts: 0,
-      unresolved_commitments: 0,
       outstanding: [],
-      first_evidence_at: "2026-04-10T09:00:00.000Z",
-      last_evidence_at: "2026-08-01T09:00:00.000Z",
     },
   },
 };

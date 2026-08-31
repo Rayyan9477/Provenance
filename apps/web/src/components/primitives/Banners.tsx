@@ -1,4 +1,5 @@
 import type { VersionResponse } from "@/lib/api/contract";
+import { Absent } from "./Absent";
 
 /**
  * Two disclosures. They mean different things and must never be confused.
@@ -69,8 +70,17 @@ export function BuildStamp({ version }: { readonly version: VersionResponse | nu
   }
   return (
     <span className="pv-mono" data-build-stamp={version.git_sha}>
-      git_sha={version.git_sha} schema={version.schema_revision} agent_mode={version.agent_mode}{" "}
-      otlp={version.otlp_export} db_ok={String(version.db_ok)}
+      git_sha={version.git_sha} schema=
+      {version.schema_revision === null || version.schema_revision === "" ? (
+        /* An unset SCHEMA_REVISION rendered as a bare "schema=", which reads as
+           a field that broke rather than one nobody supplied. This is the same
+           rule the rest of the record follows: absence is marked, never
+           implied by a gap. */
+        <Absent describe="SCHEMA_REVISION is not set on this deployment" />
+      ) : (
+        version.schema_revision
+      )}{" "}
+      agent_mode={version.agent_mode} otlp={version.otlp_export} db_ok={String(version.db_ok)}
     </span>
   );
 }

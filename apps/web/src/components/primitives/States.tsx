@@ -74,7 +74,15 @@ export function ErrorState({
       ) : null}
       {traceId ? (
         <p className="pv-mono" style={{ marginTop: "var(--pv-space-2)" }}>
-          trace_id={traceId}
+          {/* `request_id`, not `trace_id`.
+              This is the per-request correlation id from the error envelope --
+              a UUIDv7, new on every request. Judge Mode renders the memory
+              trace's own id (a stable UUIDv5) thirteen lines above, under the
+              same label, so the page showed two different values called
+              trace_id and the one under the failure changed on every reload.
+              On a page whose adjacent panel asserts deterministic=true, the
+              natural reading was that the trace id is nondeterministic. */}
+          request_id={traceId}
         </p>
       ) : null}
       {children ? <div className="pv-prose">{children}</div> : null}
