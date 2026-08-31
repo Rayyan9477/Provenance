@@ -74,7 +74,7 @@ from scripts.seed.embedding_text import (
 )
 from scripts.seed.embeddings import EmbeddingResolver
 from scripts.seed.evidence import evidence_of
-from scripts.seed.ids import DEMO_ANCHOR_UTC, sid
+from scripts.seed.ids import DEMO_ANCHOR_UTC, days_before_anchor, sid
 from scripts.seed.retractions import RETRACTION_ARTIFACTS, RETRACTION_FIXTURES
 from scripts.seed.rows import SeedArtifact, SeedEvidence
 from scripts.seed.tenants import HERO_TENANT, HERO_USER, TENANTS, USERS
@@ -134,11 +134,26 @@ def load_small_planes(conn: psycopg.Connection[Any]) -> dict[str, int]:
     counts: dict[str, int] = {}
     now = DEMO_ANCHOR_UTC
 
+    # An account is not created at the instant the demo is set in.
+    #
+    # `now` is DEMO_ANCHOR, the demo clock, and tenants and users took it for
+    # `created_at` as well as `updated_at`. So the settings screen read
+    # "In record since 18 SEP 2026" for an account holding evidence from April
+    # onwards -- an account younger than its own record, and, against the real
+    # clock the same page prints, created in the future.
+    #
+    # 600 days before the anchor puts it in January 2025, before the earliest
+    # seeded artifact of any kind (the decoy field starts 2025-03-27). Derived
+    # from the anchor rather than written as a literal, because
+    # `test_seed_determinism.py` AST-scans this package for absolute instants
+    # and is right to.
+    account_opened = days_before_anchor(600)
+
     counts["tenants"] = dbmod.insert_batches(
         conn,
         "tenants",
         ("id", "name", "slug", "status", "created_at", "updated_at"),
-        [(t.id, t.name, t.slug, t.status, now, now) for t in TENANTS],
+        [(t.id, t.name, t.slug, t.status, account_opened, now) for t in TENANTS],
     )
     counts["users"] = dbmod.insert_batches(
         conn,
@@ -169,7 +184,7 @@ def load_small_planes(conn: psycopg.Connection[Any]) -> dict[str, int]:
                 u.app_role,
                 u.judge_mode_enabled,
                 u.status,
-                now,
+                account_opened,
                 now,
             )
             for u in USERS

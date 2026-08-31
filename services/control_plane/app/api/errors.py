@@ -292,6 +292,31 @@ DEFAULT_MESSAGE: Final[dict[ErrorCode, str]] = {
 
 _MESSAGE_MAX = 300
 
+
+def _fit(message: str, limit: int = _MESSAGE_MAX) -> str:
+    """Bring ``message`` under ``limit`` without cutting a word in half.
+
+    Section 4.1 caps a presentable message at 300 characters and that cap is
+    right: this envelope is public and an unbounded string is how a stack trace
+    escapes. But the cap used to be a bare slice, and a bare slice lands
+    wherever it lands. ``read.get_trace``'s message is 335 characters, so Judge
+    Mode -- the screen built for the people evaluating this -- rendered
+    "... Needs app/ob" and stopped. A sentence severed mid-word reads as a
+    broken product, which is the precise opposite of what an honest 501 is for.
+
+    So the cut steps back to the last space and marks the elision. The reader
+    sees a truncated sentence and knows it was truncated, rather than seeing a
+    mangled one and wondering what else here is half-built.
+    """
+    if len(message) <= limit:
+        return message
+    head = message[: limit - 1]
+    boundary = head.rfind(" ")
+    if boundary <= 0:
+        return head + "…"
+    return head[:boundary].rstrip(" ,;:.-") + "…"
+
+
 #: Codes whose 4xx/5xx response sets ``Retry-After`` (sections 1.5 and 4.3).
 _DEFAULT_HEADERS: Final[dict[ErrorCode, dict[str, str]]] = {
     ErrorCode.RETRYABLE_CONCURRENCY: {"Retry-After": "1"},
@@ -327,7 +352,7 @@ class ApiError(Exception):
                 "add it to the spec and to ErrorCode in the same change, or use an existing code"
             ) from exc
         self.http_status: int = http_status or DEFAULT_HTTP_STATUS[self.code]
-        self.message: str = (message or DEFAULT_MESSAGE[self.code])[:_MESSAGE_MAX]
+        self.message: str = _fit(message or DEFAULT_MESSAGE[self.code])
         self.details: dict[str, Any] = dict(details or {})
         self.headers: dict[str, str] = {
             **_DEFAULT_HEADERS.get(self.code, {}),

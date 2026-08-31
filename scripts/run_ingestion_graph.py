@@ -142,16 +142,32 @@ PASS: Final[str] = "PASS"
 FAIL: Final[str] = "FAIL"
 CANNOT_RUN: Final[str] = "CANNOT RUN"
 
-#: ``ck_agent_runs_graph`` admits four values and ``ingestion_graph`` is not one
-#: of them. ``agents/runtime/state.GRAPH_NAME_INGESTION`` is ``ingestion_graph``,
-#: so the constant the graph reports and the constant the column accepts have
-#: never agreed — nothing had ever written the row, so nothing had ever noticed.
-#: The mapping is explicit rather than a ``removesuffix`` so the disagreement is
-#: visible here instead of hidden inside a string operation.
-GRAPH_NAME_FOR_COLUMN: Final[Mapping[str, str]] = {
-    "ingestion_graph": "ingestion",
-    "advocate_graph": "advocate",
-}
+#: The four values ``ck_agent_runs_graph`` admits, restated here so a drift in
+#: the graph constants fails at import with a sentence instead of at the INSERT
+#: with a constraint violation.
+#:
+#: This replaces a translation table that mapped ``"ingestion_graph"`` ->
+#: ``"ingestion"``. That table was correct when it was written: the two
+#: constants genuinely disagreed. Then ``GRAPH_NAME_INGESTION`` was corrected at
+#: source to ``"ingestion"`` and the table was not deleted, so the lookup became
+#: ``GRAPH_NAME_FOR_COLUMN["ingestion"]`` -- a ``KeyError`` that took the whole
+#: runner down before its first model call. The evidence in
+#: ``ops/agent-graph-live-run.txt`` had been produced before the correction, so
+#: the transcript stayed green while the script that writes it could not start,
+#: which is the exact failure mode the transcript exists to rule out.
+#:
+#: An assertion rather than a mapping, because there is no translating left to
+#: do and a mapping that maps a thing to itself is an invitation to reintroduce
+#: the bug.
+LEGAL_GRAPH_NAMES: Final[frozenset[str]] = frozenset(
+    {"ingestion", "advocate", "resolver", "counterfactual"}
+)
+
+assert GRAPH_NAME_INGESTION in LEGAL_GRAPH_NAMES, (
+    f"agents.runtime.state.GRAPH_NAME_INGESTION is {GRAPH_NAME_INGESTION!r}, which "
+    f"ck_agent_runs_graph in db/migrations/versions/0008_events_infrastructure.py "
+    f"does not admit; it accepts {sorted(LEGAL_GRAPH_NAMES)}"
+)
 
 #: ``demo/artifacts/`` — ``CANONICAL_DECISIONS.md`` -> Repository layout canon.
 ARTIFACTS_DIR: Final[Path] = _REPO_ROOT / "demo" / "artifacts"
@@ -989,7 +1005,7 @@ def open_agent_run(
                 "tenant_id": binding.tenant_id,
                 "user_id": binding.user_id,
                 "trace_id": trace_id,
-                "graph_name": GRAPH_NAME_FOR_COLUMN[GRAPH_NAME_INGESTION],
+                "graph_name": GRAPH_NAME_INGESTION,
                 "graph_version": GRAPH_VERSION_INGESTION,
                 "model_route": json.dumps(model_route),
                 "started_at": started_at,
@@ -1307,13 +1323,45 @@ def run_one(
     # 7.2), so scoring it FAIL would report a working budget as a broken one.
     # The individual calls are printed underneath because a repair costs a real
     # request and a real bill, and hiding that would be the opposite mistake.
-    pending_nodes = {pending.node for pending in adapter.pending}
+    #
+    # A node the router gave up on is scored by WHY it gave up, because the two
+    # reasons are different questions and this file's own legend says a FAIL
+    # means "the graph, the prompt or the contract is wrong and must be
+    # corrected".
+    #
+    #   SCHEMA_REPAIR_EXHAUSTED  the model answered and its answer would not
+    #                            validate, twice. That is the graph, the prompt
+    #                            or the contract. FAIL.
+    #   MODEL_INVOCATION_FAILED  the provider did not answer at all. On
+    #                            2026-08-31 gemini-3.7-flash returned 503
+    #                            UNAVAILABLE ("this model is currently
+    #                            experiencing high demand") and 504
+    #                            DEADLINE_EXCEEDED to a two-word prompt, three
+    #                            times in a row, while gemini-3.5-flash-lite
+    #                            answered in 0.6s. Nothing about the graph was
+    #                            measured, so the question is still OPEN.
+    #                            CANNOT RUN.
+    #
+    # Recording a provider capacity failure as FAIL sends a reader to fix a
+    # prompt that is not broken, and inflates the FAIL count of the transcript
+    # this project offers as its agent evidence. It is the same misreading the
+    # submission gate was corrected for: a denial is not an affirmation, and an
+    # unanswered question is not a wrong answer.
+    invocation_failed = "MODEL_INVOCATION_FAILED"
+    pending_by_node = {pending.node: pending for pending in adapter.pending}
     for node in sorted({record.node for record in adapter.calls}):
         node_calls = [record for record in adapter.calls if record.node == node]
         spec = route(node)
         served = sorted({record.model_id for record in node_calls})
+        pending = pending_by_node.get(node)
+        if pending is None:
+            node_verdict = PASS
+        elif pending.reason_code == invocation_failed:
+            node_verdict = CANNOT_RUN
+        else:
+            node_verdict = FAIL
         transcript.verdict(
-            FAIL if node in pending_nodes else PASS,
+            node_verdict,
             node,
             f"tier={spec.tier.value} model={', '.join(served)} calls={len(node_calls)} "
             f"repaired={any(record.repair_attempts for record in node_calls)} "

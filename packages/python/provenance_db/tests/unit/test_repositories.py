@@ -570,3 +570,126 @@ def test_the_ann_entry_point_is_reachable_under_its_canonical_name() -> None:
     module = __import__("provenance_db.repositories.evidence", fromlist=["ann_search"])
     assert callable(module.ann_search)
     assert inspect.iscoroutinefunction(module.ann_search)
+
+
+# ---------------------------------------------------------------------------
+# The ANN cast width follows the active embedding profile
+# ---------------------------------------------------------------------------
+#
+# render_ann_sql used to write "%s::VECTOR(1024)" as a literal. That is the
+# correct width today -- the corpus is 18,035 titan-v1 vectors -- and silently
+# wrong the moment the profile moves. Migration 0009 widens the column to 1536
+# for the Gemini space, and config.py describes that flip as gated on
+# prerequisites it does not own; with the width frozen here, the flip would
+# leave the only ANN renderer in the system casting every query to the old
+# width, and the first sign would be the database refusing a live query.
+
+
+def test_the_ann_cast_width_is_the_active_profile_width() -> None:
+    """The rendered cast agrees with the profile the system says is active."""
+    import re
+
+    from services.control_plane.app.retrieval.ann import render_ann_sql
+    from services.control_plane.app.retrieval.config import ACTIVE_EMBEDDING_PROFILE
+
+    widths = {int(w) for w in re.findall(r"::VECTOR\((\d+)\)", render_ann_sql())}
+    assert widths, "the query no longer casts the bound vector at all"
+    assert widths == {ACTIVE_EMBEDDING_PROFILE.column_width}, (
+        f"render_ann_sql casts to {sorted(widths)} but the active profile "
+        f"{ACTIVE_EMBEDDING_PROFILE.name!r} declares "
+        f"VECTOR({ACTIVE_EMBEDDING_PROFILE.column_width})"
+    )
+
+
+def test_the_ann_cast_width_is_not_a_literal_in_the_source() -> None:
+    """A regression guard: the failure mode is a hardcode, so look for one."""
+    import inspect
+    import re
+
+    from services.control_plane.app.retrieval import ann
+
+    source = inspect.getsource(ann.render_ann_sql)
+    # Comments are stripped first: the fix's own explanation names the old
+    # literal, and a guard that cannot tell code from prose about code would
+    # fire on the commit that fixed the bug.
+    code = "\n".join(line for line in source.splitlines() if not line.lstrip().startswith("#"))
+    assert not re.search(r"VECTOR\(\d+\)", code), (
+        "the ANN cast width is hardcoded again; it must follow "
+        "ACTIVE_EMBEDDING_PROFILE.column_width"
+    )
+    assert "column_width" in code
+
+
+# ---------------------------------------------------------------------------
+# Keyset pagination over an ASC NULLS LAST ordering
+# ---------------------------------------------------------------------------
+#
+# `commitments.list_commitments_for_user` and `triggers.list_triggers_for_user`
+# both order `<col> ASC NULLS LAST, id ASC` and both carried the naive keyset:
+#
+#     AND (%(after_col)s IS NULL
+#          OR (col, id) > (%(after_col)s, %(after_id)s))
+#
+# which is wrong in two directions. With a cursor in the non-null section, a row
+# whose col IS NULL makes the row comparison evaluate to NULL rather than true,
+# so the whole NULLS-LAST tail is unreachable -- silently, because has_more has
+# already gone false. And a cursor minted from inside that tail carries a null
+# sort value, which satisfies the first branch and returns the list from the top
+# again.
+#
+# On the live cluster this hid three of four commitments: the only row with a
+# non-null due_at was page one, and the three without one could not be reached.
+#
+# These are text assertions because the behaviour needs a database. The live
+# check that settles it is in the commit message: paging with limit=1 now
+# reaches 4 of 4 commitments and 2 of 2 triggers with no duplicates.
+
+
+NULLS_LAST_KEYSETS = [
+    ("commitments", "list_commitments_for_user", "due_at", "cm"),
+    ("triggers", "list_triggers_for_user", "not_before", "t"),
+]
+
+
+@pytest.mark.parametrize(("module", "func", "col", "alias"), NULLS_LAST_KEYSETS)
+def test_the_nulls_last_keyset_is_not_the_naive_form(
+    module: str, func: str, col: str, alias: str
+) -> None:
+    """The naive predicate must not be what ships."""
+    import importlib
+    import inspect
+
+    mod = importlib.import_module(f"provenance_db.repositories.{module}")
+    source = inspect.getsource(mod)
+
+    naive = f"AND (%({'after_' + col})s::TIMESTAMPTZ IS NULL\n           OR ({alias}.{col}, {alias}.id) > ("
+    assert naive not in source, (
+        f"{module} is back on the naive keyset: rows with a NULL {col} are "
+        "unreachable once a cursor is issued"
+    )
+
+
+@pytest.mark.parametrize(("module", "func", "col", "alias"), NULLS_LAST_KEYSETS)
+def test_the_nulls_last_keyset_discriminates_on_after_id(
+    module: str, func: str, col: str, alias: str
+) -> None:
+    """`after_id` is what distinguishes "no cursor" from "a cursor in the tail".
+
+    The sort value is legitimately NULL inside the NULLS-LAST tail, so it cannot
+    be the thing that means "no cursor was supplied". Only `after_id` can.
+    """
+    import importlib
+    import inspect
+
+    source = inspect.getsource(importlib.import_module(f"provenance_db.repositories.{module}"))
+
+    assert "%(after_id)s::UUID IS NULL" in source, (
+        f"{module} no longer gates its keyset on after_id, so a cursor from "
+        "inside the null tail cannot be told from no cursor at all"
+    )
+    assert (
+        f"{alias}.{col} IS NULL AND {alias}.id > %(after_id)s::UUID" in source
+    ), f"{module} has no branch that walks the NULL {col} tail by id"
+    assert (
+        f"THEN {alias}.{col} IS NULL" in source
+    ), f"{module} does not admit the NULL {col} tail once past the non-null section"

@@ -85,13 +85,32 @@ def filter_fingerprint(**filters: Any) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()[:6]
 
 
+#: A decoded cursor: the sort key, then the last id.
+#:
+#: The sort key holds ``None`` where the ordered column was NULL. It used to be
+#: ``list[str]`` and `encode_cursor` stringified every part, so a NULL became the
+#: literal ``"None"`` and the statement it was bound into failed on
+#: ``'None'::TIMESTAMPTZ``. Naming the shape once means widening it is one edit
+#: rather than nine.
+DecodedCursor = tuple[list[str | None], uuid.UUID]
+
+
 def encode_cursor(
     sort_key: Sequence[Any], last_id: uuid.UUID, fingerprint: str, *, key: bytes
 ) -> str:
     payload = json.dumps(
         {
             "v": CURSOR_VERSION,
-            "k": [str(part) for part in sort_key],
+            # `None` is preserved as JSON null, NOT stringified.
+            #
+            # This was `str(part)`, which turned a NULL sort value into the
+            # literal string "None". A cursor minted from inside a NULLS-LAST
+            # tail therefore carried "None", the repository bound it straight
+            # into `%(after_due_at)s::TIMESTAMPTZ`, and the statement failed on
+            # `'None'::TIMESTAMPTZ` -- so the second and later rows of any NULL
+            # tail were unreachable through the API. The SQL keyset that handles
+            # the tail is correct; nothing could ever reach it.
+            "k": [None if part is None else str(part) for part in sort_key],
             "i": str(last_id),
             "f": fingerprint,
         },
@@ -101,7 +120,7 @@ def encode_cursor(
     return f"{_b64(payload)}.{_b64(signature)}"
 
 
-def decode_cursor(cursor: str, fingerprint: str, *, key: bytes) -> tuple[list[str], uuid.UUID]:
+def decode_cursor(cursor: str, fingerprint: str, *, key: bytes) -> DecodedCursor:
     try:
         body, signature = cursor.split(".", 1)
         payload = _unb64(body)
@@ -120,7 +139,9 @@ def decode_cursor(cursor: str, fingerprint: str, *, key: bytes) -> tuple[list[st
     if data.get("f") != fingerprint:
         raise ApiError(ErrorCode.INVALID_CURSOR, details={"reason": "FILTER_CHANGED"})
     try:
-        return [str(part) for part in data["k"]], uuid.UUID(str(data["i"]))
+        # Symmetrical: a JSON null decodes back to None rather than to "None".
+        sort_key = [None if part is None else str(part) for part in data["k"]]
+        return sort_key, uuid.UUID(str(data["i"]))
     except (KeyError, ValueError, TypeError) as exc:
         raise ApiError(ErrorCode.INVALID_CURSOR, details={"reason": "MALFORMED"}) from exc
 

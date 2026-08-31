@@ -65,6 +65,8 @@ from services.control_plane.app.api.app import create_app
 from services.control_plane.app.api.config import ApiConfig, Dependencies
 from services.control_plane.app.api.idempotency import InMemoryIdempotencyStore
 from services.control_plane.app.auth.jwt import CachingJwksProvider, https_jwks_fetcher
+from services.control_plane.app.ingestion import artifacts as ingestion_artifacts
+from services.control_plane.app.storage import object_store_for
 
 __all__ = ["Runtime", "build_app", "build_dependencies", "build_runtime"]
 
@@ -168,13 +170,31 @@ def build_runtime(settings: Any, *, config: ApiConfig | None = None) -> Runtime:
     policy = ActionPolicy.from_settings(settings)
     sink = DemoSink()
 
+    # One store, shared by the human upload path and the inbound worker path.
+    # `PV_PLATFORM` selects it, exactly as it selects the identity provider:
+    # storage must not be able to disagree with authentication about which
+    # cloud this deployment is on.
+    objects = object_store_for(settings)
+    # `agent_runs.model_route` is what makes the model disclosure checkable
+    # against persisted state (`CANONICAL_DECISIONS.md` -> *Disclosure*), so the
+    # ids a run records are the ids this deployment configured, never a
+    # constant that could drift from them.
+    model_route = _model_route(settings)
+
     read = SqlReadPort(
         app_pool,
-        feature_flags=_feature_flags(settings),
+        feature_flags=_feature_flags(settings, objects),
         clock=clock,
     )
     write = KernelWritePort(
-        app_pool, kernel_pool=kernel_pool, read=read, policy=policy, clock=clock
+        app_pool,
+        kernel_pool=kernel_pool,
+        read=read,
+        policy=policy,
+        clock=clock,
+        objects=objects,
+        model_route=model_route,
+        upload_url_ttl_seconds=settings.upload_url_ttl_seconds,
     )
     internal = KernelInternalPort(
         app_pool,
@@ -183,6 +203,8 @@ def build_runtime(settings: Any, *, config: ApiConfig | None = None) -> Runtime:
         policy=policy,
         sink=sink,
         clock=clock,
+        objects=objects,
+        model_route=model_route,
     )
     health = DbHealth(app_pool)
 
@@ -210,7 +232,24 @@ def build_dependencies(settings: Any) -> Dependencies:
     return build_runtime(settings).deps
 
 
-def _feature_flags(settings: Any) -> dict[str, bool]:
+def _model_route(settings: Any) -> dict[str, str]:
+    """``agent_runs.model_route``, read off the configured ids.
+
+    Not a constant: a deployment that pointed both tiers at one model -- the
+    documented response to a Tier R capacity failure -- must record the ids it
+    actually routed on, because ``proposals/submission.resolve_attribution``
+    refuses a proposal whose claimed model is not the one this column holds.
+    """
+    return {
+        "tier_e": getattr(settings, "gemini_extraction_model_id", None)
+        or ingestion_artifacts.DEFAULT_MODEL_ROUTE["tier_e"],
+        "tier_r": getattr(settings, "gemini_reasoning_model_id", None)
+        or ingestion_artifacts.DEFAULT_MODEL_ROUTE["tier_r"],
+        "embeddings": ingestion_artifacts.DEFAULT_MODEL_ROUTE["embeddings"],
+    }
+
+
+def _feature_flags(settings: Any, objects: Any = None) -> dict[str, bool]:
     """Section 8.3's ``feature_flags``, derived from what is actually configured.
 
     Each flag is read off the presence of the thing it enables rather than
@@ -227,9 +266,20 @@ def _feature_flags(settings: Any) -> dict[str, bool]:
     """
     return {
         "ses_inbound_enabled": bool(getattr(settings, "ses_ingest_domain", None)),
+        # Read off the store's own capability rather than off a bucket name.
+        # The filesystem store really stores objects -- it is the correct store
+        # for `PV_PLATFORM=local` -- but a browser cannot `PUT` to a `file:`
+        # URL, and a UI sent to an upload screen that cannot work is the
+        # "URL that does not work" failure one layer up. `browser_uploadable`
+        # is the property that distinguishes the two, so the flag says what a
+        # *client* can do rather than what the server has configured.
         "upload_ingest_enabled": bool(
-            getattr(settings, "s3_artifact_bucket", None)
-            or getattr(settings, "gcs_artifact_bucket", None)
+            getattr(objects, "browser_uploadable", False)
+            if objects is not None
+            else (
+                getattr(settings, "s3_artifact_bucket", None)
+                or getattr(settings, "gcs_artifact_bucket", None)
+            )
         ),
         # The counterfactual runs the graph twice against a live model
         # (`CANONICAL_DECISIONS.md` -> *Counterfactual*: same artifact, model,

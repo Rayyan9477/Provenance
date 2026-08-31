@@ -44,6 +44,7 @@ must be able to turn the whole money surface red.
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Iterable, MutableMapping
 from dataclasses import dataclass
 from decimal import Decimal
@@ -376,6 +377,7 @@ def install_sabotage(
     requested = sabotage_targets(raw)
     if not requested:
         return ()
+    _refuse_outside_a_test_run(requested)
     replaced: list[str] = []
     for symbol in symbols:
         if f"{module}.{symbol}" not in requested:
@@ -385,6 +387,43 @@ def install_sabotage(
         namespace[symbol] = _identity
         replaced.append(symbol)
     return tuple(replaced)
+
+
+def _refuse_outside_a_test_run(requested: frozenset[str] | set[str] | tuple[str, ...]) -> None:
+    """Refuse to neuter anything unless pytest is the running program.
+
+    ``PV_SABOTAGE`` is read from the environment at import time by shipped
+    runtime modules -- the Memory Kernel's invariant sweep, the route-class
+    auth check, the action executor's money comparison. That is deliberate and
+    it is what makes the sabotage matrix meaningful: the mechanism has to reach
+    the real code, or neutering it would prove nothing about the real code.
+
+    But "reads an environment variable at import" and "is in a deployed
+    container" together mean an operator, a leaked build config or a mistaken
+    ``--set-env-vars`` could disable invariant enforcement in production and
+    nothing would say so. The process would start, serve, and quietly stop
+    checking the things this system exists to check. A guard that silently
+    ignored the variable would be no better: the sabotage matrix would then
+    report green while proving nothing, which is the vacuous-pass failure this
+    repository has a linter for.
+
+    So the rule is neither "always honour it" nor "quietly ignore it": outside a
+    test run the variable is a configuration error and the process refuses to
+    start. ``tools/sabotage_run.py`` delivers every entry by spawning
+    ``python -m pytest`` with the variable set, so gating on pytest costs the
+    matrix nothing and cannot be satisfied by an environment an attacker
+    controls.
+    """
+    if "pytest" in sys.modules:
+        return
+    names = ", ".join(sorted(requested))
+    raise RuntimeError(
+        f"{SABOTAGE_ENV_VAR} is set to {names} but pytest is not running. This "
+        "variable replaces invariant, authorisation and money symbols with an "
+        "identity function; honouring it outside a test run would disable those "
+        "checks in a live process. Unset it, or deliver the sabotage the way "
+        "the matrix does: PV_SABOTAGE=<symbol> python -m pytest <tests>."
+    )
 
 
 #: The symbols this import actually neutered. ``()`` on every normal run.

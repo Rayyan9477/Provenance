@@ -485,19 +485,45 @@ async def test_list_active_evidence_for_case_executes_against_the_real_schema(
 # ==========================================================================
 # 3. Beliefs, commitments, triggers, actions, events, agent runs.
 #
-# The epistemic and obligation planes are empty in the seeded corpus: the
-# Kernel that writes them is Phase 4. An empty result is therefore the correct
-# answer, and it is still worth asserting — a statement that names a column
-# that does not exist raises `UndefinedColumn` before it can return anything,
-# so these are column-name proofs rather than row-count proofs, and they are
-# labelled as such rather than dressed up as more.
+# These are COLUMN-NAME proofs: a statement naming a column that does not
+# exist raises `UndefinedColumn` before it can return anything, so executing
+# at all is the thing being proved.
+#
+# They used to prove it by asserting `== []`, with a comment explaining that
+# "the epistemic and obligation planes are empty in the seeded corpus: the
+# Kernel that writes them is Phase 4". That was true when it was written and
+# stopped being true when Phase 4 landed and the Kernel began writing beliefs
+# and outbox rows. On 2026-08-31 the two assertions against the hero case went
+# red — not because anything broke, but because the system now does more.
+#
+# The deeper problem is that emptiness was never the claim. `== []` passes when
+# the query works and returns nothing, and equally when the query is scoped so
+# narrowly it could never return anything; it distinguishes neither from the
+# other. It was a vacuous assertion that happened to be green, which is the
+# failure this repository keeps a linter for.
+#
+# So a query against a REAL id now asserts shape — it executed, it returned
+# rows of the right form, and every row belongs to the principal that asked.
+# A query against a random UUID still asserts `== []`, because there emptiness
+# is a real prediction rather than an accident of what has been built yet.
 # ==========================================================================
 
 
 async def test_get_active_beliefs_for_case_executes(
     conn: psycopg.AsyncConnection[Any], hero: Principal, hero_case_id: uuid.UUID
 ) -> None:
-    assert await beliefs.get_active_beliefs_for_case(conn, hero, hero_case_id) == []
+    """It executes, and every row it returns belongs to the case that was asked for."""
+    rows = await beliefs.get_active_beliefs_for_case(conn, hero, hero_case_id)
+
+    assert isinstance(rows, list)
+    for row in rows:
+        # Naming each column is the point: a SELECT that dropped one would fail
+        # here rather than silently returning a narrower row.
+        for column in ("belief_id", "belief_version_id", "case_id", "belief_confidence"):
+            assert column in row, f"{column} is missing from an active-belief row"
+        assert (
+            row["case_id"] == hero_case_id
+        ), "a belief for another case reached a case-scoped read"
 
 
 async def test_get_belief_lineage_executes(
@@ -547,7 +573,15 @@ async def test_get_agent_run_executes(conn: psycopg.AsyncConnection[Any], hero: 
 async def test_get_undispatched_outbox_events_executes(
     conn: psycopg.AsyncConnection[Any], hero: Principal
 ) -> None:
-    assert await events.get_undispatched_outbox_events(conn, hero, limit=10) == []
+    """It executes, respects its limit, and returns rows of the documented shape."""
+    limit = 10
+    rows = await events.get_undispatched_outbox_events(conn, hero, limit=limit)
+
+    assert isinstance(rows, list)
+    assert len(rows) <= limit, "the limit is not being applied"
+    for row in rows:
+        for column in ("aggregate_id", "aggregate_type", "aggregate_version", "attempt_count"):
+            assert column in row, f"{column} is missing from an outbox row"
 
 
 # ==========================================================================

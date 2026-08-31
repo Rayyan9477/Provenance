@@ -62,6 +62,7 @@ from provenance_db.repositories import (
 from services.control_plane.app.api.adapters import render
 from services.control_plane.app.api.adapters.catalog import ConnectionSource, agent_view_names
 from services.control_plane.app.api.adapters.unbound import unbound
+from services.control_plane.app.api.pagination import DecodedCursor
 from services.control_plane.app.api.ports import OwnerScope
 
 __all__ = ["DEFAULT_FEATURE_FLAGS", "SqlReadPort"]
@@ -88,14 +89,16 @@ def _utcnow() -> datetime:
 
 
 def _after(
-    after: tuple[list[str], uuid.UUID] | None,
+    after: DecodedCursor | None,
 ) -> tuple[str | None, uuid.UUID | None]:
     """A decoded cursor as ``(sort_value, last_id)``.
 
-    The sort value stays a **string**. ``decode_cursor`` returns the tuple as
-    strings and the statements cast it -- ``%(after_...)s::TIMESTAMPTZ`` --
-    server-side, so there is no parse step here that could disagree with the
-    server about what ``2026-06-20T00:00:00+00:00`` means.
+    The sort value stays a **string**, or ``None`` where the ordered column was
+    NULL. ``decode_cursor`` returns it unparsed and the statements cast it --
+    ``%(after_...)s::TIMESTAMPTZ`` -- server-side, so there is no parse step here
+    that could disagree with the server about what
+    ``2026-06-20T00:00:00+00:00`` means. ``None`` is passed through as SQL NULL,
+    which is what the NULLS-LAST keyset branches on.
     """
     if after is None:
         return None, None
@@ -203,7 +206,7 @@ class SqlReadPort:
     # -- 8.5 - 8.7 --------------------------------------------------------
 
     async def list_contexts(
-        self, scope: OwnerScope, *, limit: int, after: tuple[list[str], uuid.UUID] | None = None
+        self, scope: OwnerScope, *, limit: int, after: DecodedCursor | None = None
     ) -> Rows:
         sort_value, last_id = _after(after)
         async with self._source.connection() as conn:
@@ -226,7 +229,7 @@ class SqlReadPort:
         scope: OwnerScope,
         *,
         limit: int,
-        after: tuple[list[str], uuid.UUID] | None = None,
+        after: DecodedCursor | None = None,
         **filters: Any,
     ) -> Rows:
         sort_value, last_id = _after(after)
@@ -289,6 +292,14 @@ class SqlReadPort:
                     "revision": int(c["revision"]),
                     "attention_level": c["attention_level"],
                     "case_type": c["case_type"],
+                    # RELATIONSHIP_CASES_SQL selects k.reopened_count and this
+                    # projection dropped it, so the field the frontend contract
+                    # declares non-optional arrived undefined. Every relationship
+                    # file rendered "reopened  times" -- a label with a blank
+                    # where a number belongs, on the screen whose thesis is that
+                    # absence is shown deliberately rather than leaked. The data
+                    # was already fetched; only this line was missing.
+                    "reopened_count": int(c["reopened_count"] or 0),
                     "opened_at": c["opened_at"],
                     "resolved_at": c.get("resolved_at"),
                     "last_activity_at": c["last_activity_at"],
@@ -309,7 +320,7 @@ class SqlReadPort:
         scope: OwnerScope,
         *,
         limit: int,
-        after: tuple[list[str], uuid.UUID] | None = None,
+        after: DecodedCursor | None = None,
         **filters: Any,
     ) -> Rows:
         sort_value, last_id = _after(after)
@@ -591,7 +602,7 @@ class SqlReadPort:
         scope: OwnerScope,
         *,
         limit: int,
-        after: tuple[list[str], uuid.UUID] | None = None,
+        after: DecodedCursor | None = None,
         **filters: Any,
     ) -> Rows:
         now = self._clock()
@@ -619,7 +630,7 @@ class SqlReadPort:
         scope: OwnerScope,
         *,
         limit: int,
-        after: tuple[list[str], uuid.UUID] | None = None,
+        after: DecodedCursor | None = None,
         **filters: Any,
     ) -> Rows:
         sort_value, last_id = _after(after)
@@ -642,7 +653,7 @@ class SqlReadPort:
         scope: OwnerScope,
         *,
         limit: int,
-        after: tuple[list[str], uuid.UUID] | None = None,
+        after: DecodedCursor | None = None,
         **filters: Any,
     ) -> Rows:
         sort_value, last_id = _after(after)
@@ -712,7 +723,7 @@ class SqlReadPort:
         scope: OwnerScope,
         *,
         limit: int,
-        after: tuple[list[str], uuid.UUID] | None = None,
+        after: DecodedCursor | None = None,
         **filters: Any,
     ) -> Rows:
         sort_value, last_id = _after(after)

@@ -40,18 +40,22 @@ __all__ = ["UNBOUND", "unbound"]
 #: the thing that has to exist.
 UNBOUND: Mapping[str, str] = {
     # -- ReadPort ---------------------------------------------------------
+    # Kept under the 300-character envelope cap deliberately: this exact string
+    # is what Judge Mode renders, and a message that needs truncating to reach a
+    # judge arrives mangled. errors._fit would now cut it cleanly, but a clean
+    # cut is still a cut. It says the whole thing instead.
     "read.get_trace": (
-        "the trace assembler. Section 8.28 defines seventeen closed node types "
-        "and builds the DAG from persisted runtime rows and spans; "
-        "CANONICAL_DECISIONS.md -> Judge Mode forbids a scripted animation, so "
-        "this cannot be synthesised from state_transitions alone. Needs "
-        "app/observability to persist spans first."
+        "the trace assembler. Section 8.28 builds the DAG from persisted "
+        "runtime rows and spans, and CANONICAL_DECISIONS.md -> Judge Mode "
+        "forbids a scripted animation, so it cannot be synthesised from "
+        "state_transitions alone. Needs app/observability to persist spans "
+        "first."
     ),
     "read.memory_trace": (
         "the trace assembler, as read.get_trace. Section 8.29 renders the same "
-        "DAG per case; it is the same shape from the same absent source, and "
-        "returning an empty traces[] would read as 'memory did nothing on this "
-        "case', which is the opposite of what this endpoint exists to show."
+        "DAG per case, from the same absent source. Returning an empty "
+        "traces[] would read as 'memory did nothing on this case', the "
+        "opposite of what this endpoint exists to show."
     ),
     # -- WritePort --------------------------------------------------------
     "write.create_correction": (
@@ -77,92 +81,12 @@ UNBOUND: Mapping[str, str] = {
         "them -- which write rule W2 forbids every other module from holding, "
         "W4 granting the app an INSERT and deliberately not an UPDATE."
     ),
-    "write.upload_intent": (
-        "the object-store client. Section 8.18 returns a pre-signed PUT for a key "
-        "the *server* chooses, and there is no S3/GCS client wired into the "
-        "control plane: nothing under app/ calls generate_presigned_url or "
-        "builds a storage client, and the one boto3 client in the tree is "
-        "app/retrieval/embeddings.py's bedrock-runtime, which is a model client "
-        "and not a store. No bucket is configured either -- S3_ARTIFACT_BUCKET "
-        "and GCS_ARTIFACT_BUCKET are both unset, which is why "
-        "main._feature_flags already reports upload_ingest_enabled=false. "
-        "Returning a URL that does not work would be worse than refusing."
-    ),
-    "write.complete_artifact": (
-        "the object-store client, then app/ingestion. Section 8.19 steps 1-3 are "
-        "a HeadObject, a ContentLength comparison and a ChecksumSHA256 "
-        "comparison against the stored object, so all three need the client "
-        "write.upload_intent is waiting on; step 5 enqueues the interpretation "
-        "run, which is Phase 7. There is also nothing for it to complete: the "
-        "only artifact reaching this endpoint is one write.upload_intent "
-        "created, and that is refused for the same missing client."
-    ),
     "write.rotate_ingest_alias": (
         "the ingest-alias minting path. Section 8.22 issues a new alias and "
         "disables the old one, and the plaintext token is returned exactly once "
         "-- which means the HMAC minting has to happen here, not in a seed."
     ),
-    "write.start_counterfactual": (
-        "the agent runtime. CANONICAL_DECISIONS.md -> Counterfactual requires the "
-        "same artifact, model, prompt and graph on both sides with only "
-        "retrieval and canonical memory differing; that parity is only "
-        "provable by actually running the graph twice."
-    ),
-    "write.get_counterfactual": (
-        "the agent runtime, as write.start_counterfactual. Section 8.31's parity "
-        "block compares six fields recorded by the two runs, and "
-        "parity.all_equal = false must suppress the output columns -- there is "
-        "nothing to read until the runs exist."
-    ),
-    "write.run_probe": (
-        "the model router. The probe invokes the configured Gemini ids and "
-        "records what answered; CANONICAL_DECISIONS.md -> Gemini model id canon "
-        "marks every id '# PROBE REQUIRED' until ops/gemini-probe.txt exists."
-    ),
     # -- InternalPort -----------------------------------------------------
-    "internal.ingest_artifact": (
-        "the object-store client, then app/ingestion. Section 9.1's body carries "
-        "the key the SES Lambda wrote -- 'ses/2026/06/05/...' in the spec's own "
-        "example -- and source_artifacts refuses it: "
-        "ck_source_artifacts_s3_key_shape is CHECK (s3_key LIKE 'raw/%'), so the "
-        "INSERT fails at the database rather than at a missing helper. Section "
-        "8.18 fixes the layout at raw/{tenant_id}/{user_id}/{artifact_id}/"
-        "original, so the row can only be written once the bytes have been "
-        "copied into that prefix -- and what copies them is the client "
-        "write.upload_intent is waiting on. Synthesising a raw/ key without the "
-        "copy satisfies the CHECK and stores a locator for bytes nobody wrote."
-    ),
-    "internal.artifact_content": (
-        "the parser first, then the object-store client. Section 9.3 hands the "
-        "graph the parsed content blocks for the artifact its capability is bound "
-        "to, and nothing in this system has ever produced or stored one: no "
-        "migration creates a table or a column that holds a block, app/ingestion "
-        "and workers/textract_complete each hold nothing but a docstring, and "
-        "agents/runtime/state.py's ArtifactReader is a Protocol whose only "
-        "implementation is a test fake. Section 8.18 puts parser output at "
-        "normalized/{tenant_id}/{user_id}/{artifact_id}/parser-v{n}.json, in the "
-        "store that does not exist either. Every source_artifacts row the seed "
-        "writes carries parser_status='PARSED' and parser_version='seed-1.0.0', "
-        "so that column asserts a parse whose output nobody can read back."
-    ),
-    "internal.register_evidence": (
-        "app/ingestion, and two of section 9.4's five steps have no mechanism. "
-        "Admitting the row is the easy half -- evidence_items INSERT is "
-        "app-permitted under write rule W4 -- and it belongs in the ingestion "
-        "module where the parser is, not in an API adapter. Steps 1 and 2 are "
-        "the block-exists and span-is-inside-the-block checks, which the spec "
-        "calls the deterministic defence against a model inventing a quotation, "
-        "and they have nothing to check against: see internal.artifact_content, "
-        "the endpoint a run would have fetched those blocks from. Step 4 stamps "
-        "a server-computed embedding, and the embedder this build ships -- "
-        "GeminiEmbedder over gemini-embedding-2, 1536 wide -- returns a vector "
-        "evidence_items cannot hold: the applied column is VECTOR(1024) and "
-        "ck_evidence_embedding_model admits only amazon.titan-embed-text-v2:0. "
-        "Migration 0009 widens both and is deliberately unapplied. The one legal "
-        "write is embedding=NULL, which silently excludes the row from every ANN "
-        "query -- in a table that is append-only, so it cannot be corrected in "
-        "place."
-    ),
     "internal.retrieve": (
         "the retrieval pipeline's executor. app/retrieval has the ANN statement, "
         "the predicates, the reranker and the stage order, but no module that "

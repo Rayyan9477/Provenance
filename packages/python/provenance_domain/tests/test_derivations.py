@@ -26,6 +26,7 @@ to catch, written into the proof itself.
 from __future__ import annotations
 
 import inspect
+import sys
 from datetime import date
 from decimal import Decimal
 
@@ -337,3 +338,71 @@ def test_pv_sabotage_hook_can_neuter_the_outstanding_identity() -> None:
         "committed_amount",
         "admitted_fulfilment_amount",
     ]
+
+
+# ---------------------------------------------------------------------------
+# PV_SABOTAGE is refused outside a test run
+# ---------------------------------------------------------------------------
+#
+# The variable is read at import by shipped runtime modules -- the Kernel's
+# invariant sweep, the route-class auth check, the executor's money comparison
+# -- which is what makes the sabotage matrix prove something about the real
+# code. The same property means a stray `--set-env-vars` could disable those
+# checks in a deployed container with nothing to show for it.
+#
+# Silently ignoring the variable would be the worse fix: the matrix would then
+# report green while neutering nothing, which is the vacuous pass this
+# repository keeps a linter for. So outside pytest it is a configuration error
+# and the import fails.
+
+
+def test_the_sabotage_hook_refuses_to_install_outside_pytest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without pytest in sys.modules the installer raises rather than neuters."""
+    monkeypatch.delitem(sys.modules, "pytest", raising=False)
+
+    with pytest.raises(RuntimeError) as caught:
+        money.install_sabotage(
+            {"outstanding": money.outstanding},
+            "provenance_domain.money",
+            ("outstanding",),
+            "provenance_domain.money.outstanding",
+        )
+
+    message = str(caught.value)
+    assert "PV_SABOTAGE" in message
+    assert "pytest is not running" in message
+    assert "provenance_domain.money.outstanding" in message, "it names what was asked for"
+
+
+def test_the_refusal_leaves_the_namespace_untouched(monkeypatch: pytest.MonkeyPatch) -> None:
+    """It refuses before replacing anything, so a caught error cannot half-apply."""
+    monkeypatch.delitem(sys.modules, "pytest", raising=False)
+    namespace: dict[str, object] = {"outstanding": money.outstanding}
+
+    with pytest.raises(RuntimeError):
+        money.install_sabotage(
+            namespace,
+            "provenance_domain.money",
+            ("outstanding",),
+            "provenance_domain.money.outstanding",
+        )
+
+    assert namespace["outstanding"] is money.outstanding
+
+
+def test_an_unset_variable_is_not_an_error_outside_pytest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ordinary production imports must stay silent -- this is the common path."""
+    monkeypatch.delitem(sys.modules, "pytest", raising=False)
+    namespace: dict[str, object] = {"outstanding": money.outstanding}
+
+    assert (
+        money.install_sabotage(namespace, "provenance_domain.money", ("outstanding",), None) == ()
+    )
+    assert (
+        money.install_sabotage(namespace, "provenance_domain.money", ("outstanding",), "  ") == ()
+    )
+    assert namespace["outstanding"] is money.outstanding

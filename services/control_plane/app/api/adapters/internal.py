@@ -61,6 +61,7 @@ closed differently rather than uniformly:
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from collections.abc import Callable, Mapping
 from datetime import datetime
@@ -82,6 +83,7 @@ from services.control_plane.app.actions import (
 from services.control_plane.app.actions import (
     executor as action_executor,
 )
+from services.control_plane.app.api import context
 from services.control_plane.app.api.adapters import action_errors, render
 from services.control_plane.app.api.adapters.catalog import ConnectionSource
 from services.control_plane.app.api.adapters.unbound import unbound
@@ -92,16 +94,34 @@ from services.control_plane.app.events.consumer import ConsumptionOutcome, Idemp
 from services.control_plane.app.events.dispatcher import OutboxDispatcher
 from services.control_plane.app.events.store import SqlConsumerUnitOfWork, SqlOutboxStore
 from services.control_plane.app.events.transport import InProcessTransport, PublishedEvent
+from services.control_plane.app.ingestion import artifacts as ingestion_artifacts
+from services.control_plane.app.ingestion import blocks as ingestion_blocks
+from services.control_plane.app.ingestion import evidence as ingestion_evidence
 from services.control_plane.app.memory_kernel import preflight
 from services.control_plane.app.memory_kernel.trigger_commit import KernelTriggerWriter
 from services.control_plane.app.observability import runs as observability_runs
 from services.control_plane.app.proposals import submission
+from services.control_plane.app.storage import (
+    ObjectStore,
+    ObjectStoreError,
+    UnconfiguredObjectStore,
+    raw_key,
+)
 from services.control_plane.app.triggers import service as trigger_service
 from services.control_plane.app.triggers.store import SqlProjectionReader, SqlTriggerStore
 
 __all__ = ["KernelInternalPort"]
 
 Row = dict[str, Any]
+
+#: ``ck_source_artifacts_source_type`` admits seven values and this is the one
+#: an inbound message carries. Section 9.1 has no field for it: the source type
+#: is what the *route* was, and a caller that could name it could claim to be
+#: the provider's mail server.
+INBOUND_SOURCE_TYPE: Final[str] = "EMAIL_INBOUND"
+
+#: ``ck_source_artifacts_mime`` admits five values; inbound mail is RFC 822.
+INBOUND_MIME_TYPE: Final[str] = "message/rfc822"
 
 
 class KernelInternalPort:
@@ -118,6 +138,8 @@ class KernelInternalPort:
         "_clock",
         "_consumer_unit_of_work",
         "_kernel_pool",
+        "_model_route",
+        "_objects",
         "_outbox_store",
         "_policy",
         "_projection_reader",
@@ -150,6 +172,8 @@ class KernelInternalPort:
         outbox_store: Any = None,
         transport: Any = None,
         consumer_unit_of_work: Any = None,
+        objects: ObjectStore | None = None,
+        model_route: Mapping[str, str] | None = None,
     ) -> None:
         self._source = source
         self._kernel_pool = kernel_pool
@@ -171,6 +195,13 @@ class KernelInternalPort:
         self._outbox_store = outbox_store or SqlOutboxStore(source)
         self._transport = transport or InProcessTransport()
         self._consumer_unit_of_work = consumer_unit_of_work or SqlConsumerUnitOfWork(source)
+        # Section 9.1 needs an object store to copy the worker's bytes into the
+        # `raw/` prefix `ck_source_artifacts_s3_key_shape` requires. It is
+        # injected rather than constructed here for the same reason the four
+        # Phase 10 boundaries above are: the hermetic suites drive the real
+        # adapter with a real filesystem store and no cluster.
+        self._objects = objects if objects is not None else UnconfiguredObjectStore("PV_PLATFORM")
+        self._model_route = dict(model_route or ingestion_artifacts.DEFAULT_MODEL_ROUTE)
 
     def _executor(self, conn: Any) -> ActionExecutor:
         """One executor per connection, per call.
@@ -193,8 +224,167 @@ class KernelInternalPort:
     # -- 9.1 - 9.3 --------------------------------------------------------
 
     async def ingest_artifact(self, binding: CapabilityBinding, payload: Any) -> Row:
-        del binding, payload
-        unbound("internal.ingest_artifact")
+        """Section 9.1. The inbound key is read; the stored key is minted.
+
+        Steps 1-3 are the route's: it resolved the alias into this binding,
+        rejected an oversized message and refused a failed virus or spam
+        verdict. What is left is the part that needed an object store.
+
+        **The bytes are copied before the row is written, and that ordering is
+        a constraint rather than a preference.** The applied
+        ``ck_source_artifacts_s3_key_shape`` admits only a key under the
+        ``raw/`` prefix, and section 9.1's body carries the key the SES worker
+        wrote -- ``ses/2026/06/05/...`` in the spec's own example. So the row
+        can only name a key this server minted, and the only honest way to have
+        one is to have put the bytes there. Synthesising a ``raw/`` key without
+        the copy satisfies the CHECK and stores a locator for bytes nobody
+        wrote; the first symptom is a download that 404s months later against a
+        row that looks perfect.
+
+        The digest is **recomputed from the copied bytes** and compared with the
+        declared ``content_sha256``. The declaration is a claim by a worker; the
+        digest is a measurement, and ``uq_source_artifacts_content`` deduplicates
+        on it -- so a wrong one lets the same message in twice, or collides two
+        different ones.
+
+        The store I/O happens before any connection is taken. Object-store I/O
+        is a network call in every implementation but the local one, and
+        ``CANONICAL_DECISIONS.md`` -> *Transaction isolation* forbids one inside
+        a transaction; holding a pooled connection across it is the same mistake
+        one step earlier.
+        """
+        try:
+            data = await self._objects.get(payload.s3_key)
+        except ObjectStoreError as exc:
+            raise ApiError(
+                ErrorCode.ARTIFACT_OBJECT_MISSING,
+                details={"s3_key": payload.s3_key, "detail": str(exc)},
+            ) from exc
+
+        digest = hashlib.sha256(data).hexdigest()
+        if digest != payload.content_sha256:
+            raise ApiError(
+                ErrorCode.ARTIFACT_HASH_MISMATCH,
+                details={
+                    "declared_sha256": payload.content_sha256,
+                    "computed_sha256": digest,
+                },
+            )
+        if payload.size_bytes and len(data) != payload.size_bytes:
+            raise ApiError(
+                ErrorCode.ARTIFACT_SIZE_MISMATCH,
+                details={
+                    "declared_size_bytes": payload.size_bytes,
+                    "stored_size_bytes": len(data),
+                },
+            )
+
+        # The message is the authority on its own headers. Section 9.1 lets the
+        # worker declare them; a declared subject that disagrees with the
+        # message is exactly the unverified assertion this path removes.
+        headers = ingestion_blocks.artifact_headers(data)
+        message_id = headers["source_message_id"] or payload.source_message_id
+
+        async with self._source.connection() as conn:
+            duplicate = await ingestion_artifacts.existing_artifact_id(
+                conn,
+                tenant_id=binding.tenant_id,
+                user_id=binding.user_id,
+                content_sha256_hex=digest,
+                source_type=INBOUND_SOURCE_TYPE,
+                source_message_id=message_id,
+            )
+        if duplicate is not None:
+            # Duplicate bytes never create duplicate business state, and no new
+            # run is opened: interpreting one message twice is how one artifact
+            # becomes two beliefs.
+            return {
+                "artifact_id": str(duplicate),
+                "status": "DUPLICATE",
+                "duplicate_of": str(duplicate),
+                "agent_run_id": None,
+                "trace_id": None,
+            }
+
+        artifact_id = context.new_uuid7()
+        key = raw_key(tenant_id=binding.tenant_id, user_id=binding.user_id, artifact_id=artifact_id)
+        try:
+            await self._objects.put(key, data, content_type=INBOUND_MIME_TYPE)
+        except ObjectStoreError as exc:
+            raise ApiError(
+                ErrorCode.UPSTREAM_UNAVAILABLE,
+                details={"dependency": "OBJECT_STORE", "detail": str(exc)},
+            ) from exc
+
+        parse = ingestion_blocks.parse_artifact(
+            artifact_id=artifact_id, mime_type=INBOUND_MIME_TYPE, data=data
+        )
+        verdicts = payload.ses_verdicts.model_dump()
+        row = ingestion_artifacts.ArtifactRow(
+            artifact_id=artifact_id,
+            tenant_id=binding.tenant_id,
+            user_id=binding.user_id,
+            source_type=INBOUND_SOURCE_TYPE,
+            s3_bucket=self._objects.bucket,
+            s3_key=key,
+            content_sha256_hex=digest,
+            size_bytes=len(data),
+            mime_type=INBOUND_MIME_TYPE,
+            received_at=payload.received_at,
+            created_at=self._clock(),
+            parser_status=parse.status.value,
+            parser_version=parse.parser_version,
+            parser_metadata=(
+                ingestion_blocks.parser_metadata_value(parse, extra={"ses_verdicts": verdicts})
+                if parse.blocks or parse.parser_version is not None
+                else None
+            ),
+            ses_verdicts=verdicts,
+            source_message_id=message_id,
+            sender=headers["sender"] or payload.sender,
+            recipient=headers["recipient"] or payload.recipient,
+            subject=headers["subject"] or payload.subject,
+        )
+        trace_id = context.new_uuid7()
+        run_id = context.new_uuid7()
+        async with self._source.connection() as conn:
+            written = await ingestion_artifacts.insert_artifact(conn, row)
+            if written == 0:
+                existing = await ingestion_artifacts.existing_artifact_id(
+                    conn,
+                    tenant_id=binding.tenant_id,
+                    user_id=binding.user_id,
+                    content_sha256_hex=digest,
+                    source_type=INBOUND_SOURCE_TYPE,
+                    source_message_id=message_id,
+                )
+                return {
+                    "artifact_id": str(existing or artifact_id),
+                    "status": "DUPLICATE",
+                    "duplicate_of": str(existing) if existing is not None else None,
+                    "agent_run_id": None,
+                    "trace_id": None,
+                }
+            opened = await ingestion_artifacts.open_agent_run(
+                conn,
+                run_id=run_id,
+                tenant_id=binding.tenant_id,
+                user_id=binding.user_id,
+                trace_id=trace_id,
+                artifact_id=artifact_id,
+                model_route=self._model_route,
+                started_at=self._clock(),
+            )
+        return {
+            "artifact_id": str(artifact_id),
+            "status": "QUEUED",
+            "duplicate_of": None,
+            "agent_run_id": opened["agent_run_id"],
+            "trace_id": opened["trace_id"],
+            "parser_status": parse.status.value,
+            "block_count": len(parse.blocks),
+            "interpretation": dict(ingestion_artifacts.INTERPRETATION_DISPATCH),
+        }
 
     async def agent_run(self, binding: CapabilityBinding) -> Row | None:
         """Section 9.2. Run bootstrap: what this run is allowed to touch.
@@ -232,14 +422,178 @@ class KernelInternalPort:
         }
 
     async def artifact_content(self, binding: CapabilityBinding, **options: Any) -> Row | None:
-        del binding, options
-        unbound("internal.artifact_content")
+        """Section 9.3. The blocks of the artifact this run is bound to.
+
+        There is no ``artifact_id`` parameter anywhere on this path. The
+        artifact is the one on the capability row, so a run cannot read a
+        second artifact by asking for it.
+
+        **A row that says ``PARSED`` is not proof that anything can be read
+        back.** ``read_normalized_content`` returns either real content or a
+        named reason, and this method surfaces the reason rather than an empty
+        ``content_blocks``: an empty list tells the graph the document has no
+        text, and the graph then extracts nothing and reports success. Every
+        artifact the seed wrote is in exactly that state --
+        ``parser_status='PARSED'``, ``parser_version='seed-1.0.0'``, no stored
+        parser output -- so the distinction is the ordinary case.
+
+        ``409 VALIDATION_FAILED`` is section 9.3's own error for
+        ``parser_status <> 'PARSED'``, and it is reused for the two other
+        unreadable states because the caller's recourse is identical: there is
+        nothing to interpret yet.
+        """
+        artifact_id = binding.artifact_id
+        if artifact_id is None:
+            return None
+        async with self._source.connection() as conn:
+            row = await ingestion_artifacts.load_artifact(
+                conn,
+                tenant_id=binding.tenant_id,
+                user_id=binding.user_id,
+                artifact_id=artifact_id,
+            )
+        if row is None:
+            return None
+
+        content = ingestion_blocks.read_normalized_content(
+            artifact_id=artifact_id,
+            parser_status=str(row["parser_status"]),
+            parser_metadata=row.get("parser_metadata"),
+        )
+        if isinstance(content, ingestion_blocks.ParserOutputUnavailable):
+            raise ApiError(
+                ErrorCode.VALIDATION_FAILED,
+                http_status=409,
+                details={
+                    "reason": content.reason_code,
+                    "parser_status": content.parser_status,
+                    "detail": content.detail,
+                },
+            )
+
+        include_quoted = options.get("include_quoted_history", True)
+        max_chars = int(options.get("max_chars") or 60_000)
+        blocks = [
+            block for block in content.blocks if include_quoted or not block.is_quoted_history
+        ]
+        rendered: list[Row] = []
+        budget = max_chars
+        truncated = content.truncated
+        for block in blocks:
+            if budget <= 0:
+                truncated = True
+                break
+            text = block.text[:budget]
+            truncated = truncated or len(text) != len(block.text)
+            budget -= len(text)
+            rendered.append(
+                {
+                    "block_id": block.block_id,
+                    "kind": block.kind.value,
+                    "text": text,
+                    "content_sha256": block.content_sha256,
+                    "source_locator": block.source_locator.model_dump(
+                        mode="json", exclude_none=True
+                    ),
+                }
+            )
+        requested = options.get("block_id")
+        if requested is not None:
+            rendered = [entry for entry in rendered if entry["block_id"] == requested]
+            if not rendered:
+                return None
+        return {
+            "artifact_id": str(artifact_id),
+            "mime_type": row["mime_type"],
+            "parser_version": content.parser_version,
+            "truncated": truncated,
+            "content_blocks": rendered,
+            # Section 9.3 prints the key and this build produces none: the
+            # parser reads the message body and does not walk attachments, so
+            # an empty list here is a measured zero rather than an unknown.
+            "attachments": [],
+        }
 
     # -- 9.4 - 9.6 --------------------------------------------------------
 
     async def register_evidence(self, binding: CapabilityBinding, payload: Any) -> Row:
-        del binding, payload
-        unbound("internal.register_evidence")
+        """Section 9.4. Steps 1 and 2 run *before* anything is written.
+
+        They are the deterministic defence against a model inventing a
+        quotation, and ``evidence_items`` is append-only -- so a row admitted
+        without them could never afterwards be told apart from one that passed.
+        ``app/ingestion/evidence.admissions`` holds both checks and refuses when
+        it has nothing to check against.
+
+        Steps 3 and 4 are where this build declines to invent two numbers, and
+        each declination is disclosed in the response rather than hidden:
+
+        * ``source_authority`` is NULL and the derived **source class** is
+          recorded on the locator. The authority table is a
+          ``(source class x predicate family)`` grid and an evidence item has
+          no predicate; the claim does.
+        * ``embedding`` is NULL. The applied column is ``VECTOR(1024)`` and
+          admits only Titan; the shipping profile is 1536-wide Gemini. The
+          response carries ``embedding_status`` so a caller learns the row will
+          not retrieve at the moment it is created rather than months later
+          from a silent absence.
+        """
+        artifact_id = binding.artifact_id
+        if artifact_id is None:
+            raise ApiError(
+                ErrorCode.VALIDATION_FAILED,
+                details={
+                    "reason": "RUN_HAS_NO_ARTIFACT",
+                    "detail": (
+                        "section 9.4 admits evidence from the artifact the run is bound "
+                        "to, and this capability names none"
+                    ),
+                },
+            )
+        async with self._source.connection() as conn:
+            row = await ingestion_artifacts.load_artifact(
+                conn,
+                tenant_id=binding.tenant_id,
+                user_id=binding.user_id,
+                artifact_id=artifact_id,
+            )
+        if row is None:
+            raise ApiError(ErrorCode.ARTIFACT_NOT_FOUND, details={"artifact_id": str(artifact_id)})
+
+        content = ingestion_blocks.read_normalized_content(
+            artifact_id=artifact_id,
+            parser_status=str(row["parser_status"]),
+            parser_metadata=row.get("parser_metadata"),
+        )
+        try:
+            admitted = ingestion_evidence.admissions(
+                candidates=list(payload.candidates), content=content
+            )
+        except ingestion_evidence.EvidenceRefusedError as exc:
+            raise _evidence_refusal(exc) from exc
+
+        source_class = ingestion_evidence.source_class_for(
+            str(row["source_type"]), ses_verdicts=row.get("ses_verdicts")
+        )
+        async with self._source.connection() as conn:
+            registered = await ingestion_evidence.register_admissions(
+                conn,
+                admitted,
+                tenant_id=binding.tenant_id,
+                user_id=binding.user_id,
+                artifact_id=artifact_id,
+                source_class=source_class,
+                created_at=self._clock(),
+                new_id=context.new_uuid7,
+            )
+        created = sum(1 for entry in registered if entry["created"])
+        return {
+            "evidence": registered,
+            "created_count": created,
+            "deduplicated_count": len(registered) - created,
+            "embedding_status": "NOT_COMPUTED",
+            "embedding_status_reason": ingestion_evidence.EMBEDDING_NOT_COMPUTED_REASON,
+        }
 
     async def retrieve(self, binding: CapabilityBinding, payload: Any) -> Row:
         del binding, payload
@@ -339,8 +693,13 @@ class KernelInternalPort:
             # route the two live `agent_runs` rows carry, and both shipping
             # ids -- `gemini-3.5-flash-lite` and `gemini-3.7-flash` -- came
             # back `constraint=ck_memory_proposals_model`. `0005` admits four
-            # Bedrock-era ids and `deterministic.kernel`; `0009` widens that
-            # CHECK to the Gemini set and is deliberately unapplied.
+            # Bedrock-era ids and `deterministic.kernel`. `0009a` widens that
+            # CHECK to the Gemini set and WAS applied to the live cluster on
+            # 2026-08-28, so this path no longer fires there. (`0009`, the
+            # embedding rewrite, is the revision that stays unapplied; they are
+            # different and this comment used to conflate them.) The handler is
+            # kept because a database still at `0008` refuses, and because the
+            # refusal is worth naming rather than becoming a 500.
             #
             # An uncaught CheckViolation is a `500`: "something went wrong on
             # our side", which is untrue -- the database refused a specific
@@ -809,3 +1168,31 @@ def _flag(checked: bool, value: bool) -> bool | None:
     truthfully describes a comparison that was never made.
     """
     return value if checked else None
+
+
+#: Section 9.4's refusal codes, mapped to the API's own vocabulary in one place
+#: so ``app/ingestion`` holds no dependency on the API layer -- the same split
+#: ``action_errors`` and ``ProposalRefusedError`` already use.
+_EVIDENCE_ERRORS: Final[Mapping[str, ErrorCode]] = {
+    "PROPOSAL_FOREIGN_PROVENANCE": ErrorCode.PROPOSAL_FOREIGN_PROVENANCE,
+    "VALIDATION_FAILED": ErrorCode.VALIDATION_FAILED,
+    "PROVENANCE_UNCHECKABLE": ErrorCode.VALIDATION_FAILED,
+}
+
+
+def _evidence_refusal(exc: ingestion_evidence.EvidenceRefusedError) -> ApiError:
+    """One refusal, one typed error, with the reason code kept in ``details``.
+
+    ``PROVENANCE_UNCHECKABLE`` has no ``ErrorCode`` of its own and is reported
+    as ``VALIDATION_FAILED`` carrying its own name, rather than being widened
+    into ``PROPOSAL_FOREIGN_PROVENANCE``: the provenance is not foreign, it is
+    unverifiable, and those need different fixes.
+    """
+    code = _EVIDENCE_ERRORS.get(exc.reason_code, ErrorCode.VALIDATION_FAILED)
+    # ``setdefault`` and not a merge that overwrites: section 9.4 step 2 names
+    # ``reason: "SPAN_NOT_IN_BLOCK"`` as the field a client branches on, and the
+    # refusal already set it. Prefixing the outer code would replace the
+    # specific answer with the generic one.
+    details = dict(exc.details)
+    details.setdefault("reason", exc.reason_code)
+    return ApiError(code, details=details)

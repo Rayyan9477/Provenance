@@ -42,7 +42,12 @@ HERO_USER = SeedUser(
     email="alex.rivera@example.invalid",
     display_name="Alex Rivera",
     timezone="America/New_York",
-    home_region="us-east-1",
+    # us-east4, the GCP region this deploys to -- not us-east-1, which is the
+    # canonical AWS region string and is what this said until 2026-08-31. The
+    # settings screen renders it two lines above a strip advertising the Cloud
+    # Run deployment, so an AWS region name there invites a judge verifying the
+    # Google Cloud requirement to read the build as a leftover.
+    home_region="us-east4",
     judge_mode_enabled=True,
 )
 
@@ -54,7 +59,7 @@ ISO_A_USER = SeedUser(
     email="iso-a@example.invalid",
     display_name="Isolation A",
     timezone="UTC",
-    home_region="us-east-1",
+    home_region="us-east4",
     judge_mode_enabled=False,
 )
 
@@ -66,7 +71,7 @@ ISO_B_USER = SeedUser(
     email="iso-b@example.invalid",
     display_name="Isolation B",
     timezone="UTC",
-    home_region="us-east-1",
+    home_region="us-east4",
     judge_mode_enabled=False,
 )
 
