@@ -69,6 +69,7 @@ REVISION_FILENAMES: tuple[str, ...] = (
     "0007_action_plane.py",
     "0008_events_infrastructure.py",
     "0009a_widen_proposal_model_check.py",
+    "0009b_kernel_idempotency_grant.py",
     "0009_gemini_embedding_plane.py",
 )
 
@@ -87,7 +88,7 @@ REVISION_FILENAMES: tuple[str, ...] = (
 # 0009a only WIDENS ck_memory_proposals_model, which cannot invalidate a row,
 # so it is deployed. 0009 -- which drops the embedding quartet and destroys
 # 18,035 Titan vectors -- is not, which is why this is not `head`.
-DEPLOYED_HEAD = "0009a_widen_proposal_model_check"
+DEPLOYED_HEAD = "0009b_kernel_idempotency_grant"
 
 #: The only database this lane is permitted to touch.
 CI_DATABASE_NAME = "provenance_ci"

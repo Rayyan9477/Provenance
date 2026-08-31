@@ -474,9 +474,12 @@ class BedrockTitanEmbedder:
 class GeminiEmbedder:
     """``gemini-embedding-2`` at 1536 dimensions, via the ``google-genai`` SDK.
 
-    **UNPROBED.** No ``GEMINI_API_KEY`` exists yet, so neither the model id nor
-    the request shape below has been settled by invocation -- see
-    ``config.GEMINI_EMBEDDING_MODEL_ID``. The SDK surface *is* verified against
+    **PROBED.** ``ops/gemini-probe.txt`` invokes this id and records
+    ``PASS  gemini-embedding-2  dims=1536 l2_norm=1.0000003 unit=True`` -- the
+    width and the unit-normalisation this class depends on, both measured rather
+    than read from documentation. ``gemini-embedding-001`` returns 0.6935943 in
+    the same run, which is why the width is sent explicitly below. The SDK
+    surface is separately verified against
     the installed ``google-genai`` 1.60.0:
     ``client.models.embed_content(model=..., contents=..., config=...)``
     returns an ``EmbedContentResponse`` whose ``embeddings`` is a list of

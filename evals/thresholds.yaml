@@ -1,0 +1,60 @@
+# The bars the capability suites assert against.
+#
+# Why this file exists
+# --------------------
+# `docs/EXECUTION/70_TASK_PLAN.md` line 1091 requires the suites to "assert
+# thresholds rather than reporting them", and `ops/gates/PHASE_06.md` G6.5 says
+# the same in stronger words: thresholds **asserted**, not merely reported.
+# RET-01 did neither. Its verdict was the literal `Verdict.PASS` with the
+# measured numbers interpolated into the detail string, so it reported a pass at
+# recall@20 = 0.77 and would have reported the identical pass at 0.00. That is
+# the exact shape `STATUS.md` calls out as the worst case: "a hardcoded verdict
+# beside a computed fact is worse than no verdict."
+#
+# The bars live here rather than in the suite so that changing one is a visible
+# act in a diff, and so a reader can see what was promised without reading
+# Python.
+#
+# How these numbers were chosen
+# -----------------------------
+# Deliberately NOT by looking at the measurement and drawing the line under it.
+# A threshold fitted to the observed value asserts nothing. Each bar below is a
+# floor a working retriever clears comfortably and a broken one misses, with the
+# reasoning written down beside it.
+
+retrieval:
+  # Document-to-document recall in the 18,035-row decoy field.
+  #
+  # Chance is 20/18035 = 0.0011. A floor of 0.50 says the right document is in
+  # the top twenty more often than not -- which a working vector index clears by
+  # a wide margin and a broken or mis-spaced one (a query embedded in a
+  # different model's space, an index the planner declined to use) misses
+  # outright, because both of those failure modes collapse recall toward chance
+  # rather than degrading it gently.
+  #
+  # It is a floor on the mechanism, not a quality target. The measured value is
+  # always printed beside it so a reader can judge the bar as well as the
+  # result.
+  recall_at_20_min: 0.50
+
+  # The share of the top twenty that are decoys. The corpus is built so that
+  # near-neighbours dominate; a run where the top twenty is entirely decoys
+  # means the hero rows are not competitive at all.
+  decoy_share_at_20_max: 0.95
+
+# G6.5's own numbers, recorded here and deliberately NOT asserted by RET-01.
+#
+# G6.5 asks for case R@1 >= 0.85 and R@3 >= 0.95. That is a bar on
+# natural-language query recall -- what a user actually types -- which is RET-02,
+# and RET-02 is CANNOT RUN because the corpus is Titan-embedded and there is no
+# credential on this machine to embed a fresh query into the same space.
+#
+# RET-01 is a document-to-document probe. Asserting G6.5's numbers against it
+# would be answering a question nobody asked with a number that looks like the
+# answer to the one they did. The bars are recorded so the gap is legible, and
+# they stay unasserted until RET-02 can run.
+g6_5_natural_language_recall:
+  asserted: false
+  blocked_on: "RET-02: no embedding credential for the Titan space the corpus is in"
+  case_recall_at_1_min: 0.85
+  case_recall_at_3_min: 0.95

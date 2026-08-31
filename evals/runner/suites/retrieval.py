@@ -44,6 +44,8 @@ reading of the corpus; the join encodes the corpus.
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Final
 
 import psycopg
@@ -71,6 +73,40 @@ CAP: Final[int] = 100
 CUTOFFS: Final[tuple[int, ...]] = (1, 5, 10, 20, 50, 100)
 
 COMMAND: Final[str] = "make evals   (python -m evals.runner --suite retrieval)"
+
+
+@dataclass(frozen=True, slots=True)
+class _Thresholds:
+    """The bars RET-01 asserts, as declared in ``evals/thresholds.yaml``."""
+
+    recall_at_20_min: float
+    decoy_share_at_20_max: float
+
+
+def _load_thresholds() -> _Thresholds:
+    """Read the declared bars, or fail rather than invent one.
+
+    The file is the authority and the defaults below are not a second opinion:
+    they are the same numbers, restated so the suite still runs on a machine
+    without PyYAML installed. A mismatch between the two is caught by
+    ``evals/tests/test_thresholds_match_the_declaration.py``, because two places
+    holding a threshold is exactly how a threshold gets quietly lowered.
+    """
+    declared = Path(__file__).resolve().parents[2] / "thresholds.yaml"
+    try:
+        import yaml
+    except ImportError:
+        return _Thresholds(recall_at_20_min=0.50, decoy_share_at_20_max=0.95)
+    with declared.open(encoding="utf-8") as handle:
+        loaded = yaml.safe_load(handle)
+    retrieval = loaded["retrieval"]
+    return _Thresholds(
+        recall_at_20_min=float(retrieval["recall_at_20_min"]),
+        decoy_share_at_20_max=float(retrieval["decoy_share_at_20_max"]),
+    )
+
+
+THRESHOLDS: Final[_Thresholds] = _load_thresholds()
 
 TITAN_BLOCKER: Final[str] = (
     "no Titan credential on this machine. The 18,035 stored vectors are "
@@ -216,15 +252,49 @@ async def run_suite(
         )
     )
 
+    # RET-01's verdict is computed. It used to be the literal ``Verdict.PASS``
+    # with these numbers interpolated into the detail string, which meant it
+    # reported a pass at recall@20 = 0.77 and would have reported the identical
+    # pass at 0.00 -- the only suite in the battery with no reachable FAIL. That
+    # is the failure `STATUS.md` names outright: a hardcoded verdict beside a
+    # computed fact is worse than no verdict, because the computed fact makes it
+    # look measured.
+    #
+    # The bars come from `evals/thresholds.yaml`, which also records why each was
+    # chosen and, separately, why G6.5's natural-language numbers are NOT
+    # asserted here: they are RET-02's question and RET-02 cannot run.
+    recall_at_20 = scoring.mean(per_cutoff[20])
+    breaches: list[str] = []
+    if recall_at_20 is None:
+        breaches.append("recall@20 is unmeasured: no query had a non-empty gold set")
+    elif recall_at_20 < THRESHOLDS.recall_at_20_min:
+        breaches.append(
+            f"recall@20={_fmt(recall_at_20)} is below the "
+            f"{THRESHOLDS.recall_at_20_min:.2f} floor"
+        )
+    if share is not None and share > THRESHOLDS.decoy_share_at_20_max:
+        breaches.append(
+            f"decoy_share@20={_fmt(share)} is above the "
+            f"{THRESHOLDS.decoy_share_at_20_max:.2f} ceiling"
+        )
+
+    measured = (
+        f"{len(queries)} corpus-vector queries against "
+        f"{len(world.rows)} hero rows in an 18,035-row field; "
+        f"recall@20={_fmt(recall_at_20)} "
+        f"MRR@{CAP}={_fmt(mrr)} decoy_share@20={_fmt(share)}"
+    )
     checks.append(
         Check(
             check_id="RET-01",
-            verdict=Verdict.PASS,
+            verdict=Verdict.PASS if not breaches else Verdict.FAIL,
             detail=(
-                f"{len(queries)} corpus-vector queries against "
-                f"{len(world.rows)} hero rows in an 18,035-row field; "
-                f"recall@20={_fmt(scoring.mean(per_cutoff[20]))} "
-                f"MRR@{CAP}={_fmt(mrr)} decoy_share@20={_fmt(share)}"
+                f"{measured}; asserted against recall@20 >= "
+                f"{THRESHOLDS.recall_at_20_min:.2f} and decoy_share@20 <= "
+                f"{THRESHOLDS.decoy_share_at_20_max:.2f} "
+                f"(evals/thresholds.yaml)"
+                if not breaches
+                else f"{measured}; {'; '.join(breaches)}"
             ),
             command=COMMAND,
         )

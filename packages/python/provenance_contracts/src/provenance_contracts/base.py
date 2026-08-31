@@ -135,7 +135,12 @@ def _resolve_uuid7() -> tuple[Callable[[], uuid.UUID], str]:
     if callable(stdlib_uuid7):
         return cast("Callable[[], uuid.UUID]", stdlib_uuid7), "stdlib.uuid7"
     try:
-        from uuid6 import uuid7 as _uuid6_uuid7  # type: ignore[import-not-found]
+        # No type: ignore here. pyproject declares uuid6>=2024.7.10 as a hard
+        # dependency, so the import resolves and `warn_unused_ignores` rejects
+        # a suppression for a package that is always present. The ignore that
+        # used to sit here only passed because the workspace packages were
+        # installed against a stale path and uuid6 was never pulled in.
+        from uuid6 import uuid7 as _uuid6_uuid7
 
         return cast("Callable[[], uuid.UUID]", _uuid6_uuid7), "uuid6.uuid7"
     except ImportError:

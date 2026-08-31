@@ -65,7 +65,12 @@ import uuid
 from typing import Any, Final
 
 from services.control_plane.app.retrieval import predicates
-from services.control_plane.app.retrieval.config import K_FINAL, K_RAW, VECTOR_TARGET
+from services.control_plane.app.retrieval.config import (
+    ACTIVE_EMBEDDING_PROFILE,
+    K_FINAL,
+    K_RAW,
+    VECTOR_TARGET,
+)
 
 __all__ = [
     "CANONICAL_ANN_SQL",
@@ -223,8 +228,19 @@ def render_ann_sql(*, retraction_filter: bool = True) -> str:
     visible act rather than an omission.
     """
     sql = CANONICAL_ANN_SQL if retraction_filter else _ANN_SQL_BEFORE_LIFECYCLE_FILTER
+    # The width follows the active profile rather than a literal.
+    #
+    # It was ``VECTOR(1024)`` written out, which is correct today and silently
+    # wrong the moment the profile moves: ``config.py`` describes the Gemini
+    # flip as gated on prerequisites it does not own, and migration 0009 widens
+    # the column to 1536. With the width hardcoded here, that flip would leave
+    # the only ANN renderer in the system casting every query vector to the old
+    # width -- and the failure would arrive as "expected 1024 dimensions, not
+    # 1536" from the database on a live path, because no test binds a real
+    # vector.
+    width = ACTIVE_EMBEDDING_PROFILE.column_width
     return _PARAM.sub(
-        lambda match: "%s::VECTOR(1024)" if match.group(1) == "3" else "%s",
+        lambda match: f"%s::VECTOR({width})" if match.group(1) == "3" else "%s",
         sql,
     )
 

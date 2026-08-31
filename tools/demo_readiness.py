@@ -88,6 +88,38 @@ def _get(url: str, token: str | None = None, timeout: int = 20) -> tuple[int, ob
         return 0, f"{type(exc).__name__}: {exc}"
 
 
+def _route_exists(method: str, path: str) -> bool:
+    """Is *path* actually registered on a router, right now?
+
+    Reads the routers rather than a list. A route index in a document, or a
+    tuple in a test, is a claim about what someone believed; a router is what a
+    demo presses.
+
+    The routers are inspected directly instead of through ``create_app``, which
+    needs a config and a wired ``Dependencies`` -- and a readiness check that
+    needed a database connection to answer "does this route exist" would report
+    NOT READY for the wrong reason. The ``/v1`` prefix is added at mount time,
+    so it is stripped from *path* before comparing.
+
+    Returns ``False`` on any failure to import: a readiness check must never
+    report READY because it could not look.
+    """
+    wanted = path[len("/v1") :] if path.startswith("/v1") else path
+    try:
+        from services.control_plane.app.api.routes import actions, artifacts, judge, memory, system
+
+        for module in (memory, actions, artifacts, judge, system):
+            router = getattr(module, "router", None)
+            for route in getattr(router, "routes", ()):
+                if getattr(route, "path", None) != wanted:
+                    continue
+                if method in (getattr(route, "methods", set()) or set()):
+                    return True
+    except Exception:
+        return False
+    return False
+
+
 def _needs(register: dict[str, str], *keys: str) -> tuple[str, str] | None:
     """``(status, detail)`` if any of *keys* is still unbound, else ``None``."""
     missing = [key for key in keys if key in register]
@@ -201,18 +233,36 @@ def assess() -> list[Step]:
         else:
             steps.append(Step(number, what, READY, "the ports it needs are bound"))
 
-    # 10 - trigger wake. The port is bound; the route is a separate decision.
+    # 10 - trigger wake. Two things have to be true and they fail differently:
+    # the port must be bound, and a route must exist to reach it.
+    #
+    # This step used to assert the second half as a CONSTANT -- "section 8.0's
+    # index has no public wake route" -- which was true when written and stayed
+    # in the output for the whole session after the route was added. A readiness
+    # check that reports a remembered fact is the "unobserved mapping is a guess
+    # with a comment on it" failure inside the tool that exists to catch it. It
+    # now looks.
     blocked = _needs(register, "internal.evaluate_trigger")
     if blocked:
         steps.append(Step(10, "wake the landlord trigger", blocked[0], blocked[1]))
+    elif _route_exists("POST", "/v1/triggers/{trigger_id}/wake"):
+        steps.append(
+            Step(
+                10,
+                "wake the landlord trigger (NO_OP then FIRED)",
+                READY,
+                "internal.evaluate_trigger is bound and POST /v1/triggers/{trigger_id}/wake "
+                "reaches it; press it twice and the second press must answer NO_OP",
+            )
+        )
     else:
         steps.append(
             Step(
                 10,
                 "wake the landlord trigger (NO_OP then FIRED)",
                 NOT_READY,
-                "internal.evaluate_trigger is bound, but section 8.0's 31-route index has no "
-                "public wake route, so there is no manual-wake entry point to drive it from",
+                "internal.evaluate_trigger is bound, but no POST /v1/triggers/{trigger_id}/wake "
+                "route is registered, so there is no manual-wake entry point to drive it from",
             )
         )
 

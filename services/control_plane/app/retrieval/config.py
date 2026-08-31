@@ -47,12 +47,18 @@ existing name at a different vector space: that is precisely the substitution
 ``EMBEDDING_VERSION`` exists to make impossible, and doing it in the constant
 that *names* the version would be the purest form of it.
 
-**Every Gemini id here is UNPROBED.** No API key exists yet. The last time this
-pack froze model ids from documentation, all of them were wrong -- see
-``CANONICAL_DECISIONS.md`` -> *Bedrock model id canon*, where
-``list-foundation-models`` returned ids that were not invocable. Each Gemini id
-below carries ``PROBE REQUIRED`` at its definition site until
-``ops/gemini-probe.txt`` exists.
+**Every Gemini id here is PROBED**, by invocation rather than by listing:
+``ops/gemini-probe.txt`` records ``PASS 11 | FAIL 0 | CANNOT RUN 0``, and
+``gemini-embedding-2`` returns 1536 dimensions at L2 norm 1.0000003 there. That
+caution was earned -- the last time this pack froze model ids from
+documentation, all of them were wrong; see ``CANONICAL_DECISIONS.md`` ->
+*Bedrock model id canon*, where ``list-foundation-models`` returned ids that
+were not invocable -- which is why the ids were settled by calling them.
+
+Probed is not the same as active. The corpus in the ground is 18,035 vectors in
+the ``titan-v1`` space at ``VECTOR(1024)``, and :data:`ACTIVE_EMBEDDING_PROFILE`
+still resolves to it. A working id and a populated index are different facts,
+and this paragraph used to conflate them in the other direction.
 """
 
 from __future__ import annotations

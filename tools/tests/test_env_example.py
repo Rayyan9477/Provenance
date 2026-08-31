@@ -84,7 +84,22 @@ class TestItCoversWhatIsRequired:
         would query a space the corpus was not written in -- which returns
         ordered numbers and no error.
         """
-        assert re.search(r"^PV_EMBEDDING_PROFILE=titan-v1", _template(), re.M)
+        assert re.search(r"^PROVENANCE_EMBEDDING_PROVIDER=bedrock", _template(), re.M)
+
+    def test_the_template_does_not_ship_the_knob_that_does_nothing(self) -> None:
+        """``PV_EMBEDDING_PROFILE`` read like the control and was not one.
+
+        It was in this template, it had a settings field declaring it, and it
+        was named in `profile_for`'s error message -- and no code read it. The
+        decision belongs to ``PROVENANCE_EMBEDDING_PROVIDER``, which both
+        `retrieval/config.py` and `scripts/seed/embeddings.py` consult. A
+        reviewer who set the dead one would see no effect and no way to tell
+        whether the knob or their assumption was wrong.
+        """
+        assert not re.search(r"^PV_EMBEDDING_PROFILE=", _template(), re.M), (
+            "the template assigns a variable nothing reads; two variables for "
+            "one decision is one too many"
+        )
 
 
 class TestItCarriesNoRealValue:

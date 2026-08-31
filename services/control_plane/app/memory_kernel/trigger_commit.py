@@ -35,7 +35,9 @@ them would have refused every wake the moment this ran against the cluster:
 
 1. ``ck_memory_proposals_model`` admits four ids and ``deterministic:trigger-
    eval`` — the one §10.1 prints — is not among them. ``deterministic.kernel``
-   is, and migration ``0009``'s comment says so in as many words.
+   is, and migration ``0009a``'s comment says so in as many words. (``0009a``
+   is the CHECK widening, applied 2026-08-28; ``0009`` is the embedding rewrite
+   and stays unapplied. This line said ``0009`` and meant ``0009a``.)
 2. ``ck_idempotency_scope_shape`` is ``^[a-z][a-z0-9_.]{2,63}$``, so the scope
    string ``TRIGGER_EVALUATION`` was unwritable. The claim is the transaction's
    first INSERT, so nothing at all would have committed.
