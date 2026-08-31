@@ -48,7 +48,7 @@ from services.control_plane.app.api.responses import (
     page_envelope,
     read_page,
 )
-from services.control_plane.app.api.schemas.public import CorrectionRequest
+from services.control_plane.app.api.schemas.public import CorrectionRequest, TriggerWakeRequest
 
 router = APIRouter(tags=["memory"])
 
@@ -150,7 +150,16 @@ async def relationships(request: Request, ctx: Ctx, config: Config, deps: Deps) 
             has_more,
             page,
             id_field="relationship_id",
-            sort_fields=["last_activity_at"],
+            # `updated_at`, because that is what the statement orders and
+            # keysets on: `ORDER BY r.updated_at DESC, r.id DESC` with the
+            # predicate `(r.updated_at, r.id) < (%(after_updated_at)s, ...)`.
+            # This said `last_activity_at`, so the cursor was minted from one
+            # column and compared against another. With six relationships and
+            # limit=2, page one returned two rows and has_more=true, and
+            # following the cursor returned ZERO -- four rows silently
+            # unreachable. A cursor that loses rows is worse than one that is
+            # ignored: the client believes it has seen everything.
+            sort_fields=["updated_at"],
             config=config,
         )
     )
@@ -209,7 +218,16 @@ async def timeline(
     params = query_params(request)
     filters: dict[str, Any] = {"kinds": tuple(params.get("kind", ()))}
     page = read_page(params, collection="timeline", filters=filters, config=config)
-    result = await deps.read.list_timeline(ctx.scope, case_id, limit=page.limit, **filters)
+    # `after` is threaded explicitly. It used to be parsed into `page` and then
+    # dropped here, so a correctly-signed next_cursor -- one this endpoint had
+    # itself just issued -- was accepted with a 200 and ignored, and a client
+    # following it read page one forever. The adapter and the SQL had supported
+    # keyset paging the whole time (read.list_timeline reads filters["after"]
+    # and binds after_occurred_at/after_id); only the argument was missing, so
+    # nothing failed and nothing was logged.
+    result = await deps.read.list_timeline(
+        ctx.scope, case_id, limit=page.limit, after=page.after, **filters
+    )
     if result is None:
         raise absent(ErrorCode.CASE_NOT_FOUND)
     rows, has_more = result
@@ -245,7 +263,10 @@ async def conflicts(
     params = query_params(request)
     filters: dict[str, Any] = {"statuses": tuple(params.get("status", ()))}
     page = read_page(params, collection="conflicts", filters=filters, config=config)
-    result = await deps.read.list_conflicts(ctx.scope, case_id, limit=page.limit, **filters)
+    # As in `timeline` above: parsed, then dropped. Same silent no-op.
+    result = await deps.read.list_conflicts(
+        ctx.scope, case_id, limit=page.limit, after=page.after, **filters
+    )
     if result is None:
         raise absent(ErrorCode.CASE_NOT_FOUND)
     rows, has_more = result
@@ -365,6 +386,75 @@ async def triggers(request: Request, ctx: Ctx, config: Config, deps: Deps) -> JS
             rows, has_more, page, id_field="trigger_id", sort_fields=["not_before"], config=config
         )
     )
+
+
+@router.post(
+    "/triggers/{trigger_id}/wake",
+    summary="Prospective memory: evaluate an armed trigger now.",
+)
+async def wake_trigger(
+    ctx: Ctx,
+    deps: Deps,
+    trigger_id: uuid.UUID,
+    payload: TriggerWakeRequest | None = None,
+) -> JSONResponse:
+    """``16_TRIGGER_DSL.md`` section 13.2 -- the manual wake entry point.
+
+    This is the door onto ``write.wake_trigger``, which has been implemented
+    and bound since 2026-08-24 and had nothing that could reach it.
+    ``tools/demo_readiness`` reported the demo's second reveal NOT READY for
+    exactly that reason: the capability existed and had no handle.
+
+    **It is not a shortcut and must never become one.** The port builds an
+    ordinary wake envelope differing from the scheduled one in two fields
+    (``wake_source``, ``wake_id``) and calls the identical ``evaluate_trigger``,
+    so the guards, the projection read, the predicate, the Memory Kernel, the
+    serializable transaction, the revision guard and the idempotency claim are
+    all on the path. That is what makes pressing it in front of a judge prove
+    *more* rather than less: press it twice and the second press reaches guard
+    G2 and answers ``NO_OP / TRIGGER_NOT_ARMED``; press it on a deposit that was
+    actually returned and it no-ops on stage, which is the better demo.
+
+    The body carries no verdict and cannot. ``TriggerWakeRequest`` forbids
+    unknown fields, so ``{"force": true}`` is a 422 rather than a silently
+    ignored key -- ``CANONICAL_DECISIONS.md`` -> *Trigger demonstration*
+    forbids mutating and secretly reverting state for presentation, and a
+    forcing flag is the same dishonesty with better ergonomics.
+
+    ``evaluation_version`` is read from the trigger row inside the port and is
+    never taken from the request: a client-supplied generation would let a
+    caller replay a superseded one, or guess the current one and have a wake
+    accepted for a trigger it had never seen.
+
+    A trigger outside this scope returns ``None`` from the port and becomes a
+    typed 404 here, never a 403 (section 1.7): a 403 confirms the row exists to
+    someone who may not read it.
+
+    **There is deliberately no request-level idempotency key here**, and this is
+    the one place in the write surface where that is the correct choice rather
+    than an omission.
+
+    Every other side-effecting route takes an ``Idempotency-Key`` and replays
+    the stored response on a repeat. Doing that here would break the property
+    the manual wake exists to demonstrate: pressing the button a second time
+    must reach guard G2 and answer ``NO_OP / TRIGGER_NOT_ARMED``, because the
+    first press disarmed the trigger. A replayed response would return the
+    first press's ``FIRED`` again -- a cached verdict presented as a fresh
+    evaluation, on stage, which is precisely the scripted animation
+    ``CANONICAL_DECISIONS.md`` -> *Judge Mode* forbids.
+
+    The wake is not unprotected. Its dedupe is the idempotency claim the Kernel
+    makes as the FIRST statement of the fire transaction, keyed on the
+    trigger's ``evaluation_version`` -- migration ``0009b`` exists to grant
+    ``pv_kernel_writer`` the ``SELECT, INSERT`` that claim needs. That key is
+    derived from canonical state rather than supplied by the caller, so two
+    presses of the same generation collapse the way they should while the
+    second press still *reports* what it found.
+    """
+    row = await deps.write.wake_trigger(ctx.scope, trigger_id, payload)
+    if row is None:
+        raise absent(ErrorCode.TRIGGER_NOT_FOUND)
+    return json_response(row)
 
 
 @router.get("/cases/{case_id}/memory-trace", summary="What memory did on this case, and when.")

@@ -125,7 +125,7 @@ class TestProfileLookup:
         assert "gemini-v2" in message, "the error must name the valid options"
 
     def test_the_env_var_name_is_stated_once(self) -> None:
-        assert ACTIVE_PROFILE_ENV == "PV_EMBEDDING_PROFILE"
+        assert ACTIVE_PROFILE_ENV == "PROVENANCE_EMBEDDING_PROVIDER"
 
 
 class TestTheProfileIsImmutable:
@@ -256,7 +256,7 @@ class TestAProfileTheDatabaseWillNotAccept:
     undo the argument the canon was decided on.
 
     The cost of leaving this open is not a stack trace. Someone sets
-    ``PV_EMBEDDING_PROFILE=gemini-001-v3``, re-embeds 18,035 texts -- real spend,
+    ``PROVENANCE_EMBEDDING_PROVIDER=gemini``, re-embeds 18,035 texts -- real spend,
     roughly an hour unattended -- and learns at the first INSERT that the column
     will not take them. The refusal has to land before the spend, which is why
     it is a property of selecting a profile rather than of writing a row.

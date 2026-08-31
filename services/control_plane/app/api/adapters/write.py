@@ -42,10 +42,11 @@ commits as it lands, which is the behaviour that requirement asks for.
 
 from __future__ import annotations
 
+import hashlib
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, Final
 
 from services.control_plane.app.actions import (
     ActionIntentService,
@@ -58,18 +59,47 @@ from services.control_plane.app.actions import (
     RejectRequest,
     UpdateDraftRequest,
 )
+from services.control_plane.app.api import context
 from services.control_plane.app.api.adapters import render
 from services.control_plane.app.api.adapters.action_errors import raise_as_api_error
 from services.control_plane.app.api.adapters.catalog import ConnectionSource
 from services.control_plane.app.api.adapters.unbound import unbound
+from services.control_plane.app.api.errors import ApiError, ErrorCode
 from services.control_plane.app.api.ports import OwnerScope, ReadPort
+from services.control_plane.app.counterfactual.probe import ModelProbeService
+from services.control_plane.app.counterfactual.service import CounterfactualService
+from services.control_plane.app.counterfactual.wiring import (
+    default_counterfactual_service,
+    default_probe_service,
+)
+from services.control_plane.app.ingestion import artifacts as ingestion_artifacts
+from services.control_plane.app.ingestion import blocks as ingestion_blocks
 from services.control_plane.app.memory_kernel.trigger_commit import KernelTriggerWriter
+from services.control_plane.app.storage import (
+    ObjectStore,
+    ObjectStoreError,
+    UnconfiguredObjectStore,
+    raw_key,
+)
 from services.control_plane.app.triggers import service as trigger_service
 from services.control_plane.app.triggers.store import SqlProjectionReader, SqlTriggerStore
 
 __all__ = ["KernelWritePort"]
 
 Row = dict[str, Any]
+
+#: ``ck_source_artifacts_source_type`` admits seven values; section 8.18's MIME
+#: allowlist has five entries. This is the mapping between them, and it is the
+#: server's, not the caller's: ``UploadIntentRequest`` has no ``source_type``
+#: field, because a caller that could name one could claim an uploaded
+#: screenshot was inbound provider mail and inherit its authority band.
+_SOURCE_TYPE_BY_MIME: Final[Mapping[str, str]] = {
+    "message/rfc822": "UPLOAD_EML",
+    "application/pdf": "UPLOAD_PDF",
+    "image/png": "UPLOAD_IMAGE",
+    "image/jpeg": "UPLOAD_IMAGE",
+    "text/plain": "UPLOAD_TEXT",
+}
 
 StoreFactory = Callable[[Any], ActionStore]
 
@@ -86,8 +116,12 @@ class KernelWritePort:
 
     __slots__ = (
         "_clock",
+        "_counterfactual",
         "_kernel_pool",
+        "_model_route",
+        "_objects",
         "_policy",
+        "_probe",
         "_projection_reader",
         "_read",
         "_recorder",
@@ -95,7 +129,14 @@ class KernelWritePort:
         "_store",
         "_trigger_kernel",
         "_trigger_store",
+        "_upload_ttl",
     )
+
+    #: Annotated rather than left to inference so `start_counterfactual` and
+    #: `run_probe` have a return type mypy can check; the constructor still
+    #: takes `Any` so the hermetic suites can inject a double.
+    _counterfactual: CounterfactualService
+    _probe: ModelProbeService
 
     def __init__(
         self,
@@ -110,6 +151,11 @@ class KernelWritePort:
         trigger_store: Any = None,
         projection_reader: Any = None,
         trigger_kernel: Any = None,
+        objects: ObjectStore | None = None,
+        model_route: Mapping[str, str] | None = None,
+        upload_url_ttl_seconds: int = 900,
+        counterfactual: Any = None,
+        probe: Any = None,
     ) -> None:
         self._source = source
         self._kernel_pool = kernel_pool
@@ -124,6 +170,22 @@ class KernelWritePort:
         self._trigger_store = trigger_store or SqlTriggerStore(source)
         self._projection_reader = projection_reader or SqlProjectionReader(source)
         self._trigger_kernel = trigger_kernel or KernelTriggerWriter(kernel_pool)
+        # Sections 8.18 and 8.19 both end at bytes. The store is injected for
+        # the same reason the three boundaries above are: the hermetic suites
+        # drive the real adapter against a real filesystem store and no cluster.
+        self._objects = objects if objects is not None else UnconfiguredObjectStore("PV_PLATFORM")
+        self._model_route = dict(model_route or ingestion_artifacts.DEFAULT_MODEL_ROUTE)
+        self._upload_ttl = upload_url_ttl_seconds
+        # Sections 8.30, 8.31 and 8.33. Injected for the same reason as the
+        # boundaries above -- the hermetic suites drive the real adapter over
+        # the real graph with a scripted router and no cluster -- and defaulted
+        # so `build_runtime` needs no extra wiring pass.
+        self._counterfactual = (
+            counterfactual
+            if counterfactual is not None
+            else default_counterfactual_service(source, read=read, clock=clock)
+        )
+        self._probe = probe if probe is not None else default_probe_service(clock=clock)
 
     def _service(self, conn: Any) -> ActionIntentService:
         """One service per connection, per call.
@@ -153,14 +215,249 @@ class KernelWritePort:
     # -- 8.18 - 8.20 ------------------------------------------------------
 
     async def upload_intent(self, scope: OwnerScope, payload: Any) -> Row:
-        del scope, payload
-        unbound("write.upload_intent")
+        """Section 8.18. The server chooses the key, and only the server can.
+
+        ``UploadIntentRequest`` has no ``s3_key`` field and forbids extras. The
+        three components of the key come from the resolved principal and a
+        freshly minted artifact id, so a client holding a valid target still
+        cannot redirect the upload into another tenant's prefix.
+
+        **``sha256`` is required by this deployment even though section 8.18
+        marks it optional, and the reason is a column rather than a
+        preference.** The section says "a ``source_artifacts`` row is created
+        immediately with ``parser_status = 'PENDING'``", and
+        ``content_sha256`` on that table is ``NOT NULL`` with
+        ``ck_source_artifacts_sha_len`` requiring 32 bytes. There is no value to
+        write before the bytes exist. Deferring the row instead would leave
+        ``/complete`` with no artifact to find and turn every completion into a
+        404, so the refusal happens here, at the point where it names the
+        column a caller can satisfy.
+
+        The upload target carries the transport it actually offers. On a cloud
+        store that is a pre-signed ``PUT``; on the filesystem store it is a
+        ``file:`` locator, disclosed as ``LOCAL_FILESYSTEM`` rather than
+        presented as a URL a browser could use.
+        """
+        if not payload.sha256:
+            raise ApiError(
+                ErrorCode.VALIDATION_FAILED,
+                details={
+                    "reason": "SHA256_REQUIRED",
+                    "field": "sha256",
+                    "detail": (
+                        "source_artifacts.content_sha256 is NOT NULL and section 8.18 "
+                        "creates the row at upload-intent, so the digest has to be "
+                        "declared before the bytes are sent"
+                    ),
+                },
+            )
+        source_type = _SOURCE_TYPE_BY_MIME.get(payload.mime_type)
+        if source_type is None:
+            raise ApiError(
+                ErrorCode.UNSUPPORTED_MIME_TYPE,
+                details={"allowed": sorted(_SOURCE_TYPE_BY_MIME)},
+            )
+
+        now = self._clock()
+        async with self._source.connection() as conn:
+            existing = await ingestion_artifacts.existing_artifact_id(
+                conn,
+                tenant_id=scope.tenant_id,
+                user_id=scope.user_id,
+                content_sha256_hex=payload.sha256,
+                source_type=source_type,
+                source_message_id=None,
+            )
+        # Section 8.19 step 4's rule, applied one step earlier because
+        # `uq_source_artifacts_content` would refuse the INSERT anyway: the same
+        # bytes get the same artifact and therefore the same key, so re-offering
+        # an upload is idempotent rather than a 409.
+        artifact_id = existing if existing is not None else context.new_uuid7()
+        key = raw_key(tenant_id=scope.tenant_id, user_id=scope.user_id, artifact_id=artifact_id)
+        try:
+            target = await self._objects.upload_target(
+                key, content_type=payload.mime_type, ttl_seconds=self._upload_ttl
+            )
+            bucket = self._objects.bucket
+        except ObjectStoreError as exc:
+            raise ApiError(
+                ErrorCode.UPSTREAM_UNAVAILABLE,
+                details={"dependency": "OBJECT_STORE", "detail": str(exc)},
+            ) from exc
+
+        if existing is None:
+            row = ingestion_artifacts.ArtifactRow(
+                artifact_id=artifact_id,
+                tenant_id=scope.tenant_id,
+                user_id=scope.user_id,
+                source_type=source_type,
+                s3_bucket=bucket,
+                s3_key=key,
+                content_sha256_hex=payload.sha256,
+                size_bytes=payload.size_bytes,
+                mime_type=payload.mime_type,
+                received_at=now,
+                created_at=now,
+                parser_status="PENDING",
+                # `ck_source_artifacts_parsed_has_version` only requires a
+                # version once the status is PARSED, and claiming one now would
+                # name a parser that has not run.
+                parser_version=None,
+                parser_metadata=None,
+                subject=payload.filename,
+            )
+            async with self._source.connection() as conn:
+                await ingestion_artifacts.insert_artifact(conn, row)
+
+        return {
+            "artifact_id": str(artifact_id),
+            "upload_url": target.url,
+            "http_method": target.http_method,
+            "upload_transport": target.transport,
+            "required_headers": dict(target.required_headers),
+            "max_size_bytes": target.max_size_bytes,
+            "expires_at": target.expires_at,
+            "s3_key": key,
+        }
 
     async def complete_artifact(
         self, scope: OwnerScope, artifact_id: uuid.UUID, payload: Any
     ) -> Row | None:
-        del scope, artifact_id, payload
-        unbound("write.complete_artifact")
+        """Section 8.19, steps 1 to 5. Returns without waiting for a graph.
+
+        Steps 1, 2 and 3 are a ``HeadObject``, a length comparison and a digest
+        comparison **against the stored object**, and they are the only reason
+        the declared values on the row are worth anything: everything before
+        this point is a claim by the client. Step 3 is done by streamed
+        recomputation, which section 8.19 admits as the same check for objects
+        under 8 MiB and which is what a store with no checksum field leaves.
+
+        Step 4's dedupe already happened at upload-intent, where
+        ``uq_source_artifacts_content`` forced it -- the same bytes resolve to
+        the same artifact and therefore the same key. A completion of an
+        already-completed artifact is ``409 ARTIFACT_ALREADY_COMPLETED`` rather
+        than a second run.
+
+        Step 5 is where this build stops short and says so. It parses, stores
+        the blocks, and opens the ``agent_runs`` capability row a run would
+        present -- all of which are real and durable. It does **not** invoke an
+        interpretation worker, because none is deployed, and it does not write
+        the ``artifact.received.v1`` outbox event, because ``outbox_events``
+        INSERT is Kernel-only under write rule ``W1`` and the app holds no
+        grant for it. The response says both rather than implying a pipeline
+        that is not running.
+        """
+        async with self._source.connection() as conn:
+            row = await ingestion_artifacts.load_artifact(
+                conn,
+                tenant_id=scope.tenant_id,
+                user_id=scope.user_id,
+                artifact_id=artifact_id,
+            )
+        if row is None:
+            return None
+        if str(row["parser_status"]) != "PENDING":
+            raise ApiError(
+                ErrorCode.ARTIFACT_ALREADY_COMPLETED,
+                details={
+                    "artifact_id": str(artifact_id),
+                    "parser_status": str(row["parser_status"]),
+                },
+            )
+
+        key = str(row["s3_key"])
+        try:
+            head = await self._objects.head(key)
+        except ObjectStoreError as exc:
+            raise ApiError(
+                ErrorCode.UPSTREAM_UNAVAILABLE,
+                details={"dependency": "OBJECT_STORE", "detail": str(exc)},
+            ) from exc
+        if head is None:
+            raise ApiError(
+                ErrorCode.ARTIFACT_OBJECT_MISSING,
+                details={"artifact_id": str(artifact_id), "s3_key": key},
+            )
+
+        declared_size = payload.size_bytes or int(row["size_bytes"])
+        if head.size_bytes != declared_size:
+            raise ApiError(
+                ErrorCode.ARTIFACT_SIZE_MISMATCH,
+                details={
+                    "declared_size_bytes": declared_size,
+                    "stored_size_bytes": head.size_bytes,
+                },
+            )
+        declared_sha = payload.sha256 or str(row["content_sha256"])
+        if head.sha256_hex != declared_sha:
+            raise ApiError(
+                ErrorCode.ARTIFACT_HASH_MISMATCH,
+                details={
+                    "declared_sha256": declared_sha,
+                    "computed_sha256": head.sha256_hex,
+                },
+            )
+
+        data = await self._objects.get(key)
+        # Belt and braces, and it is not redundant: `head` recomputes on a
+        # filesystem store but reads a stored checksum on S3, and the object
+        # could in principle change between the two calls. The bytes that are
+        # parsed are the bytes that are digested here.
+        if hashlib.sha256(data).hexdigest() != declared_sha:
+            raise ApiError(
+                ErrorCode.ARTIFACT_HASH_MISMATCH,
+                details={
+                    "declared_sha256": declared_sha,
+                    "computed_sha256": hashlib.sha256(data).hexdigest(),
+                },
+            )
+
+        parse = ingestion_blocks.parse_artifact(
+            artifact_id=artifact_id, mime_type=str(row["mime_type"]), data=data
+        )
+        trace_id = context.new_uuid7()
+        run_id = context.new_uuid7()
+        now = self._clock()
+        async with self._source.connection() as conn:
+            await ingestion_artifacts.mark_parsed(
+                conn,
+                tenant_id=scope.tenant_id,
+                user_id=scope.user_id,
+                artifact_id=artifact_id,
+                parser_status=parse.status.value,
+                parser_version=parse.parser_version,
+                parser_metadata=(
+                    ingestion_blocks.parser_metadata_value(parse)
+                    if parse.parser_version is not None
+                    else None
+                ),
+                updated_at=now,
+            )
+            opened = await ingestion_artifacts.open_agent_run(
+                conn,
+                run_id=run_id,
+                tenant_id=scope.tenant_id,
+                user_id=scope.user_id,
+                trace_id=trace_id,
+                artifact_id=artifact_id,
+                model_route=self._model_route,
+                started_at=now,
+            )
+        return {
+            "artifact_id": str(artifact_id),
+            "status": "QUEUED",
+            "duplicate_of": None,
+            "agent_run_id": opened["agent_run_id"],
+            "trace_id": opened["trace_id"],
+            "parser_status": parse.status.value,
+            "block_count": len(parse.blocks),
+            "interpretation": dict(ingestion_artifacts.INTERPRETATION_DISPATCH),
+            "poll": {
+                "artifact_url": f"/v1/artifacts/{artifact_id}",
+                "trace_url": f"/v1/traces/{trace_id}",
+                "suggested_interval_ms": 1500,
+            },
+        }
 
     # -- 8.22 -------------------------------------------------------------
 
@@ -295,14 +592,28 @@ class KernelWritePort:
     # -- 8.30 - 8.31 ------------------------------------------------------
 
     async def start_counterfactual(self, scope: OwnerScope, payload: Any) -> Row | None:
-        del scope, payload
-        unbound("write.start_counterfactual")
+        """Section 8.30. Neither mode writes canonical state, and it is measured.
+
+        Delegated whole to ``app/counterfactual``: the two graph walks, the two
+        ``agent_runs`` rows and the before/after revision reads belong to the
+        module that owns them, and an adapter holding a model call would be the
+        transaction-purity failure one indirection from the route.
+
+        ``None`` when the artifact is not this scope's, which the route maps to
+        ``404 ARTIFACT_NOT_FOUND`` and never to a ``403`` (section 1.7).
+        """
+        return await self._counterfactual.start(scope, payload)
 
     async def get_counterfactual(
         self, scope: OwnerScope, counterfactual_id: uuid.UUID
     ) -> Row | None:
-        del scope, counterfactual_id
-        unbound("write.get_counterfactual")
+        """Section 8.31. The parity block is computed from the persisted rows.
+
+        The route gates rendering on ``parity.all_equal``; this returns the
+        block whatever it says, because a suppressed comparison and a missing
+        one are different answers and the judge is entitled to see which.
+        """
+        return await self._counterfactual.get(scope, counterfactual_id)
 
     # -- 8.30's manual wake, and the model probe --------------------------
 
@@ -361,8 +672,16 @@ class KernelWritePort:
         return render.trigger_evaluation(outcome)
 
     async def run_probe(self, scope: OwnerScope, payload: Any) -> Row:
-        del scope, payload
-        unbound("write.run_probe")
+        """Section 8.33. Invokes the configured ids and reports what answered.
+
+        ``scope`` is deliberately unused: a probe is a statement about this
+        deployment's model access, not about the caller's data, and there is
+        nothing owner-scoped for it to read. The route still requires a human
+        token and ``judge_mode_enabled``; what stops one user probing another's
+        anything is that there is no such thing.
+        """
+        del scope
+        return await self._probe.run(payload)
 
 
 def _client_key(payload: Any) -> str:

@@ -112,8 +112,30 @@ USER_TRIGGERS_SQL = """
       AND (cardinality(%(states)s::STRING[]) = 0 OR t.state = ANY(%(states)s::STRING[]))
       AND (cardinality(%(trigger_types)s::STRING[]) = 0
            OR t.trigger_type = ANY(%(trigger_types)s::STRING[]))
-      AND (%(after_not_before)s::TIMESTAMPTZ IS NULL
-           OR (t.not_before, t.id) > (%(after_not_before)s::TIMESTAMPTZ, %(after_id)s::UUID))
+      -- Keyset over `ASC NULLS LAST`, which the naive form gets wrong twice.
+      --
+      -- It was:
+      --     AND (%(after_not_before)s IS NULL
+      --          OR (t.not_before, t.id) > (%(after_not_before)s, %(after_id)s))
+      --
+      -- With a cursor in the non-null section, a row whose not_before IS NULL makes
+      -- the row comparison evaluate to NULL rather than true, so the entire
+      -- NULLS-LAST tail was unreachable -- silently, with has_more already
+      -- false by then. And a cursor minted FROM that tail carries a null sort
+      -- value, which made the first branch true and returned the whole list
+      -- again from the top.
+      --
+      -- `after_id` is the discriminator: it is NULL only when there is no
+      -- cursor at all, whereas the sort value is legitimately NULL inside the
+      -- tail. Past the non-null section every remaining row is in the tail, so
+      -- the ordering is: rest of the non-null section, then all nulls by id.
+      AND (%(after_id)s::UUID IS NULL
+           OR (CASE WHEN %(after_not_before)s::TIMESTAMPTZ IS NOT NULL
+                    THEN t.not_before IS NULL
+                         OR (t.not_before, t.id)
+                            > (%(after_not_before)s::TIMESTAMPTZ, %(after_id)s::UUID)
+                    ELSE t.not_before IS NULL AND t.id > %(after_id)s::UUID
+               END))
     ORDER BY t.not_before ASC NULLS LAST, t.id ASC
     LIMIT %(limit)s
 """

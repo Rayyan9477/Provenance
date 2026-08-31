@@ -202,3 +202,25 @@ class CounterfactualRequest(ApiRequest):
     modes: list[Literal["MEMORY_OFF", "MEMORY_ON"]] | None = None
     memory_on_strategy: Literal["REPLAY_COMMITTED", "RERUN_SANDBOXED"] = "REPLAY_COMMITTED"
     minimum_confidence: Ratio | None = None
+
+
+class TriggerWakeRequest(ApiRequest):
+    """Section 13.2's manual wake. Deliberately almost empty.
+
+    ``ApiRequest`` forbids unknown fields, and that is the whole point of
+    declaring a model for a body that carries nothing required: a caller who
+    sends ``{"force": true}`` or ``{"result": "FIRED"}`` gets a 422 naming the
+    field rather than a 200 that quietly ignored it.
+
+    ``16_TRIGGER_DSL.md`` 13.2 prohibits a ``force`` parameter, and
+    ``CANONICAL_DECISIONS.md`` -> *Trigger demonstration* requires the no-op and
+    the fire to come from the same entry point with no hidden state revert. A
+    body that silently dropped an unknown field would let a demo script believe
+    it had control over the verdict and be wrong in the one direction nobody
+    checks. The refusal is the feature.
+
+    ``note`` exists so an operator can say why they pressed it; it is recorded
+    on the wake envelope and changes no outcome.
+    """
+
+    note: Annotated[str, StringConstraints(max_length=500)] | None = None

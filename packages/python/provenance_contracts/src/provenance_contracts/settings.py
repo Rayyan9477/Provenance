@@ -500,7 +500,6 @@ class Settings(BaseSettings):
     #: binds model id, width, version and the normalization obligation into one
     #: value, so the incoherent combinations (Titan id at 1536, Gemini vectors
     #: in a VECTOR(1024) column) cannot be spelled.
-    pv_embedding_profile: str = Field(default="titan-v1", validation_alias="PV_EMBEDDING_PROFILE")
 
     # -- 12.8 Models, retrieval, agents ------------------------------------
     bedrock_extraction_model_id: str = Field(

@@ -316,6 +316,25 @@ def predicate_summary(ast: object) -> str:
     """
     if not isinstance(ast, Mapping):
         return "No predicate recorded."
+
+    # The stored column is a WRAPPER, not a bare node:
+    #
+    #     {"ast_version": "1.0", "bindings": {...}, "predicate": {"op": "AND", ...}}
+    #
+    # and this function was written for the node. Handed the wrapper it found no
+    # `op`, fell through every branch, and returned "No predicate recorded." --
+    # so /v1/triggers reported that sentence for two triggers that each carry a
+    # seven-clause predicate, and the Watches screen printed it under the
+    # heading for the feature it exists to show. The frontend made the mirror
+    # error on the same value and rendered the literal string "(undefined )".
+    #
+    # A false "nothing here" is the specific failure this codebase treats as
+    # worst: an empty answer that is indistinguishable from a real one and
+    # believable enough that nobody investigates.
+    if "predicate" in ast and "op" not in ast:
+        inner = ast.get("predicate")
+        return predicate_summary(inner) if inner is not None else "No predicate recorded."
+
     op = str(ast.get("op", "")).upper()
     args = ast.get("args") or []
     if op == "FIELD":

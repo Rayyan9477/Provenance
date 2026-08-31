@@ -69,7 +69,14 @@ __all__ = [
 
 #: The environment variable that selects the active profile. Named once here so
 #: no other module spells it.
-ACTIVE_PROFILE_ENV: Final[str] = "PV_EMBEDDING_PROFILE"
+#:
+#: It said ``PV_EMBEDDING_PROFILE`` until 2026-08-31, which nothing read. The
+#: decision is made by ``PROVENANCE_EMBEDDING_PROVIDER`` in
+#: ``retrieval/config.py`` and ``scripts/seed/embeddings.py``, so the one place
+#: that promised to name the variable once was naming a different variable --
+#: and `profile_for`'s error below therefore sent a reader who had mis-set the
+#: real knob to go and look at a knob that does nothing.
+ACTIVE_PROFILE_ENV: Final[str] = "PROVENANCE_EMBEDDING_PROVIDER"
 
 
 @dataclass(frozen=True, slots=True)
