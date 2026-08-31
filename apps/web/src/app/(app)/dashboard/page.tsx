@@ -115,7 +115,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <h2 className="pv-label" id="pv-attention-heading">
             Attention
           </h2>
-          <p className="pv-label">{data.counts.cases_needing_attention} requiring response</p>
+          {/* "carrying an attention level" rather than "requiring response".
+              ATTENTION_CASE_COUNT_SQL counts attention_level <> 'NONE', which
+              includes INFO, while headline() returns the quiet sentence when a
+              case has no reason codes. So the same case was counted as needing a
+              response and told, one line below, that none was needed. The count
+              is right; the word was wrong. */}
+          <p className="pv-label">
+            {data.counts.cases_needing_attention} carrying an attention level
+          </p>
         </div>
 
         {data.cases_attention.length === 0 ? (

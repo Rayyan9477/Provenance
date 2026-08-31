@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { ForbiddenState } from "@/components/primitives/States";
 
 /**
  * S14 -- sign-in.
  *
- * Three things about this screen are load-bearing.
+ * Four things about this screen are load-bearing.
  *
  * There is no password field, and there never will be. Authentication is delegated;
  * `frontend/30_UX_SPEC.md` section 5.2 is explicit that the application never sees a
@@ -19,6 +20,18 @@ import { ForbiddenState } from "@/components/primitives/States";
  * `?next=` is validated against the route patterns this application actually serves. An
  * off-pattern value is discarded silently and the reader lands on the dashboard, because
  * an open redirect on a sign-in screen is how a session gets handed to somebody else.
+ *
+ * And the screen always offers a way back into the record. The primary navigation used to
+ * carry a Sign out entry pointing here; it signed nobody out, because this deployment
+ * holds no per-reader session in the browser, and once a reader arrived there was no link
+ * back into the record. (There was a link to the identity provider in the branch where
+ * `NEXT_PUBLIC_PV_AUTHORIZE_URL` is set; it is unset on this deployment, so on the
+ * deployed build the screen really was a dead end, but "no link at all" was too strong as
+ * a statement about the file.) The entry is gone (see `components/shell/Navigation.tsx`), so this
+ * screen is now reached from the identity provider's callback or by typing the path. In
+ * either case it says plainly that nothing was signed out, and it links to the dashboard,
+ * because a screen a reader can enter and cannot leave is a trap regardless of how
+ * accurate its copy is.
  */
 
 export const dynamic = "force-dynamic";
@@ -150,6 +163,24 @@ export default async function LoginPage({ searchParams }: PageProps) {
           <p className="pv-label" style={{ marginTop: "var(--pv-space-2)" }}>
             Validated against the routes this application serves. Anything else is discarded and you
             land on the dashboard.
+          </p>
+        </div>
+
+        <div
+          className="pv-card-pad"
+          style={{ borderTop: "var(--pv-rule) solid var(--pv-line-hairline)" }}
+        >
+          <p className="pv-label">If you did not mean to be here</p>
+          <p className="pv-prose">
+            Arriving on this screen did not end a session. Sign-out is not built: this deployment
+            authenticates server-side and holds nothing in your browser to clear, so nothing was
+            signed out on the way here and nothing will be on the way back. The record is exactly
+            where you left it.
+          </p>
+          <p style={{ marginTop: "var(--pv-space-4)" }}>
+            <Link className="pv-button" href="/dashboard">
+              Back to the dashboard
+            </Link>
           </p>
         </div>
       </div>

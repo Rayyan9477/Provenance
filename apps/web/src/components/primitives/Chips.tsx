@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { AttentionLevel, RetractionStatus, SupportRelation } from "@/lib/api/contract";
+import type {
+  AttentionLevel,
+  EpistemicStatus,
+  RetractionStatus,
+  SupportRelation,
+} from "@/lib/api/contract";
+import { EPISTEMIC_STATUSES } from "@/lib/api/contract";
 import { Absent } from "./Absent";
 
 /**
@@ -80,6 +86,71 @@ export function RetractionBadge({ status }: { readonly status: RetractionStatus 
   return (
     <span className="pv-chip" data-retraction={status} data-attention="ATTENTION">
       {RETRACTION_COPY[status]}
+    </span>
+  );
+}
+
+/**
+ * How strongly Provenance holds a belief version.
+ *
+ * Every belief on the State Proof used to render this status in the URGENT treatment,
+ * CONFIRMED included: a settled position and an open contradiction wore the same alarm,
+ * in the same weight, in the same red. A docket where every row shouts has lost the
+ * ability to say which row is the one a reader has to act on, and the hero case turns on
+ * exactly that distinction -- one belief is DISPUTED and the others are not.
+ *
+ * So the six statuses map onto the attention vocabulary that already exists. DISPUTED is
+ * the only URGENT one, because it is the only one that means two records disagree and a
+ * human has to choose between them. RETRACTED asks for attention: the position was
+ * withdrawn and the row is shown because withdrawal is part of the record. PROBABLE and
+ * UNCERTAIN are informational -- they are honest hedges, not faults, and treating a
+ * declared uncertainty as an alarm would teach readers to distrust the hedge rather than
+ * read it. CONFIRMED and SUPERSEDED stay quiet: one is settled, the other is history.
+ *
+ * The mapping is a presentation decision about emphasis and nothing else. It never
+ * rewords the status, which is always printed verbatim, so the record's own vocabulary is
+ * what the reader sees.
+ *
+ * A departure, named. `frontend/30_UX_SPEC.md` section 1114 requires that when
+ * `epistemic_status` is DISPUTED, UNCERTAIN or RETRACTED the status be "the visual and
+ * reading-order primary". DISPUTED and RETRACTED are treated that way here. UNCERTAIN is
+ * not: it is INFO, the second-quietest treatment available. The argument is the one above
+ * -- a declared hedge is the system being honest about its own confidence, and rendering
+ * honesty as alarm teaches readers to distrust the hedge -- but it is an argument against
+ * a spec sentence, so the sentence is named rather than quietly outvoted. If the spec is
+ * right, the fix is one line in the record below.
+ */
+const EPISTEMIC_ATTENTION: Record<EpistemicStatus, AttentionLevel> = {
+  CONFIRMED: "NONE",
+  PROBABLE: "INFO",
+  UNCERTAIN: "INFO",
+  DISPUTED: "URGENT",
+  SUPERSEDED: "NONE",
+  RETRACTED: "ATTENTION",
+};
+
+function isKnownStatus(status: string): status is EpistemicStatus {
+  return (EPISTEMIC_STATUSES as readonly string[]).includes(status);
+}
+
+export function EpistemicStatusChip({ status }: { readonly status: string | null | undefined }) {
+  if (status === null || status === undefined || status === "") {
+    return <Absent describe="epistemic status not returned" />;
+  }
+  /*
+   * An unrecognised status keeps its own name and takes the ATTENTION treatment, per the
+   * rule at the top of this file. Mapping it to NONE would render a contract drift as a
+   * settled belief, which is the one outcome worse than rendering it as itself.
+   */
+  const known = isKnownStatus(status);
+  return (
+    <span
+      className="pv-chip"
+      data-epistemic-status={status}
+      data-attention={known ? EPISTEMIC_ATTENTION[status] : "ATTENTION"}
+      {...(known ? {} : { "data-unrecognised": "true" })}
+    >
+      {status}
     </span>
   );
 }

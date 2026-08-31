@@ -69,7 +69,28 @@ export default async function IngestPage({ searchParams }: PageProps) {
           <h2 className="pv-label" id="pv-alias-heading">
             Your inbound address
           </h2>
-          {!alias.ok ? (
+          {!alias.ok && alias.code === "INGEST_ALIAS_NOT_FOUND" ? (
+            /* A 404 here is not a failure, and rendering it as one told every
+               reader the intake gateway was broken. It says this account has no
+               inbound address yet -- which is the true and permanent state,
+               because write.rotate_ingest_alias is the port that would mint one
+               and it is unbound. The same distinction Judge Mode draws between
+               501 and 500: "never built" and "broke" are different claims and
+               must not share a colour. The endpoint is still named, so the
+               reader can check the claim rather than take it. */
+            <EmptyState heading="No inbound address is provisioned.">
+              <p className="pv-mono">GET {alias.path} returned 404 INGEST_ALIAS_NOT_FOUND</p>
+              <p>
+                Minting one is <code>write.rotate_ingest_alias</code>, which is not bound in this
+                build. Nothing failed here and nothing was attempted; forwarding is simply not
+                available on this account yet.
+              </p>
+              <p>
+                The drop target beside this panel does not depend on an address. Bytes admitted
+                either way land in the same immutable artifact store.
+              </p>
+            </EmptyState>
+          ) : !alias.ok ? (
             <ErrorState
               heading="Address unreadable."
               detail={`GET ${alias.path} returned ${alias.status} ${alias.code}`}

@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 
-import { AttentionChip, RelationLabel, RetractionBadge } from "@/components/primitives/Chips";
+import {
+  AttentionChip,
+  EpistemicStatusChip,
+  RelationLabel,
+  RetractionBadge,
+} from "@/components/primitives/Chips";
 import { TimePair } from "@/components/primitives/TimePair";
 import { FixtureModeBanner } from "@/components/primitives/Banners";
-import { ATTENTION_LEVELS, SUPPORT_RELATIONS } from "@/lib/api/contract";
+import { ATTENTION_LEVELS, EPISTEMIC_STATUSES, SUPPORT_RELATIONS } from "@/lib/api/contract";
 
 /**
  * Colour is never the only carrier of meaning.
@@ -71,6 +76,48 @@ describe("meaning survives with colour removed", () => {
     expect(container.querySelector('[data-clock="RECORD"]')).not.toBeNull();
     /* The record verb is part of the sentence, not a colour: "when we came to know it". */
     expect(container.textContent).toContain("ADMITTED");
+  });
+
+  /*
+   * Emphasis is a channel too, and it was being spent on everything at once. Every belief
+   * on the State Proof rendered its epistemic status in the URGENT treatment, CONFIRMED
+   * included, so the docket had no way left to say which row a reader has to act on. These
+   * assertions read the attribute rather than a colour: the status keeps its own name, and
+   * a settled belief does not wear the treatment reserved for one that is disputed.
+   */
+  it("every epistemic status renders its own name", () => {
+    for (const status of EPISTEMIC_STATUSES) {
+      const { container, unmount } = render(<EpistemicStatusChip status={status} />);
+      expect(container.textContent).toContain(status);
+      expect(container.querySelector(`[data-epistemic-status="${status}"]`)).not.toBeNull();
+      unmount();
+    }
+  });
+
+  it("does not render every epistemic status as an alarm", () => {
+    const treatments = new Map<string, string | null>();
+    for (const status of EPISTEMIC_STATUSES) {
+      const { container, unmount } = render(<EpistemicStatusChip status={status} />);
+      treatments.set(
+        status,
+        container.querySelector(".pv-chip")?.getAttribute("data-attention") ?? null,
+      );
+      unmount();
+    }
+    expect(treatments.get("DISPUTED"), "an open contradiction is the urgent one").toBe("URGENT");
+    expect(treatments.get("CONFIRMED"), "a settled belief must not read as an alarm").not.toBe(
+      "URGENT",
+    );
+    expect(
+      new Set(treatments.values()).size,
+      "all six statuses share one treatment",
+    ).toBeGreaterThan(1);
+  });
+
+  it("keeps an unrecognised status verbatim rather than mapping it to a settled one", () => {
+    const { container } = render(<EpistemicStatusChip status="NOT_A_STATUS" />);
+    expect(container.textContent).toContain("NOT_A_STATUS");
+    expect(container.querySelector('[data-unrecognised="true"]')).not.toBeNull();
   });
 
   it("a retracted source says what retraction means, in words", () => {

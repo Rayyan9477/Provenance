@@ -17,6 +17,7 @@ import { refToAttribute } from "@/lib/typed/record";
 const REASON_TEXT: Record<AbsenceReason, string> = {
   NO_ROW: "not recorded: no row",
   NULL_COLUMN: "not recorded",
+  EMPTY_COLLECTION: "recorded, and empty",
 };
 
 export interface AbsentProps {

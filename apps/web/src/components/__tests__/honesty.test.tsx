@@ -8,13 +8,16 @@ import {
   IdChip,
   RevisionBadge,
 } from "@/components/primitives/Chips";
+import { BuildStamp } from "@/components/primitives/Banners";
 import { TimePair } from "@/components/primitives/TimePair";
 import { TypedRecordBlock } from "@/components/primitives/TypedRecordBlock";
 import { ContextTotal } from "@/components/record/RelationshipLedger";
 import { CanonicalPosition, CounterpartyAssertions } from "@/components/record/CounterpartyFile";
+import { GroundingEdgeRow } from "@/components/proof/Grounding";
 import { field, row } from "@/lib/typed/record";
 import type { TypedRecord } from "@/lib/typed/record";
-import { heroDashboard } from "@/fixtures/hero.fixture";
+import type { EvidenceSource } from "@/lib/api/contract";
+import { heroDashboard, heroStateProofs } from "@/fixtures/hero.fixture";
 
 /**
  * The honesty rule, as an assertion.
@@ -240,5 +243,146 @@ describe("a genuine zero is still rendered as a zero", () => {
     const rendered = container.querySelector(`[data-context-total="${total?.currency}"]`);
     expect(rendered).not.toBeNull();
     expect(screen.getByText(/sum returned by the API, not computed here/i)).toBeDefined();
+  });
+});
+
+/**
+ * The build stamp is on every screen, so an absence rendered as a gap is on
+ * every screen too.
+ *
+ * `SCHEMA_REVISION` is an environment variable with no default. Cloud Run did
+ * not set it, the API served `schema_revision: null`, and the stamp interpolated
+ * that straight into the line -- so all fourteen screens carried a bare
+ * `schema=` followed by a space. A reader cannot tell a field that broke from a
+ * field nobody supplied, and the whole point of this strip is that it is the
+ * channel a judge checks the running system against.
+ */
+describe("the build stamp marks an absent schema revision", () => {
+  const base = {
+    service: "provenance-control-plane",
+    version: "1.0.0",
+    git_sha: "775b47d29f6b5db98d2e984e9a0422a2ad61c67a",
+    api_version: "v1",
+    contracts_schema_version: "1.0",
+    region: "us-east4",
+    built_at: "2026-08-30T21:13:01.949644Z",
+    fixture_mode: false,
+    agent_mode: "LIVE",
+    otlp_export: "DISABLED",
+    db_ok: true,
+  } as const;
+
+  it("renders an absence marker when the deployment did not set one", () => {
+    render(<BuildStamp version={{ ...base, schema_revision: null }} />);
+    const stamp = screen.getByText(/git_sha=/).closest("span");
+    expect(stamp?.textContent).not.toMatch(/schema=\s*agent_mode/);
+    expect(screen.getByTitle(/SCHEMA_REVISION is not set/)).toBeTruthy();
+  });
+
+  it("treats an empty string the same as null", () => {
+    render(<BuildStamp version={{ ...base, schema_revision: "" }} />);
+    expect(screen.getByTitle(/SCHEMA_REVISION is not set/)).toBeTruthy();
+  });
+
+  it("renders the revision verbatim when there is one", () => {
+    render(<BuildStamp version={{ ...base, schema_revision: "0009_gemini_embedding_plane" }} />);
+    expect(screen.getByText(/0009_gemini_embedding_plane/)).toBeTruthy();
+  });
+});
+
+/**
+ * A hash on screen must come from a hash column.
+ *
+ * The grounding row used to print `sha256:` in front of an abbreviated `artifact.subject`,
+ * falling back to the evidence UUID when the artifact had no subject line. Neither of those
+ * is a digest. `EvidenceSource` carries no hash at all, and the elision that makes a long
+ * hash readable is exactly what made an email subject look like one. On the State Proof,
+ * which exists to show a reader why Provenance believes something, that is a fabricated
+ * cryptographic claim sitting beside genuine ones.
+ *
+ * The assertion is the plain one: the string "sha256" must not appear on a grounding row,
+ * because nothing on that row is a sha256.
+ */
+describe("the grounding row never manufactures a hash", () => {
+  const evidenceEdges = Object.values(heroStateProofs)
+    .flatMap((proof) => proof.beliefs)
+    .flatMap((belief) => belief.grounding)
+    .filter((edge) => "exact_text" in edge.source);
+
+  it("has evidence-backed grounding to assert against", () => {
+    expect(evidenceEdges.length).toBeGreaterThan(0);
+  });
+
+  it("prints no digest, and shows the subject line as a subject", () => {
+    for (const edge of evidenceEdges) {
+      const { container, unmount } = render(
+        <ul>
+          <GroundingEdgeRow edge={edge} timeZone="UTC" />
+        </ul>,
+      );
+      const text = container.textContent ?? "";
+      expect(text, "a grounding row claimed a hash the payload does not carry").not.toContain(
+        "sha256:",
+      );
+
+      const subject = (edge.source as EvidenceSource).artifact.subject;
+      if (subject === null) {
+        expectAbsence(container);
+      } else {
+        expect(text).toContain(subject);
+      }
+      unmount();
+    }
+  });
+});
+
+/**
+ * The null-subject branch, exercised on purpose.
+ *
+ * The test above walks the hero fixture and takes whichever branch each edge
+ * happens to fall into. Every evidence source in `heroStateProofs` carries a
+ * subject, so the `<Absent>` path added to the grounding row was never reached
+ * by it -- the assertion existed and was dead. A branch that is only tested
+ * when the fixture happens to contain it is tested by luck.
+ *
+ * So this constructs the case directly. It is the branch that matters most:
+ * the old code fell back to `abbreviateHash(evidence_id)` here and labelled a
+ * UUID as a digest, which is the more misleading of the two failures because a
+ * UUID already looks like a hash.
+ */
+describe("a grounding row whose artifact has no subject", () => {
+  const withSubject = Object.values(heroStateProofs)
+    .flatMap((proof) => proof.beliefs)
+    .flatMap((belief) => belief.grounding)
+    .find((edge) => "exact_text" in edge.source);
+
+  it("marks the absence instead of printing the evidence id as a hash", () => {
+    expect(withSubject, "the hero fixture carries no evidence-backed grounding").toBeDefined();
+    if (withSubject === undefined) return;
+
+    const source = withSubject.source as EvidenceSource;
+    const edge = {
+      ...withSubject,
+      source: { ...source, artifact: { ...source.artifact, subject: null } },
+    };
+
+    const { container } = render(
+      <ul>
+        <GroundingEdgeRow edge={edge} timeZone="UTC" />
+      </ul>,
+    );
+    const text = container.textContent ?? "";
+
+    expectAbsence(container);
+    // `sha256:` with the colon is the fabricated form. The row legitimately
+    // contains "content_sha256" -- it links to the artifact page, which renders
+    // the real digest from the column that holds one -- so asserting on the
+    // bare word would forbid the fix as well as the defect.
+    expect(text, "a null subject fell back to something that looks like a digest").not.toContain(
+      "sha256:",
+    );
+    expect(text, "the evidence id was printed where a subject belongs").not.toContain(
+      source.evidence_id,
+    );
   });
 });

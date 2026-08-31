@@ -9,7 +9,8 @@
  * mechanically rather than by review. `npm run build` runs this first; a violation
  * fails the build.
  *
- * Five rules:
+ * Six rules (the header said five while documenting six; the summary line
+ * below has always printed 6):
  *
  *   R1 FIXTURE_CONTAINMENT   Fixtures may be imported only by tests, stories, and the
  *                            single declared adapter. A component that imports a fixture

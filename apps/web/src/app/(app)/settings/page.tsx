@@ -219,7 +219,15 @@ export default async function SettingsPage() {
             </h2>
             <ul className="pv-mono" style={{ marginTop: "var(--pv-space-2)" }}>
               <li>judge_mode_enabled={String(account.judge_mode_enabled)}</li>
-              <li>ingest_alias_status={account.ingest_alias_status}</li>
+              <li>
+                ingest_alias_status=
+                {/* The API sends null here: no alias is provisioned, because
+                    write.rotate_ingest_alias is unbound. Rendered bare, that was
+                    an empty value in a list where every other row shows one. */}
+                {account.ingest_alias_status ?? (
+                  <Absent describe="no ingest alias is provisioned for this account" />
+                )}
+              </li>
               {flags.length === 0 ? (
                 <li>
                   <Absent describe="no feature flags were returned; an absent flag is false" />

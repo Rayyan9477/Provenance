@@ -2,10 +2,10 @@ import Link from "next/link";
 import { ConflictPair, GroundingEdgeRow, LineageChain } from "@/components/proof/Grounding";
 import { EmptyState, ErrorState } from "@/components/primitives/States";
 import { Absent } from "@/components/primitives/Absent";
-import { CaseStatusBadge, RevisionBadge } from "@/components/primitives/Chips";
+import { CaseStatusBadge, EpistemicStatusChip, RevisionBadge } from "@/components/primitives/Chips";
 import { getStateProof } from "@/lib/api/reads";
 import { loadMe, timeZoneOf } from "@/lib/session";
-import { formatInstantOrRaw, formatMoney } from "@/lib/format";
+import { formatInstantOrRaw, formatBeliefValue, formatMoney } from "@/lib/format";
 import type { SupportRelation } from "@/lib/api/contract";
 
 /**
@@ -116,8 +116,6 @@ export default async function StateProofPage({ params, searchParams }: PageProps
         ) : (
           <div className="pv-stack" style={{ marginTop: "var(--pv-space-4)" }}>
             {data.beliefs.map((belief) => {
-              const value = belief.current_version.value_json as
-                { currency?: string; amount?: string } | undefined;
               return (
                 <article
                   className="pv-card pv-card-pad"
@@ -126,16 +124,13 @@ export default async function StateProofPage({ params, searchParams }: PageProps
                   data-belief-id={belief.belief_id}
                 >
                   <div className="pv-meta-row">
-                    <span className="pv-chip" data-attention="URGENT">
-                      {belief.current_version.epistemic_status}
-                    </span>
+                    <EpistemicStatusChip status={belief.current_version.epistemic_status} />
                     <span className="pv-figure">
-                      {value?.currency && value.amount ? (
-                        formatMoney({ currency: value.currency, amount: value.amount })
-                      ) : (
-                        <span className="pv-mono">
-                          {JSON.stringify(belief.current_version.value_json)}
-                        </span>
+                      {/* One formatter, shared with the relationship file and the
+                          lineage rail. This branch stringified anything that was
+                          not money, so a state belief rendered raw JSON here. */}
+                      {formatBeliefValue(belief.current_version.value_json) ?? (
+                        <Absent describe="this belief version carries no value payload" />
                       )}
                     </span>
                     <span className="pv-mono">
@@ -198,13 +193,23 @@ export default async function StateProofPage({ params, searchParams }: PageProps
         </section>
       ) : null}
 
-      {data.derivations.length > 0 ? (
-        <section aria-labelledby="pv-derivations-heading">
-          <div className="pv-section-heading">
-            <h2 className="pv-label" id="pv-derivations-heading">
-              5 · Arithmetic derivations
-            </h2>
-          </div>
+      {/* Rendered unconditionally, because the ordinals are hard-coded and
+          dropping the section made the page read 1, 2, 3, 4, 6. A missing
+          number reads as a section that failed to render -- the opposite of
+          what this page is claiming -- and it contradicts the rule the rest of
+          the build follows: absence is not emptiness, and it is marked rather
+          than omitted. */}
+      <section aria-labelledby="pv-derivations-heading">
+        <div className="pv-section-heading">
+          <h2 className="pv-label" id="pv-derivations-heading">
+            5 · Arithmetic derivations
+          </h2>
+        </div>
+        {data.derivations.length === 0 ? (
+          <p className="pv-prose">
+            <Absent describe="no arithmetic derivation is recorded for this case" />
+          </p>
+        ) : (
           <div className="pv-table-scroll">
             <table className="pv-table">
               <thead>
@@ -233,8 +238,8 @@ export default async function StateProofPage({ params, searchParams }: PageProps
               </tbody>
             </table>
           </div>
-        </section>
-      ) : null}
+        )}
+      </section>
 
       <section className="pv-card pv-card-pad" aria-labelledby="pv-excluded-heading">
         <h2 className="pv-label" id="pv-excluded-heading">

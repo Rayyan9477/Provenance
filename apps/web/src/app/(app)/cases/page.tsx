@@ -8,7 +8,7 @@ import { loadMe, timeZoneOf } from "@/lib/session";
  *
  * `frontend/30_UX_SPEC.md` section 2.2 is firm that case detail is reached contextually and
  * never from the primary navigation, because it needs an id the reader must first have
- * chosen. That rule is honoured: the five primary destinations carry `data-primary` and
+ * chosen. That rule is honoured: the primary destinations carry `data-primary` -- four of them, or three when `judge_mode_enabled` is false, since Sign out was removed for doing nothing and
  * case detail is not among them.
  *
  * This screen exists because the design's screen index lists all fourteen surfaces, and a

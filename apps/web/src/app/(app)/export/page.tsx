@@ -165,6 +165,17 @@ export default async function AuditExportPage() {
                         reason="NO_ROW"
                         describe={`this count could not be read from ${row.origin}`}
                       />
+                    ) : row.count === 0 ? (
+                      /* `corpus.truncated` is one global flag, so a further page
+                         on ANY endpoint prefixed EVERY row with "at least" --
+                         including a row whose count is 0. "At least 0 records"
+                         claims nothing. This file's own docstring warns against
+                         exactly it: a zero that means "we could not count" reads
+                         as "you have none". */
+                      <Absent
+                        reason="NO_ROW"
+                        describe={`no ${row.unit} is reachable through ${row.origin} on this build`}
+                      />
                     ) : (
                       `${corpus.truncated ? "at least " : ""}${row.count} ${row.unit}`
                     )}

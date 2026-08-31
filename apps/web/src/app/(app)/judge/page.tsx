@@ -270,7 +270,14 @@ export default async function JudgeModePage({ searchParams }: PageProps) {
         {version.ok ? (
           <ul className="pv-mono" style={{ marginTop: "var(--pv-space-2)" }}>
             <li>git_sha={version.data.git_sha}</li>
-            <li>schema_revision={version.data.schema_revision}</li>
+            <li>
+              schema_revision=
+              {version.data.schema_revision === null || version.data.schema_revision === "" ? (
+                <Absent describe="SCHEMA_REVISION is not set on this deployment" />
+              ) : (
+                version.data.schema_revision
+              )}
+            </li>
             <li>fixture_mode={String(version.data.fixture_mode)}</li>
             <li>agent_mode={version.data.agent_mode}</li>
             <li>otlp_export={version.data.otlp_export}</li>

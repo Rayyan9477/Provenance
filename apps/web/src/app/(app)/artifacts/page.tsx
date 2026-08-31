@@ -20,8 +20,34 @@ import { abbreviateHash, formatDateOrRaw, formatInstant } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function ArtifactsPage() {
-  const [me, artifacts] = await Promise.all([loadMe(), getArtifacts()]);
+/**
+ * The document types a person actually forwarded or uploaded.
+ *
+ * The seeded corpus holds 18,000 `SEED_FIXTURE` decoys -- deliberately, because
+ * retrieval that is never asked to discriminate proves nothing. But the index
+ * sorts by `received_at DESC` and the decoy field runs later than the story
+ * documents, so the unfiltered first page was 25 nameless fixtures and not one
+ * of the bills this record is about, on the screen the navigation calls
+ * Evidence.
+ *
+ * So the default view is the admitted documents. The decoys are not hidden --
+ * the count and the link below say they are there and how to see them, and
+ * `?all=1` shows the whole corpus. Filtering a view is a different act from
+ * concealing rows, and the difference is whether the page says so.
+ */
+const ADMITTED_SOURCE_TYPES = ["EMAIL_INBOUND", "UPLOAD_PDF"] as const;
+
+interface PageProps {
+  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function ArtifactsPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const showAll = params["all"] === "1";
+  const [me, artifacts] = await Promise.all([
+    loadMe(),
+    getArtifacts(showAll ? [] : [...ADMITTED_SOURCE_TYPES]),
+  ]);
   const timeZone = timeZoneOf(me);
 
   if (!artifacts.ok) {
@@ -42,13 +68,34 @@ export default async function ArtifactsPage() {
       <header className="pv-section-heading">
         <h1 className="pv-display">Artifacts</h1>
         <p className="pv-label">
-          {items.length} stored · {quarantined} unparsed
+          {/* "listed", not "stored". The footer on this same page says "More
+              artifacts exist beyond this page", so "25 stored" was contradicted
+              by its own screen. /ingest already words it as listed. */}
+          {items.length} listed · {quarantined} unparsed
         </p>
       </header>
 
       <p className="pv-prose">
         Bytes are stored exactly as received and never rewritten. Everything the record holds about
         a document points back to one of these rows.
+      </p>
+
+      <p className="pv-prose" style={{ fontSize: "var(--pv-size-body)" }}>
+        {showAll ? (
+          <>
+            Showing <strong>every</strong> artifact, including the 18,000 seeded decoys the
+            retrieval evaluation scores against. They are near-neighbours of the real documents on
+            purpose. <Link href="/artifacts">Show admitted documents only</Link>.
+          </>
+        ) : (
+          <>
+            Showing the documents that were forwarded or uploaded. The record also holds{" "}
+            <strong>18,000 seeded decoys</strong>: adversarial near-misses that exist so retrieval
+            has something to discriminate against. They are excluded here because they sort newer
+            than the real documents and would fill this page.{" "}
+            <Link href="/artifacts?all=1">Show every artifact</Link>.
+          </>
+        )}
       </p>
 
       {items.length === 0 ? (

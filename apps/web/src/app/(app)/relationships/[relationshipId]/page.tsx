@@ -137,14 +137,37 @@ export default async function RelationshipFilePage({ params }: PageProps) {
             <p className="pv-mono">
               {data.summary.open_cases} open of {data.summary.total_cases}
             </p>
-            <p className="pv-mono">
-              {data.summary.active_conflicts} active conflict
-              {data.summary.active_conflicts === 1 ? "" : "s"}
-            </p>
+            {/*
+              The conflict count is gone rather than rendered empty. This read
+              `data.summary.active_conflicts`, which the API has never sent, so
+              the line came out as " active conflicts" with nothing in front of
+              it on every relationship file. A count with no number is not a
+              smaller truth than a count -- it is a different claim, and this
+              screen's rule is that nothing renders without a backing row. The
+              conflicts a case carries are on the case page, which reads them
+              from an endpoint that returns them.
+            */}
           </div>
           <div>
-            <p className="pv-label">Unresolved commitments</p>
-            <p className="pv-figure">{data.summary.unresolved_commitments}</p>
+            <p className="pv-label">Outstanding</p>
+            {/*
+              This was `{data.summary.unresolved_commitments}` in a `.pv-figure`
+              -- the largest type on the card -- and the API sends no such field,
+              so the headline slot rendered empty. `outstanding` is what the API
+              does send here, it is the figure the dashboard shows for this same
+              relationship, and it is the number a reader came to see.
+            */}
+            {data.summary.outstanding.length === 0 ? (
+              <p className="pv-figure">
+                <Absent describe="no outstanding amount is recorded for this relationship" />
+              </p>
+            ) : (
+              data.summary.outstanding.map((money) => (
+                <p className="pv-figure" key={`${money.currency}-${money.amount}`}>
+                  {formatMoney(money)}
+                </p>
+              ))
+            )}
           </div>
           <div>
             <p className="pv-label">Evidence span</p>
@@ -152,7 +175,7 @@ export default async function RelationshipFilePage({ params }: PageProps) {
               timeZone={timeZone}
               validFrom={data.valid_from}
               validTo={data.valid_to}
-              recordedAt={data.summary.last_evidence_at}
+              recordedAt={null}
               recordVerb="LAST EVIDENCE"
             />
           </div>

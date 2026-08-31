@@ -4,7 +4,7 @@ import { Absent } from "@/components/primitives/Absent";
 import { getTriggers } from "@/lib/api/reads";
 import { loadMe, timeZoneOf } from "@/lib/session";
 import { formatInstantOrRaw } from "@/lib/format";
-import type { PredicateAst } from "@/lib/api/contract";
+import type { PredicateAst, PredicateAstDocument } from "@/lib/api/contract";
 
 /**
  * S07 -- watches.
@@ -22,11 +22,40 @@ import type { PredicateAst } from "@/lib/api/contract";
 export const dynamic = "force-dynamic";
 
 /** Render the AST as an s-expression. Layout only; nothing is inferred or defaulted. */
-function renderAst(ast: PredicateAst): string {
-  if (ast.op === "FIELD") return (ast as { path: string }).path;
-  if (ast.op === "CONST") return (ast as { value: string }).value;
+/**
+ * Render one predicate node. Total: it has no branch that can emit `undefined`.
+ *
+ * It had one. `predicate_ast` on the wire is a wrapper -- `{ast_version,
+ * bindings, predicate}` -- and this function was handed the wrapper. No `op`,
+ * no `args`, so the final template interpolated `undefined` and the Watches
+ * screen carried the literal string `(undefined )` under the heading for
+ * prospective memory, beside an API-supplied "No predicate recorded." that was
+ * equally wrong and produced by the same misreading one layer down.
+ *
+ * `unwrapPredicate` below takes the wrapper apart. This function now only ever
+ * sees a node, and returns `null` rather than a glyph when there is nothing to
+ * print -- `check-render-honesty.mjs` rule R4 is right that "we do not have
+ * this" must be one component with one meaning, so the caller renders `<Absent>`
+ * and this function says nothing at all.
+ */
+function renderAst(ast: PredicateAst | null | undefined): string | null {
+  if (ast === null || ast === undefined) return null;
+  if (ast.op === "FIELD") return (ast as { path?: string }).path ?? null;
+  if (ast.op === "CONST") return (ast as { value?: string }).value ?? null;
+  if (!ast.op) return null;
   const args = (ast as { args?: readonly PredicateAst[] }).args ?? [];
-  return `(${ast.op} ${args.map(renderAst).join(" ")})`;
+  if (args.length === 0) return `(${ast.op})`;
+  const rendered = args.map(renderAst).filter((part): part is string => part !== null);
+  return rendered.length === 0 ? `(${ast.op})` : `(${ast.op} ${rendered.join(" ")})`;
+}
+
+/** The node inside the wire document, or the value itself if it is already one. */
+function unwrapPredicate(
+  document: PredicateAstDocument | PredicateAst | null | undefined,
+): PredicateAst | null {
+  if (document === null || document === undefined) return null;
+  if ("predicate" in document) return (document as PredicateAstDocument).predicate;
+  return document as PredicateAst;
 }
 
 export default async function WatchesPage() {
@@ -108,7 +137,11 @@ export default async function WatchesPage() {
                   <p className="pv-prose" style={{ fontSize: "var(--pv-size-body)" }}>
                     {trigger.predicate_summary}
                   </p>
-                  <p className="pv-mono">{renderAst(trigger.predicate_ast)}</p>
+                  <p className="pv-mono">
+                    {renderAst(unwrapPredicate(trigger.predicate_ast)) ?? (
+                      <Absent describe="this trigger carries no predicate expression" />
+                    )}
+                  </p>
                 </div>
                 <span
                   className="pv-chip"
