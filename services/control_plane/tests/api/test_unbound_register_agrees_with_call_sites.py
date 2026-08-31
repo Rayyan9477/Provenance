@@ -73,11 +73,27 @@ def _call_sites() -> dict[str, list[str]]:
 
 
 def test_the_scan_is_armed() -> None:
-    """A scan that finds nothing because it looks nowhere proves nothing."""
-    sites = _call_sites()
-    assert (
-        len(sites) >= 10
-    ), f"only {len(sites)} unbound() call sites found; the walk is not reaching files"
+    """A scan that finds nothing because it looks nowhere proves nothing.
+
+    The guard is on the **walk**, not on how much of the surface is unbound.
+    It read ``len(sites) >= 10`` until 2026-08-24 and went red when five
+    ingestion ports were bound at once -- correctly reporting that fewer call
+    sites exist, and wrongly calling that a broken walk. That is ``STATUS.md``
+    section 7's failure exactly: a test pinned to a state fails when the state
+    legitimately changes, and the pressure is then to delete it.
+
+    So the two things that would make :func:`test_every_call_site_has_a_register_entry`
+    vacuous are asserted directly: that the rglob reached the adapter package
+    at all, and that it parsed the module the call sites actually live in. Both
+    stay true as the register empties, and both go false the day
+    ``parents[2]`` is wrong again.
+    """
+    scanned = sorted(
+        path.name for path in ADAPTERS.rglob("*.py") if "__pycache__" not in path.parts
+    )
+    assert len(scanned) >= 10, f"the walk reached only {scanned}; ADAPTERS is wrong"
+    assert {"unbound.py", "read.py", "write.py", "internal.py"} <= set(scanned), scanned
+    assert (ADAPTERS / "adapters" / "unbound.py").is_file(), ADAPTERS
 
 
 def test_every_call_site_has_a_register_entry() -> None:

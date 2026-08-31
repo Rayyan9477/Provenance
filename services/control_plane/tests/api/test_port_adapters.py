@@ -857,25 +857,48 @@ def test_the_model_attribution_is_sourced_from_the_run_row_not_the_request() -> 
     # this assertion was `"internal.complete_agent_run" in UNBOUND` and it went
     # red on that binding -- correctly, because it pinned a *state* and the
     # state legitimately changed. It says nothing about whether the blocker
-    # moved. The property does: `agent_runs.model_calls` still has exactly one
-    # writer, that writer is still the run-completion statement, and section
-    # 9.8 still runs before it. Asserting the property keeps both directions
-    # checked instead of deleting the guard the moment there is something to
-    # guard (`STATUS.md` section 7).
+    # moved. The property does, and this is the property: every writer of
+    # `agent_runs.model_calls` writes it at run *completion* -- an UPDATE
+    # guarded on `status = 'RUNNING'` -- so the column is NULL for any run that
+    # is still open, which is every run section 9.8 could be handed. Asserting
+    # the property keeps both directions checked instead of deleting the guard
+    # the moment there is something to guard (`STATUS.md` section 7).
+    #
+    # Re-derived a second time 2026-08-25, when sections 8.30/8.31 bound the
+    # counterfactual and `app/counterfactual/store.py` became a second writer.
+    # The count assertion went red on a change that does not move the blocker:
+    # a counterfactual run is never an action intent's basis -- it holds no
+    # capability and section 8.30 property 4 excludes it -- and that writer is
+    # a settle like the other one. Counting writers was the *state*; "no writer
+    # fills the column before the run is settled" is the property, and it is
+    # what would actually have to change for `prompt_version` to be readable
+    # at section 9.8 time.
     assert "prompt_version" in ModelCallRecord.model_fields
     assert "model_calls" in AgentRunCompleteRequest.model_fields
 
-    writers = sorted(
-        path.name
+    writers = {
+        path.name: path.read_text(encoding="utf-8")
         for path in _control_plane_modules()
         if "model_calls = %(model_calls)s" in path.read_text(encoding="utf-8")
-    )
-    assert writers == ["runs.py"], (
-        f"agent_runs.model_calls now has {len(writers)} writers ({writers}); "
-        "if one of them runs before section 9.8, prompt_version is no longer "
-        "blocked by ordering and internal.create_action_intent should be "
-        "re-derived"
-    )
+    }
+    assert writers, "nothing writes agent_runs.model_calls; this scan is looking nowhere"
+    for name, text in writers.items():
+        statements = [
+            block
+            for block in text.split("UPDATE agent_runs")[1:]
+            if "model_calls = %(model_calls)s" in block.split('"""')[0]
+        ]
+        assert statements, (
+            f"{name} writes agent_runs.model_calls outside an `UPDATE agent_runs`; if it "
+            "fills the column at INSERT then prompt_version is readable while the run is "
+            "open and internal.create_action_intent should be re-derived"
+        )
+        for statement in statements:
+            assert "status = 'RUNNING'" in statement.split('"""')[0], (
+                f"{name} settles agent_runs.model_calls without guarding on "
+                "status = 'RUNNING', so the column can be written for a run that is "
+                "still open -- which is exactly the ordering section 9.8 relies on"
+            )
     assert "internal.create_action_intent" in _adapters().UNBOUND
 
 
@@ -1682,16 +1705,26 @@ def _control_plane_modules() -> Iterator[Path]:
 
 
 def _object_store_call_sites() -> list[str]:
-    """Every place the control plane reaches an object store, found by AST.
+    """Every way the control plane can address an object, found by capability.
 
-    By AST and not by substring, and the distinction is load-bearing in the
-    direction that costs something. ``adapters/unbound.py`` and
-    ``adapters/render.py`` both write "pre-signed" in prose, and
-    ``app/retrieval/embeddings.py`` holds a real ``boto3.client`` -- for
-    ``bedrock-runtime``, which is a *model* client and not a store. A substring
-    scan for ``boto3`` or ``presigned`` would report a store that does not
-    exist, and the test below would then stop demanding a refusal and start
-    demanding a binding, on the strength of a docstring.
+    Two mechanisms, because there are two kinds of store and only one of them
+    is visible to a static scan.
+
+    **Cloud clients, by AST.** By AST and not by substring, and the distinction
+    is load-bearing in the direction that costs something.
+    ``adapters/unbound.py`` and ``adapters/render.py`` both write "pre-signed"
+    in prose, and ``app/retrieval/embeddings.py`` holds a real ``boto3.client``
+    -- for ``bedrock-runtime``, which is a *model* client and not a store. A
+    substring scan for ``boto3`` or ``presigned`` would report a store that
+    does not exist.
+
+    **The local store, by running it.** ``PV_PLATFORM=local`` stores objects on
+    the filesystem under section 8.18's key layout, and no AST pattern
+    distinguishes a store that works from a module that declares one. So the
+    probe writes bytes through ``object_store_for`` and reads them back. A
+    class with the right method names and an empty body reports nothing here,
+    which is the whole point: this test decides whether three ports may be
+    bound, and it must not be satisfied by a shape.
     """
     found: list[str] = []
     for path in _control_plane_modules():
@@ -1728,32 +1761,71 @@ def _object_store_call_sites() -> list[str]:
                 and node.args[0].value == "s3"
             ):
                 found.append(f"{path.name}:{node.lineno}: boto3.client(s3)")
+    found.extend(_local_store_round_trip())
     return found
 
 
-def test_the_control_plane_reaches_no_object_store_and_the_register_says_so() -> None:
-    """Sections 8.18, 8.19 and 9.1 all end at bytes nobody here can address.
+def _local_store_round_trip() -> list[str]:
+    """Evidence that the configured local store really stores and returns bytes."""
+    try:
+        from services.control_plane.app.storage import object_store_for, raw_key
+    except ImportError:
+        return []
 
-    Section 8.18 returns a pre-signed ``PUT``; 8.19 runs ``HeadObject`` and a
-    checksum comparison against the stored object; 9.1 has to move the Lambda's
-    bytes into the ``raw/`` prefix ``source_artifacts`` requires. All three need
-    one client and there is none -- nothing under
-    ``services/control_plane/app`` mints a pre-signed URL or constructs a
-    storage client.
+    import asyncio
+    import tempfile
+    import uuid as _uuid
 
-    Asserted as an agreement rather than as a state. The day a client lands this
-    stops demanding the three refusals and starts demanding the three bindings,
-    which is the only version of this guard that survives the change it is
-    waiting for.
+    class _LocalSettings:
+        pv_platform = "local"
+        s3_artifact_bucket = None
+        gcs_artifact_bucket = None
+
+        def __init__(self, root: str) -> None:
+            self.pv_local_object_root = root
+
+    payload = b"round-trip probe"
+    with tempfile.TemporaryDirectory() as root:
+        store = object_store_for(_LocalSettings(root))
+        key = raw_key(tenant_id=_uuid.uuid4(), user_id=_uuid.uuid4(), artifact_id=_uuid.uuid4())
+
+        async def _probe() -> bytes:
+            await store.put(key, payload, content_type="text/plain")
+            head = await store.head(key)
+            assert head is not None and head.size_bytes == len(payload)
+            return await store.get(key)
+
+        try:
+            returned = asyncio.run(_probe())
+        except Exception:  # pragma: no cover - a store that raises stores nothing
+            return []
+    if returned != payload:  # pragma: no cover - a store that lies stores nothing
+        return []
+    return [f"storage/objects.py: {type(store).__name__} round-tripped {len(payload)} bytes"]
+
+
+def test_the_control_plane_reaches_an_object_store_and_the_register_agrees() -> None:
+    """Sections 8.18, 8.19 and 9.1 all end at bytes, and now something holds them.
+
+    Section 8.18 returns an upload target; 8.19 runs a ``HeadObject``, a length
+    comparison and a checksum comparison against the stored object; 9.1 has to
+    move the worker's bytes into the ``raw/`` prefix ``source_artifacts``
+    requires. All three need one store.
+
+    Asserted as an agreement rather than as a state, in both directions. The day
+    a store exists this stops demanding three refusals and starts demanding
+    three bindings; the day one is deleted it goes back. That is the only
+    version of this guard that survives the change it was waiting for -- and
+    the change has now happened, so the branch that runs is the second one.
     """
     adapters = _adapters()
     sites = _object_store_call_sites()
     if sites:
         still_refused = sorted(OBJECT_STORE_DEPENDENTS & set(adapters.UNBOUND))
         assert still_refused == [], (
-            f"an object-store client now exists ({sites}); {still_refused} are "
-            "refused for a reason that no longer holds. Bind them and delete "
-            "their UNBOUND entries."
+            f"an object store now exists ({sites}); {still_refused} are refused "
+            "for a reason that no longer holds. Bind them and delete their "
+            "UNBOUND entries."
         )
         return
     bound = sorted(OBJECT_STORE_DEPENDENTS - set(adapters.UNBOUND))
@@ -1782,32 +1854,40 @@ def _created_tables() -> frozenset[str]:
     return frozenset(re.findall(r"CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(\w+)", _migration_source()))
 
 
-def test_nothing_in_this_system_persists_a_content_block() -> None:
-    """Section 9.3's whole payload has no store, and 9.4's span check no referent.
+def test_a_content_block_is_persisted_and_reads_back_or_the_two_ports_refuse() -> None:
+    """Section 9.3's payload has a store now, and 9.4's span check a referent.
 
     ``ContentBlock`` is a real, typed contract -- block id, kind, text, sha256,
-    source locator -- and **no migration creates anywhere to put one**. Not a
-    table, not a column. The parser that would produce them does not exist
-    either: ``app/ingestion`` is a one-line docstring,
-    ``workers/textract_complete`` is an empty module, and
-    ``agents/runtime/state.py``'s ``ArtifactReader`` is a Protocol whose only
-    implementation is a test fake.
+    source locator -- and the earlier version of this test concluded that
+    nothing could hold one because **no migration creates a table or a column
+    whose name contains "block"**. That was the wrong question.
+    ``source_artifacts.parser_metadata`` is ``JSONB`` and has existed since
+    ``0002``; a parser's output is a versioned document belonging to one
+    artifact, read whole and written once, which is exactly what that column
+    is for. No schema change was needed and none was made.
+
+    So the detection here is not a name scan. It reads
+    ``app/ingestion/blocks.BLOCK_STORE_COLUMN``, confirms the migrations really
+    declare that column, and then **round-trips a block through it** -- serialise
+    to the stored document, read back, compare. A constant naming a column that
+    does not exist, or a serialiser that loses the text, reports no store and
+    this test goes back to demanding the two refusals.
 
     That settles two methods rather than one. ``internal.artifact_content``
-    *is* the blocks, so it has nothing to return. And section 9.4 steps 1 and 2
-    -- every ``block_id`` must exist in the bound artifact, every
-    ``exact_text`` must be a substring of the cited block -- are named in the
-    spec as "the deterministic defence against a model inventing a quotation",
-    and they would have nothing to check against. Admitting evidence with that
-    defence absent is ``D-00-005`` inverted: performing the action while unable
-    to perform its guard, into a table that is append-only and therefore cannot
-    be corrected afterwards.
+    *is* the blocks. And section 9.4 steps 1 and 2 -- every ``block_id`` must
+    exist in the bound artifact, every ``exact_text`` must be a substring of the
+    cited block -- are named in the spec as "the deterministic defence against a
+    model inventing a quotation", and they now have something to check against.
 
-    The seed is what makes the gap easy to miss and worth naming: every
-    ``source_artifacts`` row it writes carries ``parser_status = 'PARSED'`` and
-    ``parser_version = 'seed-1.0.0'``, so the column asserts a parse whose
-    output nobody can read back.
+    The thing that still has to be true, and is asserted separately in
+    ``tests/api/test_evidence_registration.py``: when the blocks *cannot* be
+    read, evidence is refused rather than admitted unchecked. Every seeded
+    artifact is in that state -- ``parser_status='PARSED'``,
+    ``parser_version='seed-1.0.0'``, no stored output -- so it is the ordinary
+    path, not an edge case.
     """
+    import uuid as _uuid
+
     from provenance_contracts.ingestion import ContentBlock, NormalizedContent
 
     tables = _created_tables()
@@ -1819,25 +1899,40 @@ def test_nothing_in_this_system_persists_a_content_block() -> None:
     assert "blocks" in NormalizedContent.model_fields
     assert {"block_id", "kind", "text", "source_locator"} <= set(ContentBlock.model_fields)
 
-    block_tables = sorted(name for name in tables if "block" in name.lower())
-    block_columns = sorted(
-        set(re.findall(r"^\s+(\w*block\w*)\s+(?:JSONB|STRING|BYTES)", _migration_source(), re.M))
-    )
+    stored_where = _block_store_that_round_trips()
     adapters = _adapters()
-    if block_tables or block_columns:
-        assert "internal.artifact_content" not in adapters.UNBOUND, (
-            f"blocks are persisted now ({block_tables or block_columns}); section "
-            "9.3 has a source and internal.artifact_content can bind."
+    if stored_where:
+        still_refused = sorted(
+            {"internal.artifact_content", "internal.register_evidence"} & set(adapters.UNBOUND)
+        )
+        assert still_refused == [], (
+            f"blocks are persisted now ({stored_where}); section 9.3 has a source "
+            f"and section 9.4 has a referent, so {still_refused} are refused for a "
+            "reason that no longer holds."
+        )
+        # The other direction of the same fact: a run whose artifact has no
+        # stored output must not be handed an empty document.
+        from services.control_plane.app.ingestion.blocks import (
+            ParserOutputUnavailable,
+            read_normalized_content,
+        )
+
+        seeded = read_normalized_content(
+            artifact_id=_uuid.uuid4(), parser_status="PARSED", parser_metadata=None
+        )
+        assert isinstance(seeded, ParserOutputUnavailable), (
+            "a row claiming PARSED with no stored output read as content; every "
+            "seeded artifact is in that state and every run would be told the "
+            "artifact is empty"
         )
         return
+
     # ``span`` is required of section 9.4's entry and not of 9.3's, and the
     # asymmetry is the point rather than an oversight. 9.3 *is* the blocks, so
     # naming them is the whole reason. 9.4 is blocked by what it cannot *check*
     # -- step 2 is a span containment test -- and an entry that says only
     # "blocks" has described the missing input without describing the guard
-    # that goes missing with it. A counterfactual that deleted the guard's name
-    # and left the word "blocks" standing elsewhere in the sentence passed an
-    # earlier, weaker version of this assertion.
+    # that goes missing with it.
     required_words = {
         "internal.artifact_content": ("block",),
         "internal.register_evidence": ("block", "span"),
@@ -1850,6 +1945,68 @@ def test_nothing_in_this_system_persists_a_content_block() -> None:
             f"{name} is blocked on content blocks that nothing persists, and its "
             f"UNBOUND entry never says {missing}: {adapters.UNBOUND[name]!r}"
         )
+
+
+def _block_store_that_round_trips() -> str:
+    """The column blocks live in, if a block really survives a trip through it.
+
+    Returns ``""`` when nothing does. The two halves are both necessary: the
+    column has to exist in the applied schema (a constant can name anything),
+    and a block has to come back equal (a column can exist and the serialiser
+    still lose the text).
+    """
+    import hashlib as _hashlib
+    import uuid as _uuid
+
+    try:
+        from provenance_contracts.ingestion import ContentBlock, NormalizedContent, SourceLocator
+        from provenance_domain.enums import ContentBlockKind, ParserStatus
+        from services.control_plane.app.ingestion.blocks import (
+            BLOCK_STORE_COLUMN,
+            PARSER_VERSION,
+            ParseOutcome,
+            parser_metadata_value,
+            read_normalized_content,
+        )
+    except ImportError:
+        return ""
+
+    table, _, column = BLOCK_STORE_COLUMN.partition(".")
+    source = _migration_source()
+    if f"CREATE TABLE {table}" not in source:
+        return ""
+    if not re.search(rf"^\s+{re.escape(column)}\s+JSONB", source, re.M):
+        return ""
+
+    artifact_id = _uuid.uuid4()
+    text = "Amount due USD 186.00 by 30 June 2026."
+    block = ContentBlock(
+        block_id="blk_0001",
+        artifact_id=artifact_id,
+        ordinal=0,
+        kind=ContentBlockKind.BODY,
+        text=text,
+        content_sha256=_hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        source_locator=SourceLocator(
+            kind="TEXT_SPAN", block_id="blk_0001", char_start=0, char_end=len(text)
+        ),
+    )
+    document = parser_metadata_value(
+        ParseOutcome(
+            status=ParserStatus.PARSED,
+            parser_version=PARSER_VERSION,
+            blocks=(block,),
+            reason=None,
+        )
+    )
+    back = read_normalized_content(
+        artifact_id=artifact_id, parser_status="PARSED", parser_metadata=document
+    )
+    if not isinstance(back, NormalizedContent) or len(back.blocks) != 1:
+        return ""
+    if back.blocks[0].text != text or back.blocks[0].content_sha256 != block.content_sha256:
+        return ""
+    return BLOCK_STORE_COLUMN
 
 
 def _s3_key_prefix_required() -> str:
@@ -1869,29 +2026,37 @@ def _s3_key_prefix_required() -> str:
     return pattern[:-1]
 
 
-def test_the_ses_key_section_9_1_carries_is_refused_by_the_artifact_table() -> None:
-    """``internal.ingest_artifact`` fails at the database, not at a missing helper.
+def test_the_ses_key_is_still_refused_and_the_server_mints_the_one_it_stores() -> None:
+    """``internal.ingest_artifact`` may bind, and only because it copies first.
 
-    Section 9.1's request body carries the key the SES Lambda wrote --
-    ``ses/2026/06/05/0100018f9e70abcd-3f8a1c9d`` in the spec's own example --
-    and ``source_artifacts`` will not store it: the table constrains
-    ``s3_key LIKE 'raw/%'``, which is section 8.18's fixed layout
-    ``raw/{tenant_id}/{user_id}/{artifact_id}/original`` enforced at the
-    boundary so that a bad pre-sign cannot write outside the prefix.
+    The constraint has not moved. Section 9.1's request body still carries the
+    key the SES Lambda wrote -- ``ses/2026/06/05/0100018f9e70abcd-3f8a1c9d`` in
+    the spec's own example -- and ``source_artifacts`` still refuses it:
+    ``ck_source_artifacts_s3_key_shape`` is ``CHECK (s3_key LIKE 'raw/%')``,
+    which is section 8.18's fixed layout enforced at the boundary so that a bad
+    pre-sign cannot write outside the prefix.
 
-    The row can therefore only be written *after* the bytes have been copied
-    into that prefix, and what copies them is the object-store client
-    ``write.upload_intent`` is waiting on. Synthesising a ``raw/`` key without
-    the copy is the option this test exists to close off: it satisfies the
-    CHECK and stores a locator for bytes nobody wrote, and the first symptom is
-    a download that 404s months later against a row that looks perfect.
+    What changed is that there is now something that can perform the copy. The
+    row is written *after* the bytes are put under ``raw/``, and the key the row
+    carries is the one ``storage.raw_key`` minted from the resolved binding --
+    never the one the caller sent.
+
+    The option this test still exists to close off is synthesising a ``raw/``
+    key without the copy: it satisfies the CHECK and stores a locator for bytes
+    nobody wrote, and the first symptom is a download that 404s months later
+    against a row that looks perfect. So the assertions below are not "is it
+    bound" alone -- they check that the adapter reads the caller's key only to
+    *fetch* from it, and that the value it hands the INSERT comes from
+    ``raw_key``.
 
     The constraint is read out of the migration rather than restated here, and
     it was separately confirmed present on the live cluster
-    (``pg_get_constraintdef`` over ``source_artifacts``) rather than assumed
-    from the migration alone.
+    (``pg_get_constraintdef`` over ``source_artifacts``) rather than assumed.
     """
+    import uuid as _uuid
+
     from services.control_plane.app.api.schemas.internal import IngestArtifactRequest
+    from services.control_plane.app.storage import raw_key
 
     required = _s3_key_prefix_required()
     assert required, "the CHECK requires no prefix at all; section 9.1 is unblocked"
@@ -1915,20 +2080,31 @@ def test_the_ses_key_section_9_1_carries_is_refused_by_the_artifact_table() -> N
         },
     )
     assert request.s3_key == ses_key
+    assert not request.s3_key.startswith(required), (
+        "the key section 9.1 prints now satisfies the CHECK; the tension this "
+        "test describes is gone and the reasoning below needs re-deriving"
+    )
+
+    minted = raw_key(tenant_id=_uuid.uuid4(), user_id=_uuid.uuid4(), artifact_id=_uuid.uuid4())
+    assert minted.startswith(required), (minted, required)
 
     adapters = _adapters()
-    if request.s3_key.startswith(required):
-        assert "internal.ingest_artifact" not in adapters.UNBOUND, (
-            "the inbound key now satisfies ck_source_artifacts_s3_key_shape, so "
-            "section 9.1 can insert its row."
-        )
-        return
-    assert "internal.ingest_artifact" in adapters.UNBOUND
-    reason = adapters.UNBOUND["internal.ingest_artifact"]
-    assert required in reason, (
-        "internal.ingest_artifact is blocked by a key-prefix CHECK its register "
-        f"entry never mentions ({required!r}): {reason!r}"
+    assert "internal.ingest_artifact" not in adapters.UNBOUND, (
+        "a store exists and can copy the worker's bytes under the raw/ prefix, "
+        "so section 9.1 can write its row and the register entry is stale"
     )
+
+    body = inspect.getsource(adapters.KernelInternalPort.ingest_artifact)
+    assert "raw_key(" in body, (
+        "internal.ingest_artifact does not mint a key; if it stores the caller's, "
+        "the INSERT fails the CHECK -- or worse, passes one that was synthesised"
+    )
+    assert "self._objects.get(payload.s3_key)" in body, (
+        "the caller's key is not read, so nothing fetches the bytes the row will " "claim to locate"
+    )
+    assert (
+        "s3_key=key" in body and "s3_key=payload.s3_key" not in body
+    ), "the row is written with the caller's key rather than the minted one"
 
 
 def test_the_kernel_holds_no_evidence_items_update_so_a_retraction_has_no_writer() -> None:
@@ -2092,7 +2268,7 @@ def _profile_the_evidence_table_admits() -> tuple[int, frozenset[str]]:
     return int(width.group(1)), frozenset(re.findall(r"'([^']+)'", models.group(1)))
 
 
-def test_register_evidence_cannot_stamp_an_embedding_this_column_would_accept() -> None:
+def test_register_evidence_does_not_stamp_an_embedding_this_column_would_refuse() -> None:
     """Section 9.4 step 4 has an embedder and nowhere to put what it returns.
 
     Step 4 is not optional decoration: it computes the vector server-side and
@@ -2106,13 +2282,20 @@ def test_register_evidence_cannot_stamp_an_embedding_this_column_would_accept() 
     both and is deliberately unapplied.
 
     So the only legal write is ``embedding = NULL``, which
-    ``ck_evidence_embedding_provenance`` permits and which silently excludes the
-    row from every ANN query for good -- ``evidence_items`` is append-only, so
-    it cannot be corrected in place. A row that exists and never retrieves is
-    the "absence is not emptiness" failure with nothing erroring, which is
-    exactly the shape ``ann_search()`` returning zero rows for every query
-    already took once.
+    ``ck_evidence_embedding_provenance`` permits and which excludes the row
+    from every ANN query for good -- ``evidence_items`` is append-only, so it
+    cannot be corrected in place.
+
+    That is a real cost, and the earlier version of this test concluded from it
+    that section 9.4 could not be bound at all. That inference does not hold:
+    the two checks step 4 exists alongside -- block-exists and
+    span-inside-the-block -- are the reason the endpoint matters, and they work.
+    What must not happen is a row stamped with an embedding the column would
+    refuse, or a silent NULL the caller never hears about. Both are asserted
+    here, and both are properties rather than states.
     """
+    import uuid as _uuid
+
     from provenance_contracts.embedding_profile import EMBEDDING_PROFILES
 
     width, admitted = _profile_the_evidence_table_admits()
@@ -2129,21 +2312,99 @@ def test_register_evidence_cannot_stamp_an_embedding_this_column_would_accept() 
     gemini = EMBEDDING_PROFILES["gemini-v2"]
     assert gemini.model_id not in admitted or gemini.column_width != width, (
         "the applied schema now accepts the shipping embedding profile; section "
-        "9.4 step 4 has somewhere to write and the blocker is gone."
+        "9.4 step 4 has somewhere to write and this reasoning needs re-deriving."
     )
     assert writable == ["titan-v1"], (
         f"the set of profiles this schema can accept moved to {writable}; the "
-        "register entry under internal.register_evidence describes a different "
-        "world."
+        "reasoning above describes a different world."
     )
 
     adapters = _adapters()
-    assert "internal.register_evidence" in adapters.UNBOUND
-    reason = adapters.UNBOUND["internal.register_evidence"]
-    assert str(width) in reason and gemini.model_id in reason, (
-        "internal.register_evidence cannot stamp an embedding and the register "
-        f"names neither the column width nor the model that will not fit: {reason!r}"
+    assert (
+        "internal.register_evidence" not in adapters.UNBOUND
+    ), "steps 1 and 2 have a referent now; step 4's gap is disclosed, not a blocker"
+
+    from provenance_domain.enums import SourceClass
+    from services.control_plane.app.ingestion import evidence as ingestion_evidence
+
+    # What the row actually carries. The three embedding columns move together
+    # under `ck_evidence_embedding_provenance`, so a stamped model with a null
+    # vector would be refused by the database rather than merely be wrong.
+    admission = _one_admission()
+    params = ingestion_evidence.insert_params(
+        admission,
+        evidence_id=_uuid.uuid4(),
+        tenant_id=_uuid.uuid4(),
+        user_id=_uuid.uuid4(),
+        artifact_id=_uuid.uuid4(),
+        source_class=SourceClass.PROVIDER_SYSTEM_NOTICE,
+        created_at=datetime(2026, 6, 14, 8, 0, tzinfo=UTC),
     )
+    assert params["embedding"] is None
+    assert params["embedding_model"] is None, (
+        f"an embedding model is stamped on a row with no vector; "
+        f"ck_evidence_embedding_provenance refuses that, and the admitted set is "
+        f"{sorted(admitted)}"
+    )
+    assert params["embedding_version"] is None
+    assert params["embedding_generated_at"] is None
+
+    # ...and the caller is told, at the moment the row is created, rather than
+    # discovering months later that it never retrieves.
+    body = inspect.getsource(adapters.KernelInternalPort.register_evidence)
+    assert "embedding_status" in body, (
+        "the response does not disclose that no embedding was computed, so the "
+        "absence is silent -- which is the failure shape ann_search() returning "
+        "zero rows for every query already took once"
+    )
+    assert str(width) in ingestion_evidence.EMBEDDING_NOT_COMPUTED_REASON
+    assert gemini.model_id in ingestion_evidence.EMBEDDING_NOT_COMPUTED_REASON
+
+
+def _one_admission() -> Any:
+    """One candidate that has passed steps 1 and 2, for the row assertions above."""
+    import hashlib as _hashlib
+    import uuid as _uuid
+    from decimal import Decimal as _Decimal
+
+    from provenance_contracts.ingestion import ContentBlock, NormalizedContent, SourceLocator
+    from provenance_domain.enums import ContentBlockKind
+    from services.control_plane.app.ingestion import evidence as ingestion_evidence
+
+    artifact_id = _uuid.uuid4()
+    text = "Amount due USD 186.00 by 30 June 2026."
+    block = ContentBlock(
+        block_id="blk_0001",
+        artifact_id=artifact_id,
+        ordinal=0,
+        kind=ContentBlockKind.BODY,
+        text=text,
+        content_sha256=_hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        source_locator=SourceLocator(
+            kind="TEXT_SPAN", block_id="blk_0001", char_start=0, char_end=len(text)
+        ),
+    )
+
+    class _Candidate:
+        client_ref = "c1"
+        evidence_type = "INVOICE_LINE"
+        block_id = "blk_0001"
+        exact_text = "Amount due USD 186.00"
+        normalized_text = "[amount=186.00 USD] invoice line"
+        source_locator = None
+        actor_ref = None
+        valid_from = None
+        valid_to = None
+        observed_at = datetime(2026, 6, 14, 8, 0, tzinfo=UTC)
+        extraction_confidence = _Decimal("0.97")
+
+    admitted = ingestion_evidence.admissions(
+        candidates=[_Candidate()],
+        content=NormalizedContent(
+            artifact_id=artifact_id, parser_version="pv-eml-1.0.0", blocks=(block,)
+        ),
+    )
+    return admitted[0]
 
 
 def test_the_six_ingestion_methods_agree_with_the_register() -> None:

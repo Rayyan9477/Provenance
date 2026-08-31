@@ -104,6 +104,19 @@ def test_no_undocumented_route_is_implemented(app) -> None:
     criterion names it, even though section 8.0's index does not list it. It
     is recorded here rather than hidden, because an undocumented route is
     exactly what this assertion exists to surface.
+
+    `POST /v1/triggers/{trigger_id}/wake` is the second such row, added
+    2026-08-28. `16_TRIGGER_DSL.md` section 13.2 specifies the manual wake and
+    `CANONICAL_DECISIONS.md` -> *Trigger demonstration* makes it binding on the
+    demo, but section 8.0's index -- written before the trigger evaluator was
+    bound -- lists no route for it. `write.wake_trigger` was therefore
+    implemented, tested, and armed against the live cluster with nothing able
+    to call it; `tools/demo_readiness` reported the demo's second reveal NOT
+    READY for exactly that reason.
+
+    PUBLIC_ROUTES is left at its thirty-one rows because it mirrors section
+    8.0 and section 8.0 still says thirty-one. Closing that gap means editing
+    the spec, which is a documentation change and not this test's to make.
     """
     documented = (
         set(PUBLIC_ROUTES)
@@ -111,6 +124,7 @@ def test_no_undocumented_route_is_implemented(app) -> None:
         | {
             ("GET", "/v1/judge-mode/agent-views"),
             ("GET", "/v1/openapi.json"),
+            ("POST", "/v1/triggers/{trigger_id}/wake"),
         }
     )
     extra = sorted(_implemented(app) - documented)

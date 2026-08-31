@@ -159,3 +159,149 @@ def test_a_cursor_minted_for_one_collection_does_not_work_on_another(client, aut
     response = client.get(f"/v1/commitments?cursor={cursor}", headers=auth_alex)
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "INVALID_CURSOR"
+
+
+# ---------------------------------------------------------------------------
+# Every paginated route threads its cursor through to the port
+# ---------------------------------------------------------------------------
+#
+# GET /v1/cases/{id}/timeline and GET /v1/cases/{id}/conflicts parsed the
+# cursor into `page` and then called the port with `limit=page.limit` only. A
+# correctly-signed next_cursor -- one the endpoint had itself just issued --
+# was accepted with a 200 and ignored, so a client following it read page one
+# forever. The adapter and the SQL supported keyset paging the whole time; only
+# the argument was missing, which is why nothing failed and nothing was logged.
+#
+# This is structural rather than behavioural because it catches the whole class
+# in one assertion: any route that reads a cursor must pass it on.
+
+
+def test_every_route_that_reads_a_cursor_passes_it_to_the_port() -> None:
+    """A route calling read_page must forward `after` to the read port.
+
+    A silent no-op has no symptom -- correct-looking rows, a 200, and a cursor
+    that does nothing -- so it cannot be caught by asserting on a response. It
+    is caught by reading the call.
+    """
+    import ast
+    import inspect
+
+    from services.control_plane.app.api.routes import memory
+
+    tree = ast.parse(inspect.getsource(memory))
+    offenders: list[str] = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.AsyncFunctionDef | ast.FunctionDef):
+            continue
+        body = ast.dump(node)
+        if "read_page" not in body:
+            continue
+
+        # The port call in a paginated handler is the one whose keywords carry
+        # `limit`; `after` must be beside it.
+        # The port call in a paginated handler is the one whose keywords carry
+        # `limit`; `after` must be beside it.
+        #
+        # A bare `**filters` could in principle carry the cursor, but these
+        # handlers build `filters` themselves out of query parameters and never
+        # put it there -- which is exactly how the bug stayed invisible. So the
+        # keyword is required explicitly rather than inferred from a splat.
+        for call in [n for n in ast.walk(node) if isinstance(n, ast.Call)]:
+            keywords = {k.arg for k in call.keywords if k.arg is not None}
+            if "limit" in keywords and "after" not in keywords:
+                offenders.append(node.name)
+
+    assert not offenders, (
+        "these paginated handlers parse a cursor and never pass it to the "
+        f"port, so following next_cursor returns page one forever: {sorted(set(offenders))}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# A NULL sort value survives the cursor round trip
+# ---------------------------------------------------------------------------
+#
+# `encode_cursor` stringified every part of the sort key, so a NULL ordered
+# column became the literal string "None". The repository bound that straight
+# into `%(after_due_at)s::TIMESTAMPTZ` and the statement failed on
+# `'None'::TIMESTAMPTZ` -- so the second and later rows of any NULLS-LAST tail
+# were unreachable through the API.
+#
+# The SQL keyset that walks the tail was correct. Nothing could reach it.
+#
+# This is a BEHAVIOURAL test on purpose. The keyset fix shipped with tests that
+# only inspected SQL source text, and those tests passed while this was broken:
+# they could not see an encoding defect one layer up. An independent review
+# caught it, and that gap is the reason these assertions exist.
+
+
+def test_a_null_sort_value_round_trips_as_none_not_as_the_string() -> None:
+    """The regression. `["None"]` is what broke the cast."""
+    import uuid as _uuid
+
+    from services.control_plane.app.api.pagination import decode_cursor, encode_cursor
+
+    key = b"k" * 32
+    fingerprint = "abc123"
+    last_id = _uuid.UUID("00000000-0000-0000-0000-000000000002")
+
+    cursor = encode_cursor([None], last_id, fingerprint, key=key)
+    sort_key, decoded_id = decode_cursor(cursor, fingerprint, key=key)
+
+    assert sort_key == [None], (
+        f"a NULL sort value decoded as {sort_key!r}; the string 'None' is bound "
+        "into a ::TIMESTAMPTZ cast and fails there"
+    )
+    assert sort_key[0] is None
+    assert not isinstance(sort_key[0], str)
+    assert decoded_id == last_id
+
+
+def test_a_present_sort_value_is_unchanged() -> None:
+    """The fix must not disturb the ordinary path."""
+    import uuid as _uuid
+
+    from services.control_plane.app.api.pagination import decode_cursor, encode_cursor
+
+    key = b"k" * 32
+    cursor = encode_cursor(
+        ["2026-09-01T00:00:00+00:00"],
+        _uuid.UUID("00000000-0000-0000-0000-000000000003"),
+        "fp",
+        key=key,
+    )
+    sort_key, _ = decode_cursor(cursor, "fp", key=key)
+    assert sort_key == ["2026-09-01T00:00:00+00:00"]
+
+
+def test_a_mixed_sort_key_keeps_each_part_as_it_was() -> None:
+    import uuid as _uuid
+
+    from services.control_plane.app.api.pagination import decode_cursor, encode_cursor
+
+    key = b"k" * 32
+    cursor = encode_cursor(
+        [None, "2026-09-01T00:00:00+00:00"],
+        _uuid.UUID("00000000-0000-0000-0000-000000000004"),
+        "fp",
+        key=key,
+    )
+    sort_key, _ = decode_cursor(cursor, "fp", key=key)
+    assert sort_key == [None, "2026-09-01T00:00:00+00:00"]
+
+
+def test_the_adapter_passes_a_null_sort_value_through_as_none() -> None:
+    """`_after` must hand the repository None, not "None"."""
+    import uuid as _uuid
+
+    from services.control_plane.app.api.adapters.read import _after
+
+    last_id = _uuid.UUID("00000000-0000-0000-0000-000000000005")
+    sort_value, decoded_id = _after(([None], last_id))
+
+    assert sort_value is None, (
+        "the adapter turned a NULL sort value into something else before the "
+        "repository could bind it as SQL NULL"
+    )
+    assert decoded_id == last_id

@@ -84,6 +84,16 @@ class StubSettings:
     cognito_judge_group = None
     max_artifact_bytes = 20_971_520
     otel_exporter_otlp_endpoint = None
+    # Section 8.18's pre-signed-URL lifetime, read by ``KernelWritePort`` so a
+    # deployment's configured TTL is the one an upload target carries.
+    upload_url_ttl_seconds = 900
+    download_url_ttl_seconds = 300
+    # ``agent_runs.model_route`` is built from these. They are read rather than
+    # constant so a run records the ids this deployment actually routed on --
+    # ``proposals/submission.resolve_attribution`` refuses a proposal whose
+    # claimed model is not the one that column holds.
+    gemini_extraction_model_id = "gemini-3.5-flash-lite"
+    gemini_reasoning_model_id = "gemini-3.7-flash"
 
     def dsn_for_role(self, role: str) -> SecretStr:
         del role
@@ -341,6 +351,15 @@ def test_settings_stub_covers_what_production_reads(settings: StubSettings) -> N
         "ses_demo_sink_domain",
     ):
         assert field in read, f"the action policy was built without reading {field}"
+    # The ingestion path's three, for the same reason: a wiring that stopped
+    # reading them would silently store objects somewhere else and attribute
+    # every run to a hard-coded pair of model ids.
+    for field in (
+        "upload_url_ttl_seconds",
+        "gemini_extraction_model_id",
+        "gemini_reasoning_model_id",
+    ):
+        assert field in read, f"the ingestion path was wired without reading {field}"
     # And the mirror of `test_wiring_opens_no_connection`, from the settings
     # side: no credential is even *read* during construction, let alone used.
     # `RolePool` resolves its DSN inside `open()`, which is what lets a process
