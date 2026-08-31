@@ -1,0 +1,85 @@
+# syntax=docker/dockerfile:1
+#
+# Deployment unit 1: web (Next.js 15 / React 19). Target: Google Cloud Run.
+#
+# Build context is the REPOSITORY ROOT:
+#
+#     docker build -f deploy/Dockerfile.web -t provenance-web .
+#
+# even though everything it needs is under apps/web/. Keeping both images on one
+# context means one .dockerignore governs both, and a file excluded from the
+# API image cannot be silently included in this one.
+#
+# Why `output: "standalone"` is not optional here
+# -----------------------------------------------
+# Without it a Next.js image ships the full node_modules tree — hundreds of
+# megabytes of build-time dependencies for a runtime that needs a handful.
+# `standalone` emits server.js plus exactly the modules the traced server code
+# reaches. next.config.mjs sets it; this file assumes it, and the build fails
+# loudly at the COPY below rather than quietly shipping a fat image, because
+# .next/standalone simply will not exist.
+#
+# PV_API_TOKEN and the two-variable rule
+# --------------------------------------
+# LIVE mode needs PV_API_BASE_URL *and* PV_API_TOKEN. Setting only the base URL
+# replaces the fixture banner with a wall of error states, because every read
+# runs in a server component and the control plane correctly answers 401 to an
+# anonymous read. Neither carries NEXT_PUBLIC_: Next.js inlines prefixed
+# variables into the browser bundle, and a token in the bundle is a token the
+# viewer has. Both are supplied at deploy time, never baked here.
+
+# --- deps ---------------------------------------------------------------------
+FROM node:20-slim AS deps
+WORKDIR /app
+# The lockfile alone keys this layer, so a source edit does not re-install.
+COPY apps/web/package.json apps/web/package-lock.json ./
+RUN npm ci
+
+# --- build --------------------------------------------------------------------
+FROM node:20-slim AS build
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=deps /app/node_modules ./node_modules
+COPY apps/web/ ./
+
+# `npm run build` runs the render-honesty checker first (package.json: "build":
+# "npm run honesty && next build"). That is deliberate and is kept here: the
+# rule it enforces — nothing renders that has no backing row — is exactly the
+# rule a deployed judge-facing build must not break. A violation fails the image
+# build, which is the last place it can still be cheap.
+RUN npm run build
+
+# --- runtime ------------------------------------------------------------------
+FROM node:20-slim AS runtime
+
+ARG GIT_SHA=unset
+ENV GIT_SHA=${GIT_SHA} \
+    NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+# node:20-slim already ships a `node` user at uid 1000. Reused rather than
+# replaced so the numeric owner matches what the base image expects.
+WORKDIR /app
+
+# The pieces `standalone` splits its output into. .next/static/ is NOT inside
+# .next/standalone and is served from disk by server.js, so omitting it produces
+# a site that renders unstyled with no error anywhere in the log.
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
+
+# There is deliberately no `COPY /app/public`. This app has no public/ directory
+# — every asset is imported through the bundler and every icon is inline SVG —
+# and a COPY of a path that does not exist is a hard build failure, not a no-op.
+# If one is ever added, it must be copied here too: server.js serves it from
+# disk and its absence is silent.
+
+USER node
+
+EXPOSE 3000
+
+# HOSTNAME=0.0.0.0 above is what server.js binds to; Next's standalone server
+# defaults to localhost, which on Cloud Run means a container that starts and
+# never answers. exec so server.js is PID 1 and gets SIGTERM directly.
+CMD ["node", "server.js"]

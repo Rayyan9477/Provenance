@@ -19,6 +19,12 @@ import { abbreviateHash, formatDate, formatInstantOrRaw } from "@/lib/format";
  * makes that visible.
  */
 
+//: The document types a person actually forwarded or uploaded, as on
+//: `/artifacts`. Restated rather than imported because a page should not reach
+//: into a sibling route's module for a constant; if a third surface needs it,
+//: move it to `lib/`.
+const ADMITTED_SOURCE_TYPES = ["EMAIL_INBOUND", "UPLOAD_PDF"] as const;
+
 export const dynamic = "force-dynamic";
 
 interface PageProps {
@@ -29,7 +35,22 @@ export default async function IngestPage({ searchParams }: PageProps) {
   const query = await searchParams;
   const focusArtifact = typeof query["artifact_id"] === "string" ? query["artifact_id"] : null;
 
-  const [me, alias, artifacts] = await Promise.all([loadMe(), getIngestAlias(), getArtifacts()]);
+  // The admitted documents, not the decoy field.
+  //
+  // This called getArtifacts() unfiltered, and the index sorts by received_at
+  // DESC while the 18,000 seeded decoys run later than the story documents. So
+  // "Recent artifacts" was 25 nameless fixtures dated 16-17 SEP 2026 -- above a
+  // status bar reading 31 AUG -- and not one of the bills this record is about.
+  // /artifacts was fixed for exactly this and this page was missed.
+  //
+  // The panel's own docstring says it exists to show "the June invoice that
+  // arrives in September ... only the pair makes that visible". Every row
+  // showing both clocks as 17 SEP demonstrated the opposite.
+  const [me, alias, artifacts] = await Promise.all([
+    loadMe(),
+    getIngestAlias(),
+    getArtifacts([...ADMITTED_SOURCE_TYPES]),
+  ]);
   const timeZone = timeZoneOf(me);
   const uploadEnabled = me.ok ? me.data.feature_flags.upload_ingest_enabled === true : false;
   const sesEnabled = me.ok ? me.data.feature_flags.ses_inbound_enabled === true : false;
@@ -179,7 +200,13 @@ export default async function IngestPage({ searchParams }: PageProps) {
                   >
                     <td>
                       <Link href={`/artifacts/${artifact.artifact_id}`}>
-                        {artifact.filename ?? artifact.artifact_id}
+                        {/* The absence marker, not the id. Every artifact in
+                            this corpus has filename: null, and /artifacts
+                            renders that as an explicit absence while this
+                            printed a 36-character UUID in the File column. */}
+                        {artifact.filename ?? (
+                          <Absent describe="this artifact carries no filename" />
+                        )}
                       </Link>
                     </td>
                     <td>{abbreviateHash(artifact.content_sha256)}</td>

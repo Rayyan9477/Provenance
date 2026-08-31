@@ -103,9 +103,12 @@ from provenance_domain.enums import ActionState, ActionType, ModelTier
 
 __all__ = [
     "ADVOCATE_NODES",
+    "COUNTERFACTUAL_NODES",
     "GRAPH_NAME_ADVOCATE",
+    "GRAPH_NAME_COUNTERFACTUAL",
     "GRAPH_NAME_INGESTION",
     "GRAPH_VERSION_ADVOCATE",
+    "GRAPH_VERSION_COUNTERFACTUAL",
     "GRAPH_VERSION_INGESTION",
     "INGESTION_NODES",
     "ActionIntentReceipt",
@@ -151,6 +154,8 @@ GRAPH_NAME_INGESTION: Final[str] = "ingestion"
 GRAPH_VERSION_INGESTION: Final[str] = "1.0.0"
 GRAPH_NAME_ADVOCATE: Final[str] = "advocate"
 GRAPH_VERSION_ADVOCATE: Final[str] = "1.0.0"
+GRAPH_NAME_COUNTERFACTUAL: Final[str] = "counterfactual"
+GRAPH_VERSION_COUNTERFACTUAL: Final[str] = "1.0.0"
 
 #: ``03_AGENTS_LANGGRAPH_CONTRACTS.md`` section 4, in order. This tuple is the
 #: topology: the graph walks it, the tests assert on it, and adding an entry is
@@ -177,6 +182,18 @@ ADVOCATE_NODES: Final[tuple[str, ...]] = (
     "draft_action",
     "validate_draft_claims",
     "create_action_intent",
+)
+
+#: ``specs/15_API_SPEC.md`` section 8.30, in order. **Both** halves of the
+#: counterfactual walk this same tuple -- that is what "the same graph" in
+#: ``CANONICAL_DECISIONS.md`` -> *Counterfactual* means structurally, rather
+#: than as a promise in a docstring. The only node whose behaviour differs by
+#: mode is ``bind_memory``, and its whole job is to differ: it supplies the
+#: real State Proof under ``MEMORY_ON`` and the empty block of
+#: ``14_PROMPTS.md`` section 6.4 under ``MEMORY_OFF``.
+COUNTERFACTUAL_NODES: Final[tuple[str, ...]] = (
+    "bind_memory",
+    "draft_reading",
 )
 
 

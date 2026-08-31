@@ -1,0 +1,55 @@
+# Build one image with Cloud Build, from a Dockerfile that is NOT at the
+# context root.
+#
+# Why this exists
+# ---------------
+# `deploy/cloudrun.sh` built locally and pushed, because `gcloud builds submit
+# --tag` assumes a Dockerfile at the root of the build context and both of ours
+# live under `deploy/` while needing the repository root as context. That was a
+# reasonable trade until the local Docker daemon stopped starting -- twice, mid
+# deploy, with `Docker Desktop is unable to start` and then a 500 from the
+# engine pipe -- and took the deployment path down with it.
+#
+# A deploy that cannot run without a working Docker Desktop on one particular
+# Windows machine is not a deployment path; it is that machine's deployment
+# path. This config removes the dependency: the build happens on Google's
+# builders, the image is pushed from there, and the operator needs only
+# `gcloud`.
+#
+# It is also the better artifact for a submission. A judge cloning this
+# repository can reproduce the image without installing Docker at all.
+#
+# Usage (both substitutions are required):
+#
+#   gcloud builds submit --config deploy/cloudbuild.yaml \
+#     --substitutions=_IMAGE=<full image ref>,_DOCKERFILE=deploy/Dockerfile.web,_GIT_SHA=<sha> .
+#
+# The context uploaded is governed by `.gcloudignore`, NOT `.dockerignore` --
+# gcloud does not read the latter. That file is committed for this reason and
+# excludes `db/seeds/vectors.parquet` (69.9 MB) and every credential shape.
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    args:
+      - build
+      # linux/amd64 is what Cloud Run runs. Cloud Build's workers are amd64
+      # already, so this is a belt-and-braces assertion rather than a
+      # cross-build -- an arm64 image pushes happily and then fails at start
+      # with "exec format error", which reads like a broken entrypoint.
+      - --platform=linux/amd64
+      - --file=${_DOCKERFILE}
+      - --build-arg=GIT_SHA=${_GIT_SHA}
+      - --tag=${_IMAGE}
+      - .
+
+images:
+  - ${_IMAGE}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+# Both images are small (214 MB and 276 MB) and the dependency layers cache,
+# but a cold build installs a Python venv and runs `npm ci` plus `next build`.
+timeout: 1800s

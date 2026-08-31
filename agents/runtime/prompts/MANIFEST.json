@@ -1,4 +1,8 @@
 {
+  "pv-attention-1.1.0/system_policy.txt": "9bd18139cec420d2cf632eac2a92a3ef56352f3c73ae777dfa041ad1bc2668ed",
+  "pv-attention-1.1.0/task.txt": "b7d42a2aeb3d37478d6209552671b8b26c20389aa57bba967a8ad10861da3f55",
+  "pv-draft-1.0.0/system_policy.txt": "e963a5ae3008c5cbcb198fdea56eb1a3648861cc46017bfbde7e8c03bccd3e0f",
+  "pv-draft-1.0.0/task.txt": "456e1c7989f75bcb6ab336f87437f2fd50730180446d3d691f54c65c7acd0efd",
   "pv-extract-1.1.0/system_policy.txt": "9285db37bbacd1f90f6390f1deca5ccc824d3f5027658f4412986d6a75327414",
   "pv-extract-1.1.0/task.txt": "fc5034f8a7b662c27bd433576bd0573956a709157c06331095540c6bbdee7665",
   "pv-resolve-1.1.0/system_policy.txt": "59b8ff6669a5acf95ebc4082e96eef715359df7e7a17829932833cdf4bc3eb24",

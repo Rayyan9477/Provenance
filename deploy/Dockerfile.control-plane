@@ -1,0 +1,128 @@
+# syntax=docker/dockerfile:1
+#
+# Deployment unit 2: control-plane. Target: Google Cloud Run.
+#
+# Build context is the REPOSITORY ROOT, not this directory:
+#
+#     docker build -f deploy/Dockerfile.control-plane -t provenance-control-plane .
+#
+# because the image needs packages/python/ and agents/ as well as services/.
+#
+# What Cloud Run requires of this image, and where each is satisfied
+# ------------------------------------------------------------------
+#   Listen on $PORT          the CMD reads it; 8080 only as a local default.
+#   Bind 0.0.0.0             --host 0.0.0.0. Binding 127.0.0.1 produces a
+#                            container that starts, passes no health check, and
+#                            reports nothing useful about why.
+#   linux/amd64              the default here. The discarded AgentCore image was
+#                            arm64-only, which is why it cannot be adapted.
+#   Start within the timeout  Runtime.start() opens the pools inside a
+#                            contextlib.suppress, so a refused database does not
+#                            stop the process from serving. See "db_ok" below.
+#
+# One worker, deliberately
+# ------------------------
+# Cloud Run scales by adding instances, not by adding workers inside one. A
+# second worker doubles the connection-pool count against a CockroachDB cluster
+# whose pool bounds are configured per process, and buys nothing the platform
+# does not already do better.
+#
+# Why the ASGI factory and not a module-level app
+# -----------------------------------------------
+# `main.py` documents it: a module-level `app` resolves Settings at *import*, so
+# any tool that merely imports the module — a linter walking the tree, a stray
+# collection — fails on an unset environment variable instead of doing its job.
+# `--factory` defers that to process start, which is also where a Cloud Run
+# revision wants its configuration error to surface.
+#
+# A 200 from this container does not mean the database is reachable
+# -----------------------------------------------------------------
+# Startup deliberately survives a refused pool and reports `db_ok: false` on
+# GET /v1/version rather than crash-looping before it can say anything. That is
+# the right behaviour on Cloud Run, where a crash-looping revision shows you a
+# retry count and not a reason. Point the health check at /v1/healthz for
+# liveness and read `db_ok` from /v1/version for the thing you actually mean.
+
+# --- builder: wheels only, so the runtime layer needs no build chain ----------
+FROM python:3.12-slim AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /build
+
+# Dependencies before source. This layer is keyed on requirements-runtime.txt
+# alone, so editing application code does not re-resolve or re-download a single
+# wheel — the difference between a ~20s rebuild and a ~3min one, which matters
+# when the deadline is measured in days.
+COPY requirements-runtime.txt ./
+RUN python -m venv /opt/venv \
+ && /opt/venv/bin/pip install --upgrade pip setuptools wheel \
+ && /opt/venv/bin/pip install -r requirements-runtime.txt
+
+# The four workspace packages. Copied as a unit because they depend on each
+# other, and installed --no-deps because requirements-runtime.txt is the only
+# thing permitted to decide a third-party version: the packages pin each other
+# at ==1.0.0, which resolves against PyPI on a plain install (D-00-039).
+COPY packages/python/ ./packages/python/
+RUN /opt/venv/bin/pip install --no-deps \
+      ./packages/python/provenance_contracts \
+      ./packages/python/provenance_domain \
+      ./packages/python/provenance_db \
+      ./packages/python/provenance_telemetry
+
+# --- runtime ------------------------------------------------------------------
+FROM python:3.12-slim AS runtime
+
+# `git` is not installed and GIT_SHA is passed in as a build argument instead.
+# main.py derives the stamp from `git rev-parse HEAD` when it can; inside an
+# image there is no repository to ask, and a stamp that silently becomes
+# "unknown" on the deployed artifact is worse than one that is passed in and
+# checkable against the tag.
+ARG GIT_SHA=unset
+ENV GIT_SHA=${GIT_SHA} \
+    PATH="/opt/venv/bin:${PATH}" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=8080 \
+    APP_ENV=demo
+
+# Non-root. Cloud Run does not require it; an image that only ever needed to
+# read its own code should not be able to write it either.
+RUN groupadd --system --gid 1001 provenance \
+ && useradd --system --uid 1001 --gid provenance --create-home provenance
+
+COPY --from=builder /opt/venv /opt/venv
+
+WORKDIR /app
+
+# The three path-imported deployment units. `workers/` is not copied: it holds
+# four empty __init__.py files and the outbox dispatcher actually lives in
+# services/control_plane/app/events/. Copying it would put a declared-but-empty
+# unit in a serving image.
+COPY --chown=provenance:provenance services/ ./services/
+COPY --chown=provenance:provenance agents/ ./agents/
+
+# Artifact bytes under PV_PLATFORM=local. Created here, owned by the run user,
+# because FilesystemObjectStore creates directories lazily and a container that
+# discovers it cannot write at the first upload has already accepted the request.
+# See deploy/README.md for why this deployment runs `local` and what that costs.
+ENV PV_LOCAL_OBJECT_ROOT=/var/lib/provenance/objects
+RUN mkdir -p /var/lib/provenance/objects \
+ && chown -R provenance:provenance /var/lib/provenance
+
+USER provenance
+
+EXPOSE 8080
+
+# Shell form on purpose: $PORT must be expanded at start, and Cloud Run supplies
+# it. exec so uvicorn is PID 1 and receives SIGTERM directly — without it the
+# shell holds PID 1, swallows the signal, and every revision replacement waits
+# out the full termination grace period.
+CMD exec uvicorn \
+      --factory services.control_plane.app.main:build_app \
+      --host 0.0.0.0 \
+      --port "${PORT}" \
+      --workers 1 \
+      --no-server-header \
+      --timeout-keep-alive 75

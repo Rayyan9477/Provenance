@@ -59,7 +59,9 @@ from agents.runtime.state import (
     INGESTION_NODES,
     ArtifactReader,
     EvidenceRegistrar,
+    GraphError,
     IngestionGraphState,
+    IngestionOutcome,
     MemoryKernelClient,
     ModelRoute,
     ModelRouter,
@@ -167,23 +169,78 @@ def run_ingestion(state: IngestionGraphState, deps: IngestionDeps) -> IngestionG
     for node in INGESTION_NODES:
         if state.halted:
             break
-        if node == "route_resolution_need":
-            signals = resolution_signals(
-                retrieval=state.retrieval, extraction=state.extraction_result
-            )
-            # Through this module's global, so PV_SABOTAGE reaches it.
-            resolve = bool(sys.modules[__name__].should_resolve(signals))
-            state = nodes.route_resolution_need(state, deps, resolve=resolve)
-            state = _replace_signals(state, signals)
-            if not resolve:
-                continue
-        elif node == "strong_resolution":
-            if "RESOLVER_INVOKED" not in state.route_flags:
-                continue
-            state = nodes.strong_resolution(state, deps)
-        else:
-            state = _NODE_FUNCTIONS[node](state, deps)
+        try:
+            if node == "route_resolution_need":
+                signals = resolution_signals(
+                    retrieval=state.retrieval, extraction=state.extraction_result
+                )
+                # Through this module's global, so PV_SABOTAGE reaches it.
+                resolve = bool(sys.modules[__name__].should_resolve(signals))
+                state = nodes.route_resolution_need(state, deps, resolve=resolve)
+                state = _replace_signals(state, signals)
+                if not resolve:
+                    continue
+            elif node == "strong_resolution":
+                if "RESOLVER_INVOKED" not in state.route_flags:
+                    continue
+                state = nodes.strong_resolution(state, deps)
+            else:
+                state = _NODE_FUNCTIONS[node](state, deps)
+        except Exception as exc:  # the loop's contract is that it never raises
+            state = _fail_safe(state, node, exc)
+            break
     return state
+
+
+#: How much of an exception's ``str`` reaches the recorded detail. Long enough
+#: for a Pydantic message to name the offending field, short enough that a
+#: 400-line traceback repr cannot become the row.
+_DETAIL_MAX: Final[int] = 400
+
+
+def _fail_safe(state: IngestionGraphState, node: str, exc: Exception) -> IngestionGraphState:
+    """Convert an escaping exception into the terminal state the docstring promises.
+
+    This function exists because the promise above was not kept. On 2026-08-29
+    a live run against ``northline-final-invoice.eml`` ended with
+
+        FAIL  graph walk raised  ValidationError escaped run_ingestion, which
+        documents that the loop never raises: 1 validation error for
+        MemoryProposal ... commitment cm_1 cites unknown claim cl_1
+
+    recorded in ``ops/agent-graph-live-run.txt``. The model had emitted a
+    commitment citing a claim id it never produced, ``MemoryProposal``'s
+    validator correctly refused it, and the ``ValidationError`` then unwound the
+    whole walk.
+
+    That unwinding is the actual defect, not the model's mistake. A model
+    proposing an inconsistent structure is an ordinary Tuesday and the validator
+    catching it is the system working. But an exception leaving this loop
+    discards the visit order, the partial state and the reason code -- the three
+    things ``GraphError``'s own docstring says a pending-review row needs to be
+    actionable -- and it does so precisely when the run most needs to be
+    diagnosable. ``PENDING_REVIEW`` is a state, not an exception that unwinds.
+
+    ``FAIL_SAFE`` rather than ``PENDING_HUMAN_REVIEW`` because the two say
+    different things. Pending review means the system understood the artifact
+    and wants a human decision; fail-safe means a node broke in a way nobody
+    anticipated and nothing may be inferred from the partial state. Recording
+    the second as the first would invite someone to action a run whose meaning
+    is unknown.
+
+    ``KeyboardInterrupt`` and ``SystemExit`` derive from ``BaseException`` and
+    are deliberately not caught: an operator stopping a run is not a graph
+    failure and must not be written down as one.
+    """
+    detail = f"{type(exc).__name__}: {exc}"
+    if len(detail) > _DETAIL_MAX:
+        detail = detail[: _DETAIL_MAX - 1].rstrip() + "…"
+    return dataclasses.replace(
+        state,
+        visits=(*state.visits, node),
+        errors=(*state.errors, GraphError(node=node, code="NODE_RAISED", detail=detail)),
+        outcome=IngestionOutcome.FAIL_SAFE,
+    )
 
 
 def _replace_signals(state: IngestionGraphState, signals: ResolutionSignals) -> IngestionGraphState:

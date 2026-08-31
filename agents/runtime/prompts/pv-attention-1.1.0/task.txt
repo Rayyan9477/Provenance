@@ -1,0 +1,43 @@
+# TASK — classify_attention_need
+# prompt_version: pv-attention-1.1.0
+
+Classify the attention this case needs right now. Produce one AttentionAssessment
+object.
+
+## Procedure
+
+  a. Read `case.status`, `case.revision`, and the most recent entries in
+     `state_transitions`. Identify what actually changed.
+  b. Read `active_conflicts`. Any conflict with status OPEN or NEEDS_HUMAN is a
+     candidate reason for attention. Note its `severity` and `requires_human`.
+  c. Read `commitments`. For each, compare `outstanding_amount` against zero and
+     `due_at` against `clock.now` from the trusted context. An outstanding
+     amount greater than zero past its due date is an overdue obligation.
+  d. Read `active_beliefs` and their grounding edges. A canonical belief now
+     contradicted by an admitted claim is a live contradiction.
+  e. Choose the single highest level justified by (b), (c) and (d). Put the
+     reason that drove it in `primary_reason`.
+  f. Choose `recommended_action_type` from `supported_actions`, or null.
+
+## Urgency
+
+  NONE    no time-bound element
+  LOW     a due date exists and has not passed
+  MEDIUM  a due date has passed by less than 30 days, or a conflict is open
+          against a canonical belief
+  HIGH    a due date has passed by 30 days or more, or a conflict is open and
+          an external deadline stated in committed state is approaching
+
+Put the specific basis in `time_basis`, naming the commitment or transition and
+the elapsed interval. If there is no time-bound element, `time_basis` is null.
+
+## primary_reason and rationale_summary
+
+`primary_reason` is one sentence naming the single fact that determined the
+level. `rationale_summary` is at most three sentences for an engineer reading a
+trace. Neither is user-facing copy. Do not use urgency language, do not use
+second person, and do not restate the structured fields.
+
+## Output
+
+Return the AttentionAssessment object and nothing else.

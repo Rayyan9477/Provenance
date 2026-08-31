@@ -34,14 +34,23 @@ The hackathon requires "Gemini 3.5 or newer" and **no Pro model satisfies it**:
 therefore Flash-class. That is a capability constraint recorded here, not a
 preference — see ``ALLOWED_MODEL_IDS``.
 
-Unprobed
---------
-``ops/gemini-probe.txt`` does not exist. There is no API key on this machine,
-so every id below is **documented but unprobed**, and each carries a
-``# PROBE REQUIRED`` marker that
-``test_the_ids_carry_a_probe_required_marker_in_the_source`` asserts on. When
-the probe lands, the marker is removed in the same change that commits the
-transcript.
+Probed
+------
+``ops/gemini-probe.txt`` exists and carries a PASS line for every id below, at
+``PASS 11 | FAIL 0 | CANNOT RUN 0``. Each constant therefore carries a
+``# PROBED`` marker naming that transcript rather than the ``# PROBE REQUIRED``
+marker it carried while the ids were hypotheses.
+
+The markers are not maintained by hand.
+``test_the_probe_markers_agree_with_the_transcript`` reads the transcript,
+takes each id's verdict through ``smoke.probe_verdict`` -- the same function
+the smoke tool uses, so there is one definition of "probed" -- and requires the
+source marker to match. This section previously said the transcript "does not
+exist" and every id was "documented but unprobed", seven days after the probe
+ran and was committed, because the marker and the evidence were two facts kept
+in step by intention. A test that derives one from the other cannot drift in
+either direction: removing a marker early fails, and leaving one behind fails
+too.
 """
 
 from __future__ import annotations
@@ -101,22 +110,38 @@ __all__ = [
 #: the reader is pointed at the evidence rather than at the documentation.
 PROBE_EVIDENCE_PATH: Final[str] = "ops/gemini-probe.txt"
 
-# PROBE REQUIRED — documented at https://ai.google.dev/gemini-api/docs/models,
-# never invoked from this machine. Tier R: semantic resolution, contradiction
-# characterisation, attention assessment, advocacy drafting. Flash-class
-# because no Pro model clears the "3.5 or newer" floor.
-DEFAULT_REASONING_MODEL_ID: Final[str] = "gemini-3.7-flash"
+# PROBED — ops/gemini-probe.txt, PB-G2. Tier R: semantic resolution,
+# contradiction characterisation, attention assessment, advocacy drafting.
+# Flash-class because no Pro model clears the "3.5 or newer" floor.
+#
+# 3.6 rather than 3.7, swapped 2026-08-31 on measurement rather than taste.
+# `gemini-3.7-flash` answered 0 of 3 two-word prompts that day, returning
+# `503 UNAVAILABLE  This model is currently experiencing high demand` and one
+# `504 DEADLINE_EXCEEDED` after 119s; `gemini-3.6-flash` answered 3 of 3,
+# averaging 26s. That is capacity on the provider's side, not a defect here --
+# which is exactly the condition the declared fallback exists for, and this is
+# the "one-line environment change under time pressure" it was declared to
+# make possible. Both ids are ≥ 3.5 and both are PROBED in the same transcript,
+# so the mandatory floor is unaffected by which one is Tier R.
+#
+# The two constants are therefore swapped rather than one edited: 3.7 stays
+# declared, probed and reachable by setting GEMINI_REASONING_MODEL_ID, so if
+# its capacity returns the change back is the same one line.
+#
+# PROBED — ops/gemini-probe.txt, PB-G2.
+DEFAULT_REASONING_MODEL_ID: Final[str] = "gemini-3.6-flash"
 
-# PROBE REQUIRED — documented, never invoked. Tier E: extraction,
-# classification, bulk structured output.
+# PROBED — ops/gemini-probe.txt, PB-G2. Tier E: extraction, classification,
+# bulk structured output.
 DEFAULT_EXTRACTION_MODEL_ID: Final[str] = "gemini-3.5-flash-lite"
 
-# PROBE REQUIRED — documented, never invoked. Declared so a *capacity* failure
+# PROBED — ops/gemini-probe.txt, PB-G2. Now 3.7, which is the id whose
+# capacity actually failed. Declared so a *capacity* failure
 # on Tier R is a one-line environment change under time pressure. It is
 # deliberately not an automatic downgrade: canon forbids one on Tier R, and
 # ``test_the_declared_reasoning_fallback_id_is_never_selected_automatically``
 # is what stops it becoming one by accident.
-DEFAULT_REASONING_FALLBACK_MODEL_ID: Final[str] = "gemini-3.6-flash"
+DEFAULT_REASONING_FALLBACK_MODEL_ID: Final[str] = "gemini-3.7-flash"
 
 #: The closed set. A stale id is a startup failure, not a nightly surprise.
 AllowedModelId = Literal[

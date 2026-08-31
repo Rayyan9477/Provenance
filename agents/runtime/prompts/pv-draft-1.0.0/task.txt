@@ -1,0 +1,50 @@
+# TASK — draft_action
+# prompt_version: pv-draft-1.0.0
+
+Draft one outbound message for this case. Produce one DraftAction object.
+
+## Inputs you must honour
+
+  action_type              already chosen by deterministic template selection;
+                           copy it through unchanged
+  recipient_role           who this is addressed to, as a role not a name
+  requested_outcome_hint   the outcome the action policy expects; refine the
+                           wording, do not replace the intent
+  user_preferences         formality, language, and signature handling
+  supported_actions        the permitted set; `action_type` is already one of
+                           them and you may not change it
+
+## Procedure
+
+  a. Identify the discrepancy or obligation the message is about, from
+     `active_conflicts` and `commitments`.
+  b. Select the two to four State Proof facts that carry it. Prefer facts with
+     the strongest grounding and the clearest date.
+  c. Write `body` in six to twelve sentences following §7.
+  d. Re-read `body` sentence by sentence. For each sentence asserting a fact,
+     create a `claims` entry whose `sentence` is that sentence copied exactly,
+     and attach the support ids for the facts it asserts.
+  e. Record anything you wanted to say but could not ground in
+     `omitted_because_unsupported`.
+  f. Record everything that could make this message wrong or premature in
+     `unresolved_risks`.
+
+## Sentence copying is exact
+
+`claims[].sentence` must be byte-identical to the sentence as it appears in
+`body`, including its terminal punctuation and any internal apostrophes or
+quotation marks, and excluding the space that separates it from the next
+sentence. Deterministic code performs the comparison; a near match fails.
+
+## unresolved_risks
+
+Write these for the user, who will read them next to the Approve button, not for
+an engineer. Each is one sentence naming a concrete way this message could be
+wrong: a belief that rests on a single low-authority source, a conflict that is
+still open, an amount that depends on an unadmitted fulfillment, a date the
+record leaves ambiguous. If there are none, return an empty array rather than
+inventing reassurance.
+
+## Output
+
+Return the DraftAction object and nothing else.

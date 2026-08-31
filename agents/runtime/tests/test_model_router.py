@@ -117,9 +117,16 @@ def test_the_allow_set_is_exactly_the_three_documented_flash_class_ids() -> None
 
 
 def test_the_documented_defaults_are_the_tier_assignment_from_the_brief() -> None:
-    assert DEFAULT_REASONING_MODEL_ID == "gemini-3.7-flash"
+    # Swapped with the fallback on 2026-08-31, on measurement: gemini-3.7-flash
+    # answered 0 of 3 two-word prompts that day (503 UNAVAILABLE, "this model is
+    # currently experiencing high demand", plus one 504 after 119s) while
+    # gemini-3.6-flash answered 3 of 3. Both are >= 3.5 and both are PROBED in
+    # the same transcript, so the mandatory floor does not depend on which is
+    # Tier R -- which is the property that made the swap a configuration change
+    # rather than a redesign.
+    assert DEFAULT_REASONING_MODEL_ID == "gemini-3.6-flash"
     assert DEFAULT_EXTRACTION_MODEL_ID == "gemini-3.5-flash-lite"
-    assert DEFAULT_REASONING_FALLBACK_MODEL_ID == "gemini-3.6-flash"
+    assert DEFAULT_REASONING_FALLBACK_MODEL_ID == "gemini-3.7-flash"
 
 
 def test_config_reads_all_four_environment_variables(env: dict[str, str]) -> None:
