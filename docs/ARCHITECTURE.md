@@ -1,9 +1,9 @@
 # Provenance - System Architecture
 
 Status: planning-complete architecture baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 Date: 2026-08-17
-Audience: implementation team, hackathon judges, future contributors
+Audience: implementation team, reviewers, future contributors
 
 ## 1. Executive summary
 
@@ -39,50 +39,47 @@ The product does not try to remember everything about a person. It maintains the
 - what action the system recommends
 - what action the user has authorized
 
-## 3. Hackathon alignment
+## 3. Platform alignment
 
-**Rewritten 2026-08-24 for the pivot.** This section previously aligned the
-build to the CockroachDB × AWS hackathon. That entry is discarded; the target is
-now the **All Things Agentic Hackathon** (deadline 2026-08-31T17:00 PDT).
-`CANONICAL_DECISIONS.md` → *Gemini model id canon* is the binding record; this
-section only explains the shape.
+**Rewritten 2026-08-24 for the platform migration.** This section previously
+aligned the build to AWS — Bedrock, AgentCore, LangGraph. The target is now
+Google: Gemini models, a Google agent framework, and Google Cloud for the
+runtime. `CANONICAL_DECISIONS.md` → *Gemini model id canon* is the binding
+record; this section only explains the shape.
 
-Provenance is aligned to the requirements rather than having sponsor technology
-added late — but honestly, that is easier to claim than to earn, so the
-subsection order below is deliberate: what the rules demand first, then what the
-judging criteria reward, then what we are not claiming.
+Provenance is aligned to the platform rather than having the platform's
+technology added late — but honestly, that is easier to claim than to earn, so
+the subsection order below is deliberate: what the platform constrains first,
+then where the architectural weight sits, then what we are not claiming.
 
-### 3.1 The three mandatory requirements
+### 3.1 The three platform constraints
 
-| Requirement | How it is met |
+| Constraint | How it is met |
 |---|---|
 | **Gemini 3.5 or newer**, via the Gemini API or Vertex AI | Gemini Developer API with an AI Studio key. Tier R `gemini-3.7-flash`; Tier E `gemini-3.5-flash-lite`. |
-| **At least one Google agent framework** | The **`google-genai` SDK**, which the rules name explicitly alongside ADK, Antigravity SDK and GenKit. |
+| **At least one Google agent framework** | The **`google-genai` SDK**, alongside which ADK, the Antigravity SDK and GenKit remain options. |
 | **At least one Google Cloud infrastructure service** | **Cloud Run**, hosting the control plane and the web app. |
 
-**There is no Pro reasoning tier, and that is a rules constraint rather than a
-preference.** `gemini-3.1-pro-preview` is the only Pro model on the API and it
-is version 3.1 — *below* the mandated 3.5 floor. Gemini 3.5 Pro was announced
-but has not rolled out. Both tiers are therefore Flash-class. Any statement
-elsewhere in this pack implying a Pro reasoning tier is superseded.
+**There is no Pro reasoning tier, and that is a platform constraint rather than
+a preference.** `gemini-3.1-pro-preview` is the only Pro model on the API and it
+is version 3.1 — *below* the 3.5 floor this build holds to. Gemini 3.5 Pro was
+announced but has not rolled out. Both tiers are therefore Flash-class. Any
+statement elsewhere in this pack implying a Pro reasoning tier is superseded.
 
-**Why Cloud Run carries the infrastructure requirement alone.** CockroachDB
+**Why Cloud Run carries the infrastructure constraint alone.** CockroachDB
 Cloud stays where it is, on AWS `us-east-1`, because the eight migrations,
 twenty-six tables, five agent views, the seed and roughly 390 database and
 retrieval tests are the largest block of verified work in this repository, and
 `CREATE VECTOR INDEX` has no exact pgvector or ScaNN equivalent. The Gemini
 Developer API is a developer API, not a Cloud infrastructure service, so it does
-not satisfy the requirement either. Cloud Run should sit in `us-east4`: it and
+not satisfy the constraint either. Cloud Run should sit in `us-east4`: it and
 AWS `us-east-1` are both Northern Virginia, so the cross-cloud database hop
 stays in single-digit milliseconds rather than seventy-plus.
 
-### 3.2 Where the judging criteria land
+### 3.2 Where the architectural weight sits
 
-Judging is **40%** Innovation & Operational Utility · **30%** Architectural
-Discipline & Tech Stack · **30%** Demo & Production Readiness.
-
-The 30% architecture band is the one this build has spent itself on, and the
-claims in it are machine-checkable rather than asserted:
+Architectural discipline is what this build has spent itself on, and the claims
+it makes there are machine-checkable rather than asserted:
 
 - **A single canonical writer**, proved by `tools/write_path_lint.py` — 23
   canonical write statements, 17 inside the Memory Kernel and 6 in the outbox
@@ -129,7 +126,7 @@ correctness, and the same discipline applies to this section:
 - Concurrent updates must not produce impossible aggregate state.
 - Duplicate event delivery must be safe.
 - A scheduled wake-up must re-check current memory before causing action.
-- External actions require explicit policy and, for the hackathon build, human approval.
+- External actions require explicit policy and, in v1, human approval.
 
 ### 4.2 Product goals
 
@@ -138,13 +135,13 @@ correctness, and the same discipline applies to this section:
 - Long-lived state must survive sessions, model restarts, worker crashes, and infrastructure failures.
 - The system should degrade safely if model inference is unavailable.
 
-### 4.3 Hackathon goals
+### 4.3 Demonstration goals
 
 - CockroachDB must be visibly necessary to the architecture.
 - The demo must show memory changing future behavior, not merely retrieving old text.
 - Production-readiness features should be observable in the demo: provenance, permissions, retries, traceability, and transactional state.
 
-## 5. Non-goals for the hackathon version
+## 5. Non-goals for v1
 
 - full Gmail mailbox ingestion
 - autonomous legal advice
@@ -285,8 +282,8 @@ Rewritten 2026-08-24. Phase 7 was never built, which turned out to be an
 advantage: there is no LangGraph code to port, so the agent layer is written
 once, natively.
 
-- **`google-genai` SDK** — one of the four frameworks the hackathon accepts
-  (alongside ADK, Antigravity SDK and GenKit), and already a dependency.
+- **`google-genai` SDK** — a Google agent framework (alongside ADK, the
+  Antigravity SDK and GenKit), and already a dependency.
 - Hosted on **Cloud Run** alongside the control plane.
 - **No SDK persistence layer is canonical product memory.** This prohibition
   previously named LangGraph's store; it now binds the GenAI SDK's and ADK's
@@ -299,7 +296,7 @@ once, natively.
 
 ### 8.4 Database
 
-Hackathon deployment:
+v1 deployment:
 
 - CockroachDB Cloud Basic
 - start with a free/trial organization
@@ -328,7 +325,7 @@ The critical path requires only these two generation models. Model routing is de
 Embeddings:
 
 - Amazon Titan Text Embeddings V2 (`amazon.titan-embed-text-v2:0`), 1024 dimensions
-- lock embedding version `v1` for the hackathon dataset
+- lock embedding version `v1` for the seeded dataset
 - do not mix embeddings from incompatible models in one vector index
 
 ## 9. Service boundaries
@@ -454,7 +451,7 @@ Responsibilities:
 - record external correlation ID
 - write outcome as new evidence/event
 
-Hackathon supported action:
+v1 supported action:
 
 - send an approved follow-up email through a narrowly scoped provider/API or simulated mail sink
 
@@ -744,7 +741,7 @@ Action Executor:
 
 ### 14.3 MCP policy
 
-Use Managed MCP primarily for governed read access and hackathon-visible agent/database integration.
+Use Managed MCP primarily for governed read access and visible agent/database integration.
 
 Do not give the reasoning agents a path to execute arbitrary canonical-state mutations through MCP.
 
@@ -820,10 +817,10 @@ Model outage must never corrupt memory.
 
 ## 17. Deployment topology
 
-### 17.1 Hackathon topology
+### 17.1 Current topology
 
-Rewritten 2026-08-24 for the pivot. Two clouds, deliberately, and the reason is
-recorded rather than left to be rediscovered.
+Rewritten 2026-08-24 for the platform migration. Two clouds, deliberately, and
+the reason is recorded rather than left to be rediscovered.
 
 | Component | Where |
 |---|---|
@@ -845,9 +842,9 @@ latency.
 migrations, twenty-six tables, five agent views, the seed and roughly 390
 database and retrieval tests — the largest block of verified work in the
 repository. Cloud SQL or AlloyDB would mean re-deriving the vector strategy, and
-`CREATE VECTOR INDEX` has no exact pgvector or ScaNN equivalent. The rules
-require *at least one* Google Cloud infrastructure service, and Cloud Run
-satisfies that on its own.
+`CREATE VECTOR INDEX` has no exact pgvector or ScaNN equivalent. The Google
+Cloud footprint needs only one infrastructure service, and Cloud Run satisfies
+that on its own.
 
 **What is deployed today: none of it.** The CDK for the previous AWS topology
 synthesises and is tested, and is now discarded. Nothing has been deployed to
@@ -869,7 +866,7 @@ AWS Region A                         AWS Region B
              +----------------------------------+
 ```
 
-The hackathon does not need to fake a multi-region AWS application if the live product does not require it. Demonstrate CockroachDB's multi-region capability truthfully and document the application evolution path.
+This build does not need to fake a multi-region AWS application if the live product does not require it. Demonstrate CockroachDB's multi-region capability truthfully and document the application evolution path.
 
 ## 18. CockroachDB deployment and free credits
 
@@ -877,8 +874,8 @@ Current official CockroachDB Cloud material states:
 
 - new organizations can receive $400 in free trial credits
 - Basic starts at $0 and includes a monthly free resource allowance
-- the hackathon resources explicitly state the free tier is eligible and can be started without a credit card
-- Basic supports integrated vector data and the AI tools needed by the hackathon
+- the free tier can be started without a credit card
+- Basic supports integrated vector data and the AI tooling this build needs
 
 Recommended approach:
 
@@ -1152,7 +1149,7 @@ ADR-007: Critical state transitions use serializable CockroachDB transactions.
 
 ADR-008: Async integration uses durable outbox + idempotent consumers.
 
-ADR-009: User actions require explicit approval for the hackathon build.
+ADR-009: User actions require explicit approval in v1.
 
 ADR-010: Cognito supplies real multi-user auth; demo includes a seeded judge account.
 
@@ -1160,20 +1157,18 @@ ADR-011: Forward/upload is the primary ingestion mechanism; full mailbox OAuth i
 
 ADR-012: Haiku 4.5 is Tier E, Opus 5 is Tier R, and model routing/fallback is deterministic as specified in `14_PROMPTS.md`.
 
-ADR-013: Hackathon cluster begins on CockroachDB Cloud Basic/free-trial resources.
+ADR-013: The cluster begins on CockroachDB Cloud Basic/free-trial resources.
 
 ADR-014: The hero scenario is "The Move That Never Really Ended."
 
-## 27. Judge-facing architecture summary
+## 27. Architecture summary in one paragraph
 
 If only one paragraph is read, use this:
 
 Provenance does not let an LLM write truth into a vector database. External evidence is preserved immutably; LangGraph agents interpret it and submit typed memory proposals. A deterministic Memory Kernel reconciles those proposals against bitemporal, provenance-backed relationship state and commits legal state transitions atomically in CockroachDB using serializable transactions. CockroachDB also holds the distributed vector index used to retrieve semantically relevant evidence, so semantic memory and transactional truth cannot drift into separate systems. AWS runs the agents, identity, events, artifacts, and observability; CockroachDB remains the durable memory authority. When a future event contradicts or fulfills an old commitment, the relevant memory becomes active again and can drive a human-approved action.
 
-## 28. Official references used for architecture decisions
+## 28. External references used for architecture decisions
 
-- Hackathon overview/resources: https://cockroachdb-ai.devpost.com/
-- Hackathon resources: https://cockroachdb-ai.devpost.com/resources
 - CockroachDB Cloud pricing: https://www.cockroachlabs.com/pricing/
 - CockroachDB free trial: https://www.cockroachlabs.com/docs/cockroachcloud/free-trial
 - CockroachDB vector indexes: https://www.cockroachlabs.com/docs/stable/vector-indexes

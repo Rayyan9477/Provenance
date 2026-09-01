@@ -1,11 +1,11 @@
 # Provenance — build status
 
-Written 2026-08-24. Every number here was measured from the tree or the cluster
-on that date, not carried forward from a plan.
+Written 2026-08-28. Every number was measured from this tree or this cluster
+today. None is carried forward from a plan.
 
-**Re-measure rather than quote.** These figures moved several times within a
-single session; any number written down is a timestamp. The command is given
-beside each claim so a reader can check rather than trust.
+**Re-measure rather than quote.** These figures have moved several times within
+a single session; a number written down is a timestamp. The command is beside
+each claim so a reader can check rather than trust.
 
 ---
 
@@ -13,411 +13,303 @@ beside each claim so a reader can check rather than trust.
 
 | | |
 |---|---|
-| Python suite collected | **3,434** |
-| Unit lane | **2,707 passed, 1 failed, 4 skipped** (`pytest -q -m unit`) |
-| Live web app | **50 routes swept, 0 broken** (`make route-sweep`) — LIVE, not fixtures |
-| Frontend | **65 passed** (`cd apps/web && npm run verify`) |
-| `ruff check` / `ruff format --check` | clean, 388 files |
-| `mypy --strict` | clean |
+| Python suite collected | **3,830** |
+| Unit lane | **2,951 passed, 0 failed, 4 skipped** (`pytest -q -m unit`) |
+| Frontend | **95 passed**, exit 0 (`npm --prefix apps/web run verify`) |
+| Adversarial lane | **139 passed, 1 skipped** (`pytest -q -m adversarial`) |
+| Isolation lane | **84 passed, 5 skipped** — cross-tenant and cross-user leakage proofs |
+| `ruff check` / `ruff format --check` | clean, 476 files |
+| `mypy --strict` | clean, 23 source files |
 | import-linter | **5 contracts kept, 0 broken** |
-| `write_path_lint` | **5 rules, 0 violations** · 23 canonical writes, 17 in the Kernel |
-| `txn_purity_lint` | 7 transaction callbacks, 0 network constructs |
-| `invariant_map_check` | **5 invariants, 5 mapped, 0 UNPROVEN** |
-| Sabotage matrix | **11 entries**, each verified firing |
-| Defect ledger | `defect_lint: 0 violations` · **33 blocking, 1 of them BLOCKER** (see §5) |
+| `write_path_lint` (now in `make lint` and CI) | **5 rules, 0 violations** · 27 canonical writes, 19 in the Kernel |
+| `txn_purity_lint` | 8 transaction callbacks, **0 network constructs** |
+| `invariant_map_check` | **5 invariants, 5 mapped, 0 UNPROVEN**, exit 0 |
+| `defect_lint` | **0 violations** |
+| `contract_lint` (now in `make lint` and CI) | **3 rules, 0 violations** |
+| Sabotage matrix | **13 entries** |
+| Defect ledger | **75 records** · 33 CLOSED · **0 BLOCKER open** |
 | Gemini probe | **PASS 11, FAIL 0, CANNOT RUN 0**, exit 0 (`ops/gemini-probe.txt`) |
-| Live agent graph | **PASS 34, FAIL 2, CANNOT RUN 8** over 3 artifacts (`ops/agent-graph-live-run.txt`) — both tiers invoked, **21 `agent_runs` rows** where there were 0 |
-| Control plane | **starts, `db_ok:true`** against the live cluster; 45 routes; 401 on an unauthenticated read |
-| Frontend | **74 tests**; 50 live routes swept clean; zero console messages |
+| Live agent graph | **PASS 34, FAIL 0, CANNOT RUN 8**, exit 0 · both tiers invoked (`gemini-3.6-flash`, `gemini-3.5-flash-lite`), **37 `agent_runs` rows**, `strong_resolution` PASS on both resolving artifacts (`ops/agent-graph-live-run.txt`) |
+| **Deployed** | **two Cloud Run services, serving** — see §2 |
+| Live route sweep | **50 discovered, 0 broken**, against Cloud Run (`ops/route-sweep-live-cloudrun.txt`) |
+| Live hero ingest | **PASS 13, FAIL 0, CANNOT RUN 1**, exit 0 (`ops/ingestion-live-run.txt`), re-recorded after `0009a` |
+| Live demo rehearsal | **PASS 10, FAIL 0, CANNOT RUN 4**, exit 0 (`ops/demo-rehearsal-live-cloudrun.txt`) |
+| Database invariants | **`VERDICT PASS`** — `V1 0 … V10 0  V11 3` on the live cluster (`PV_VERIFY_URL="$PV_DB_MIGRATOR" make db-verify`; the bare target points at `provenance_ci`, which the migration lane rebuilds from base) |
+| Unbound port methods | **6 of 47** |
 
-Per-area collection:
-
-| Area | Tests |
-|---|---|
-| `services/control_plane/tests/kernel` | 597 |
-| `packages/` (4 workspace packages) | 503 |
-| `services/control_plane/tests/db` | 407 |
-| `infra/` (CDK — discarded, retained as a record) | 304 |
-| `services/control_plane/tests/api` | 290 |
-| `services/control_plane/tests/events` | 282 |
-| `agents/runtime/tests` | 252 |
-| `tools/` | 189 |
-| `tests/retrieval` | 180 |
-| `services/control_plane/tests/auth` | 143 |
-| `services/control_plane/tests/mcp` | 135 |
-| `services/control_plane/tests/actions` | 76 |
-| `apps/web` | 65 |
-
-### The one failing test
-
-`tools/tests/test_build_lane_guards.py::test_g0_3b_is_a_working_tree_scan_of_ops`
-fails because `git ls-files ops/` is empty: **`ops/` is untracked.** No git-mode
-secret scan can see the evidence directory, and a destroyed transcript has no
-`git checkout` recovery — which already happened once. It clears when `ops/` is
-committed. Read §6.3 before committing it.
+Per-area collection: kernel 631 · api 456 · db 410 · events 299 · auth 148 ·
+mcp 135 · actions 76 · agents 310 · packages ~503 · tools ~250 · web 83.
 
 ---
 
-## 2. Phase status
+## 2. Platform and deployment
+
+Four facts decide what the rest of this file is describing, so they are asserted
+first — `python -m tools.release_check` runs them ahead of everything else,
+because nothing below matters if one of them is false.
+
+| | State | Evidence |
+|---|---|---|
+| Models | Four Gemini ids **invoked**, all ≥ 3.5, highest 3.7 | `ops/gemini-probe.txt`, PASS 11 / FAIL 0. Read from the transcript rather than from configuration: configuration is a claim, a transcript is a measurement. |
+| Model SDK | `google-genai` | Declared in `requirements-runtime.txt` **and** imported by two shipped modules, one at module level and one lazily. Declared-and-imported, because a dependency no module imports is a claim about a file. |
+| Compute | **Cloud Run** — two services in `provenance-agentic-2026`, region `us-east4` | the URLs below |
+| Database | **CockroachDB Cloud** on AWS `us-east-1` | Northern Virginia either way, so the cross-cloud hop stays in single-digit milliseconds rather than seventy-plus |
+
+```
+web            https://provenance-web-vaq74wztva-uk.a.run.app
+control plane  https://provenance-control-plane-vaq74wztva-uk.a.run.app
+```
+
+`GET /v1/version` is unauthenticated so anyone can `curl` it, and reports
+`fixture_mode: false`, `db_ok: true`, `agent_mode: LIVE`, and the `git_sha` of
+the revision actually serving.
+
+**Whether that sha equals `HEAD` is a measurement, not a standing fact.** Every
+commit made after a deploy moves `HEAD` ahead of the deployed revision, and this
+file said "equals HEAD" while it did not. `python -m tools.demo_rehearsal_live`
+compares the two and reports it; re-deploy before recording.
+
+**Read `db_ok`, not the status code** — startup deliberately survives a refused
+pool and says so rather than crash-looping.
+
+The web app renders `USD 2,020.00` summed by the API from Kernel-written rows,
+with no fixture banner.
+
+---
+
+## 3. Phase status
 
 | Phase | State | Note |
 |---|---|---|
-| 0 — scaffold, licence, probes | built, gate REJECTED | see §4 |
+| 0 — scaffold, licence, probes | built, gate REJECTED | §6 |
 | 1 — contracts and domain | built | |
 | 2 — schema, migrations, seed | built | 26 tables, 5 views, seed idempotent |
 | 3 — database runtime and retry | built | `40001` proved by real two-connection interleaving |
-| 4 — Memory Kernel | built | writes commitments and triggers since 2026-08-24 |
-| 5 — read models | partial | `state_proof` built; `app/observability` empty |
-| 6 — embeddings and retrieval | built | `ann_search()` now binds and delegates |
-| 7 — agent graphs | **built** | `google-genai`, 252 tests, 12-artifact injection suite |
-| 8 — API and auth | **built** | `build_dependencies()` returns; 27 of 47 ports bound |
-| 9 — actions, approval, executor | **built** | five refusal gates, each proved separately |
-| 10 — events, outbox, triggers | **built and wired** | `commit_trigger_evaluation` now lives in the Kernel; `evaluate_trigger`, `deliver_event`, `sweep_outbox`, `wake_trigger` bound. Two triggers armed in the live cluster |
-| 11 — MCP, SQL roles, agent views | **built** | five tools; base-table denial proved to come from the database |
-| 12 — frontend | **built and LIVE** | runs against the real API, no fixture banner. 50 routes swept clean; four contract drifts and two layout defects found and fixed |
-| 13 — deploy | **not started** | AWS CDK discarded with the pivot; nothing deployed to Google Cloud |
-| 14 — evals | not started | `evals/` is `.gitkeep` only |
-| 15 — submission artifacts | partial | README and architecture diagram exist; video and eval report do not |
+| 4 — Memory Kernel | built | |
+| 5 — read models | partial | `state_proof` built; `app/observability` is 140 lines and settles runs only |
+| 6 — embeddings and retrieval | **partial** | every stage built; **no executor composes them**, so `internal.retrieve` is unbound. See §4 |
+| 7 — agent graphs | built | `google-genai`, 310 tests, 12-artifact injection suite |
+| 8 — API and auth | built | 41 of 47 ports bound |
+| 9 — actions, approval, executor | **partial** | `approve`, `reject`, `execute_action` and both reads bound; **`create_action_intent` is not**. See §4 |
+| 10 — events, outbox, triggers | built | manual wake route added 2026-08-28 |
+| 11 — MCP, SQL roles, agent views | built | base-table denial proved to come from the database |
+| 12 — frontend | built and LIVE | 50 live routes swept clean against Cloud Run |
+| 13 — deploy | **built** | two Cloud Run services, `deploy/` is the runbook |
+| 14 — evals | built | `make evals` exits 0: PASS 9 / FAIL 0 / CANNOT RUN 6 |
+| 15 — release artifacts | partial | README, diagram and gate rewritten; **walkthrough not recorded** |
 
 ---
 
-## 3. What is not built, and what is unverified
+## 4. What is not built, precisely
 
-**Not built:** Phase 13 (any deployment), Phase 14 (evals), most of Phase 15,
-and `app/observability` — which is why `get_trace` and `memory_trace` are the
-two `ReadPort` methods still raising.
+**The retrieval pipeline has stages but no pipeline.** `app/retrieval/` holds all
+eight stages and they are good — `ann.py` parses the canonical predicate out of
+the spec markdown so the SQL cannot drift from the document. But
+`pipeline.py` is a `STAGES` tuple, a `call_order()` function and one boolean
+constant; **no module runs A through G end to end.** That is why
+`internal.retrieve` is unbound, and it is why the Judge Mode counterfactual
+passes an empty `evidence` array to its MEMORY ON side. The State Proof it does
+pass is rich — beliefs with grounding edges validated to render their evidence,
+commitments with fulfillments, conflicts, derivations — so the memory-on side is
+not evidence-starved. But retrieval is not on the live path.
 
-**Fifteen of forty-seven port methods still raise `NotImplementedError`**, each
-naming the subsystem it needs, from one register (`app/api/adapters/unbound.py`).
-The register held nineteen entries before `internal.evaluate_trigger`,
-`internal.sweep_outbox`, `internal.deliver_event` and `write.wake_trigger` were
-bound — an earlier revision of this file said "twenty", which was a quoted
-number rather than a measured one. None returns
-`None` or `[]`: in the UI an empty list is indistinguishable from a real empty
-result. Re-measure with `python -c "from services.control_plane.app.api.adapters
-import UNBOUND; print(len(UNBOUND))"` rather than trusting this number — other
-lanes are binding methods too.
+**`internal.create_action_intent` needs a typed State Proof that nothing builds.**
+The unbound register names two gaps and says both have seams. One does:
+`prompt_version` is handled by `app/proposals/submission.py`, which accepts it as
+a caller claim and records it explicitly as an assertion rather than a
+cross-check. The other is deeper than the register says. `GroundingSnapshot.
+from_state_proof` needs a `provenance_contracts.proof.StateProof`, and
+**`build_state_proof` has no production call site** — it and `from_state_proof`
+are reachable only from tests. The live State Proof is a dict payload assembled
+independently in `adapters/read.py`. So binding this method means making the
+read path produce a typed proof, which is a refactor of a live tested path
+rather than a wiring job.
 
-**Verified 2026-08-24, and it had never been run before:**
+**The trace assembler does not exist.** `app/observability` is 140 lines and
+settles agent runs. The seventeen closed trace node types would be assembled
+from `agent_runs`, `state_transitions`, `kernel_decisions`, `outbox_events` and
+`tool_calls`, all of which are persisted — it is assembly over existing rows,
+but it is real work. `read.get_trace` and `read.memory_trace` answer **501
+NOT_IMPLEMENTED** naming the subsystem, never 500.
 
-- **The product runs on its own record, end to end.** The web app was in
-  FIXTURE mode — a banner on every screen reading *"no Provenance API is
-  connected"* — and is now LIVE against the seeded cluster. `USD 2,020.00` on
-  the dashboard is summed by the API from Kernel-written rows, not read from a
-  file. Getting there needed three things that did not exist: a way to obtain a
-  token under `PV_PLATFORM=local` (`scripts/mint_local_token.py`), a way for the
-  web app to present one (`PV_API_TOKEN`, server-side only), and the Kernel
-  replay actually run against the cluster.
+**The 51-scenario eval corpus does not exist.** `CANONICAL_DECISIONS.md` freezes
+it; `evals/datasets/schema/` and `evals/datasets/the_move/` are empty
+directories. The harness records this as `MEM-03 CANNOT RUN` rather than scoring
+around it.
 
-- **The Kernel replay ran.** Every Kernel-written table was **empty in the live
-  database** — 18,035 evidence rows and zero claims, zero beliefs, zero
-  commitments, zero triggers. `make seed` now replays 11 curated proposals
-  through `MemoryKernel.commit()`: claims 36, proposals 11, decisions 11,
-  beliefs 9, commitments 4, fulfillments 2, prospective triggers 2, state
-  transitions 8, outbox events 8. `conflicts` stays 0 by design — the demo
-  performs that one. The seed refused first, correctly: `pv_migrator` resolves
-  to `provenance_ci` while every other role resolves to `provenance`, and it
-  would rather stop than write half a corpus to each.
+**Gate batteries 1 and 3–15 are not implemented.** `make gate-0` and `gate-2`
+run; the rest are deliberate non-zero stubs naming the phase that owns them.
+`ops/gates/PHASE_01.md` … `PHASE_15.md` therefore still carry the unfilled
+template. That is honest and it is also a gap: the gate system is one of this
+build's strongest arguments and it has one recorded verdict, which is a
+rejection.
 
-- **Nine live routes were returning `500`,** including every case docket, and no
-  test in the repository could see it. Four contract declarations disagreed with
-  the server — a `Money` object where a decimal string was declared, `null`
-  where a `Record` was, a `context` every case was assumed to have. TypeScript
-  was satisfied *because* the claims were false, and the fixtures encoded the
-  same misreading, so 65 component tests passed against a wall of 500s.
-  `make route-sweep` now walks every route with ids read from the API;
-  `D-12-003`.
-
-- **A capability proof verified only during the second it was issued.**
-  `TRIGGER_EVALUATION` and `ACTION_INTENT` derived their expiry from `now` and
-  put it inside the MAC, so the number changed once a second. Measured: issue
-  once, verify six times over two seconds — 2 pass, 4 refuse, with nothing
-  changing but the clock. Those two kinds gate both demo reveals, and the
-  failure is *intermittent*, so it reads as a flaky network. `D-08-003`.
-
-- **The control plane starts and reaches the database.** `make run-api` serves
-  `GET /v1/version` with `"db_ok":true`, and `GET /v1/cases` without a token
-  returns `401 UNAUTHENTICATED` with a `trace_id`. Neither had been observed.
-  Getting there took three fixes, and the middle one is the interesting one:
-  the recipe passed `--loop asyncio` under a comment claiming that flag was what
-  made Windows work, and on uvicorn 0.40 **that flag selects the proactor loop**
-  — the one psycopg refuses. The server started, answered 200, and reported
-  `db_ok=false` against a cluster that was entirely healthy. Under a selector
-  loop the same DSN connects as `pv_kernel_writer` and counts **18,035** rows in
-  `evidence_items`, the corpus size canon records. `D-08-001`, `D-08-002`,
-  `D-00-049`.
-
-**Unverified, and it matters more than anything above:**
-
-- ~~No Gemini model id has been invoked.~~ **Settled 2026-08-24.** Every canon
-  id was invoked, not listed: `PASS 11, FAIL 0, CANNOT RUN 0`, exit 0,
-  transcript at `ops/gemini-probe.txt`. `gemini-embedding-2` returns 1536
-  dimensions at **L2 norm 1.0000003** with zero drift across two calls;
-  `gemini-embedding-001` returns **0.6935943** in the same run, which is the
-  measurement the profile's `caller_must_normalize=True` was asserting on the
-  strength of a documentation quote. Native multimodal works, so there is no OCR
-  service in this pipeline.
-
-  Two of that transcript's first-run verdicts were **wrong, and both were
-  defects in the probe** — `D-00-046` reported PASS for three ids that answered
-  nothing, and `D-00-047` reported a capability FAIL that was a 1×1 transparent
-  pixel the API rejects. An 8×8 PNG of the same 75 bytes succeeds. The probe now
-  decides PB-G2 through `chat_verdict()`, a pure function with its own tests.
-
-  **What is still not measured: throughput.** The AI Studio rate limits are
-  per-tier and visible only in the dashboard. Re-embedding 18,035 texts is the
-  longest unattended job remaining and nothing here touched it.
-- ~~**No agent graph has touched a live model.**~~ **Settled 2026-08-24.**
-  `python scripts/run_ingestion_graph.py` walks
-  `agents/runtime/graphs/ingestion_graph.run_ingestion` over a seeded artifact
-  with a real `google-genai` client, the byte-exact `pv-extract-1.1.0` and
-  `pv-resolve-1.1.0` assets, and the real `ExtractionResult` contract.
-  Transcript at `ops/agent-graph-live-run.txt`: three artifacts,
-  **PASS 34 / FAIL 2 / CANNOT RUN 8**, both tiers invoked —
-  `gemini-3.5-flash-lite` (E) and `gemini-3.7-flash` (R) — 37,050 input,
-  7,922 output and 12,678 thinking tokens, and **21 `agent_runs` rows** where
-  there were 0, each carrying `model_calls[]` attribution. Those verdict counts
-  are **one run**, not a constant: the model is nondeterministic, and across
-  seven runs the same three artifacts produced between one and three FAILs as
-  Tier R exhausted or did not exhaust its single repair. The rows are the
-  durable part — `agent_runs.model_calls[]` records every call that was
-  actually made.
-
-  Three things only a live call could have found. **(1) The shipped
-  `GeminiClient` cannot send `ExtractionResult` at all**: `google.genai.types.
-  Schema` is `extra="forbid"` and refuses the `ge`/`le` that `Confidence`
-  generates and the `prefixItems` that `bbox` generates, and the API returns
-  `400 INVALID_ARGUMENT` for a `$ref` document and for `maxItems` above an
-  object item. The whole router suite is green because every test sends
-  `ToyOutput`. `agents/runtime/model_router/wire_schema.py` derives the wire form
-  from the contract; the four incompatibilities have their own unit tests.
-  **(2) `validate_extraction` requires character-exact spans a language model
-  cannot produce** — the first live run ended `SCHEMA_REPAIR_EXHAUSTED /
-  SPAN_TEXT_MISMATCH` on every candidate, twice. Anchoring `exact_text` inside
-  the block it cites keeps the defence and drops the arithmetic.
-  **(3) `build_memory_proposal` raises past the graph boundary**, contradicting
-  `run_ingestion`'s "the loop never raises", whenever evidence registration
-  returns a partial map: a commitment whose source claim was filtered out
-  reaches `MemoryProposal` and fails its cross-reference validator. Reproduced
-  on `northline-final-invoice`.
-
-  Two things the run did **not** do, recorded as `CANNOT RUN` rather than
-  skipped: it never submitted to the Memory Kernel, and it registered no new
-  evidence. The second is a gap — `evidence_items.embedding` is `VECTOR(1024)`
-  and `ck_evidence_embedding_model` admits only Titan, so the only legal INSERT
-  carries `embedding = NULL` in an append-only table. The first is a **decision**
-  as of 2026-08-24: `app/proposals/submission.py` now provides the app-side
-  `memory_proposals` INSERT and `internal.submit_proposal` has left the unbound
-  register, so the door opens — but a commit writes claims, beliefs, commitments
-  and `kernel_decisions` into the corpus `db/seeds/MANIFEST.json` asserts exact
-  row counts over, while other lanes are verifying against it.
-- **No action intent has executed against a real sink.**
-- ~~**Prospective memory has no production path.**~~ **Closed 2026-08-24.**
-  `commit_trigger_evaluation` now exists in the Memory Kernel
-  (`app/memory_kernel/trigger_commit.py`), `SqlTriggerStore` and
-  `SqlProjectionReader` satisfy the other two Protocols, and
-  `internal.evaluate_trigger` and `write.wake_trigger` are bound and deleted
-  from `UNBOUND`. **Still unverified against the cluster** — every test below
-  is hermetic, and "the statements are shaped to the CHECKs" is a weaker claim
-  than "the cluster accepted them".
-
-  Writing the commit against the real DDL found **three defects a fake Kernel
-  could not have caught**, each of which would have refused every wake:
-
-  1. `PROPOSAL_MODEL_ID` was `deterministic:trigger-eval`, which
-     `ck_memory_proposals_model` has never admitted — not at `0005`, not at
-     `0009`. It is `deterministic.kernel` now, which `0009`'s own comment names
-     as the id the Kernel writes `TRIGGER_EVALUATION` proposals under.
-  2. `IDEMPOTENCY_SCOPE` was `TRIGGER_EVALUATION` and
-     `ck_idempotency_scope_shape` is `^[a-z][a-z0-9_.]{2,63}$`. The claim is the
-     fire transaction's **first** insert, so nothing would ever have committed.
-  3. `uq_outbox_events_aggregate_event` is
-     `UNIQUE (aggregate_type, aggregate_id, aggregate_version, event_type)`, and
-     a no-op does not move `cases.revision` — so two consecutive no-op wakes on
-     one trigger would have collided had the trigger aggregate been versioned by
-     the case revision. It is versioned by `evaluation_version`.
-
-  All three are the same lesson: a Protocol satisfied only by a test double is
-  tested against a thing with no constraints. Prospective memory is one of the
-  four things `00_PRODUCT.md` §2.2 claims ordinary RAG structurally cannot do,
-  and it is the demo's second reveal, so the distance between "the evaluator is
-  built" and "the capability runs" was the widest gap in the build.
-
-- **The curated proposals give every commitment `local_id="cm_001"`**
-  (`scripts/seed/proposals.py:924`). Any binding-recovery rule keyed on
-  `local_id == "cm_<binding>"` therefore refuses **both** curated triggers and
-  leaves `prospective_triggers` permanently empty. The underlying gap is that
-  `ProposedTrigger` carries no `bindings` map, so the binding a predicate needs
-  has to be recovered by heuristic rather than read.
-- **The corpus is still Titan-embedded.** The 18,035 vectors in `evidence_items`
-  are 1024-dimensional AWS Titan output. `PV_EMBEDDING_PROFILE` defaults to
-  `titan-v1` so retrieval queries the space the corpus was actually written in.
-  Migration `0009` is written, tested, and **deliberately unapplied** — it drops
-  the embedding quartet and refuses without an exact-count acknowledgement.
+**The walkthrough recording does not exist.**
 
 ---
 
-## 4. Why gate G-0 is still REJECTED
+## 5. Walkthrough, step by step
 
-Unchanged in substance: the repository is not public (deliberate, timed to
-submission), `G0.4` cannot run until something is pushed, `G0.5`'s substance was
-proved through `psql` and recorded as a deviation, and open MAJOR defects reject
-on their own under §4.3.
+The end-to-end path a reader is expected to follow, measured against the
+deployed revision by `python -m tools.demo_rehearsal_live`. Every verdict that
+tool prints is computed; it has no constructor that accepts a bare PASS. The
+State column below is not: it is written by hand from those runs and from the
+transcripts it names, so it carries a risk a computed verdict does not, which is
+that prose can go stale while the artifact it describes stays put. Step B is
+where that happened, and the note under the table says how.
 
-`CANNOT RUN` is recorded distinctly from `FAIL` throughout. That distinction is
-the whole lesson of `D-00-005`, and it recurred this session as the sharpest
-defect found: `PostgresActionStore.grounding_snapshot` returned `frozenset()` —
-a *real answer* meaning "supports nothing" — where it meant "never loaded".
+| Step | What it does | State |
+|---|---|---|
+| A | Dashboard: "The Move", 4 relationships, USD 2,020 outstanding | **works live** |
+| B | Forward the June invoice; case flips RESOLVED → REOPENED | `ops/ingestion-live-run.txt`, re-recorded 2026-08-31: **PASS 13, FAIL 0, CANNOT RUN 1**. Passes to the Kernel's door; `commit_proposal` cannot run in a rolled-back transaction. Not run here: it is one-shot against the live database |
+| C | State Proof: grounding and lineage, deterministic | **works live**, `model_used: null`, every belief grounded |
+| D | Counterfactual: memory off vs on | two live runs recorded, `parity.all_equal` true. Wants the June invoice, so it follows B |
+| E | Approve and send | **blocked** on `create_action_intent` — §4 |
+| F | The landlord trigger fires on its own | **armed and reachable.** `COMMITMENT_DEADLINE` ARMED at `2026-06-15T00:01:00Z`; the wake route reaches its handler. Not fired — the first press disarms it |
+| G | Memory Trace | **unbuilt** — §4 |
+
+Four steps are `CANNOT RUN` in the rehearsal and two of those are deliberate:
+B and F are each one-shot against the live database — the first ingest creates
+the conflict, the first press disarms the trigger — so rehearsing either
+spends it.
+
+**Step B was stale, and has been re-measured.** `ops/ingestion-live-run.txt`
+was recorded before migration `0009a` reached the cluster, and ended on a FAIL —
+the app-side `memory_proposals` INSERT, refused by a `CheckViolation` on
+`ck_memory_proposals_model`, because that constraint did not yet admit the
+Gemini model ids — followed by a `CANNOT RUN` on `commit_proposal`, which had no
+proposal row to decide. `0009a` widens exactly that constraint and was applied
+to the live cluster on 2026-08-28. The transcript was not regenerated for three
+days, which left those two steps unmeasured since the fix: neither passing nor
+failing.
+
+It was re-run on 2026-08-31 against the migrated cluster, in the same
+rolled-back transaction, and now reads **PASS 13, FAIL 0, CANNOT RUN 1**. The
+INSERT passes — "1 row written" — so the constraint accepts the Gemini id and
+the whole path from `write.upload_intent` through the typed `MemoryProposal` to
+the app-side write is measured against a real CockroachDB, every CHECK, foreign
+key and generated column evaluated.
+
+**`commit_proposal` still has not run on a live path, and the reason is
+structural rather than a blocker.** The Kernel commits its own transaction; this
+runner rolls back. A Kernel decision taken here would outlive the proposal row
+it decided, so the runner refuses rather than producing a decision pointing at
+nothing. `--persist` would settle it and would also spend step B, which is
+one-shot and is deliberately not being spent. So: the path is proved to the
+Kernel's door, and the Kernel's own commit on a live path is the one thing this
+tree still does not show.
+
+---
+
+## 6. Why gate G-0 is still REJECTED
+
+Unchanged in substance. `G0.4` cannot run until something is pushed, `G0.5`'s
+substance was proved through `psql` and recorded as a deviation, and open MAJOR
+defects reject on their own under §4.3.
 
 **No gate has been signed.** `ops/gates/PHASE_00.md` carries a real REJECTED
-verdict; `PHASE_01` through `PHASE_15` still hold the unfilled template. Built
-is not the same claim as gate-passed.
+verdict; `PHASE_01` through `PHASE_15` hold the unfilled template. Built is not
+the same claim as gate-passed.
 
 ---
 
-## 5. Defects worth knowing about
+## 7. Defects
 
-Found by running things, not by reading them.
+75 records: **33 CLOSED**, 18 OPEN, 15 AWAITING_REVERIFY, 9 TRIAGED. 42 still
+block a gate — `AWAITING_REVERIFY` blocks exactly as `OPEN` does — but **no
+BLOCKER remains open.** All five were closed on 2026-08-28 with full fix SHAs
+found by `git log -S` on the symbol each fix introduced, and with counterfactuals
+that were run rather than predicted.
 
-**On the count.** 61 records: 28 CLOSED, and **33 that block a gate** — 15
-`OPEN`, 9 `AWAITING_REVERIFY`, 9 `TRIAGED`. Earlier revisions of this file said
-"15 open, 0 BLOCKER", which counted only `status == OPEN`. §7.4 of the defect
-protocol is explicit that `AWAITING_REVERIFY` "blocks the gate exactly as OPEN
-does", and **`D-04-001` — the payment denial — is a BLOCKER sitting at
-`AWAITING_REVERIFY`**. Its fix is applied and close-proved; it cannot reach
-CLOSED because that needs a 40-character fix SHA and nothing is committed. So
-the honest statement is one blocking BLOCKER, discharged by a commit and not by
-any further code.
+Three of those counterfactuals changed the record, which is the whole reason the
+protocol demands them:
 
-**A payment *denial* extinguished the debt.** `payment_not_received` coerces to
-`PaymentValue(asserted=False)` — the denial flag — and `_apply_payment` read
-`amount` and `currency` and never `asserted`. An assertion and its denial
-produced **byte-identical** plans: `ACCEPTED`, `FULFILLMENT_ADMITTED`,
-outstanding `0.0000`, zero conflicts. Every DDL guard passed on the wrong
-numbers. This inverted the product's central claim — a counterparty's denial did
-not merely become a fact, it discharged the obligation. Fixed; `D-04-001`.
+- **`D-12-003`'s named verifying assertion was wrong.** The frontend
+  contract-conformance suite cannot catch it — TypeScript types are erased at
+  runtime, so reverting the declaration from `Money` to a decimal string cannot
+  move a vitest result. Measured: 8 passed with the fix reverted. `tsc --noEmit`
+  is what reads a declaration, and neutered it reports `TS2345` at three call
+  sites in the case detail page — the page whose 500s are the defect.
+- **`D-08-003`'s named assertion survived its own neutering.** It does not
+  discriminate; two others do, and one of them is now the named assertion.
+- **`D-04-001`'s close-proof carried a stale count** from an earlier run. 13
+  failed / 8 passed neutered, 21 passed restored — not the 19 recorded.
 
-**The execution idempotency key was minted, not read.** §9.11 requires it to
-*equal* `action_intents.idempotency_key`. Every execution of a legitimately
-approved intent would have failed `409` the moment a human edited one word of
-the draft — the ordinary path, not an edge case.
-
-**`ann_search()` returned zero rows for every query.** A lifecycle filter applied
-to a statement whose outer `SELECT` does not project the column. No exception,
-no warning; a second entry point canon says should not exist. Deleted.
-
-**Kernel-armed triggers would have failed at wake.** The stored predicate had no
-`{ast_version, bindings, predicate}` envelope, and `bindings` is where commitment
-paths resolve — so every hero trigger would have raised `UNBOUND_COMMITMENT`,
-months after arming.
-
-**Settings required 27 environment variables, 15 of them AWS-specific**, so a
-judge could not construct settings at all. Now 11 core plus 2 for Google, with
-requirements *conditional on the platform* rather than deleted.
-
-**Two registries for one fact, twice.** `Settings` read `COCKROACH_KERNEL_URL`
-while the seed read `PV_DB_KERNEL`; the kernel pool silently failed to open
-while the app pool worked and the process started anyway. The earlier instance
-split the seed across two databases and reported `26 tables checked, 26 match`
-against a database holding zero evidence rows.
-
-**A conftest ImportError aborts the entire pytest session**, so one broken
-directory silences every other test and exits **2** — which a gate checking for
-`1` misreads. `D-00-044`, third of its kind after `D-00-005` and `D-00-014`.
-
-**Nine vacuous or inverted assertions**, including a length compared against
-itself, a `DROP COLUMN` check that matched the docstring explaining the rule,
-and a guard carrying `pytest.mark.unit` that therefore could not run during the
-collection abort it existed to detect.
+Two close-proofs were nearly written as predictions — "neuter X and Y goes red" —
+without being run. That is recorded in the ledger rather than quietly corrected.
 
 ---
 
-## 6. What needs a human
+## 8. What needs a human
 
-0. **Apply `0009a`.** One command, and it is the last thing standing between a
-   working agent and the Kernel:
+1. **Record the walkthrough.** Live and unedited, following §5.
+   `deploy/cloudrun.sh proof` prints the deployment evidence it should show.
+2. **Rotate four credentials** before the repository is shared: the CockroachDB
+   password, the Google AI Studio key, the Cloud credit coupon, and
+   **`PV_API_TOKEN`**. The first three arrived through a chat transcript. The
+   fourth was found in plaintext in a Cloud Run revision spec — which
+   `gcloud run services describe` prints in full to anyone holding `viewer` —
+   guarding an API deployed `--allow-unauthenticated`, so it was the entire
+   authentication boundary. It is a `secretKeyRef` now and was rotated, but
+   rotate again after the repository is shared.
 
-   ```bash
-   set -a; . ./.env; set +a
-   export COCKROACH_DATABASE_URL="$(python -c "import os,re;print(re.sub(r'/(provenance_ci|defaultdb)(\?|$)', r'/provenance\2', os.environ['PV_DB_MIGRATOR']))")"
-   python -m alembic -c alembic.ini upgrade 0009a_widen_proposal_model_check
-   ```
+   **The cluster hostname is a separate decision and rotation does not fix it.**
+   `<cluster-host>.cockroachlabs.cloud` and the SQL usernames appear in **18
+   files already on `origin/main`**. Either rewrite that history before pushing
+   (`git filter-repo --replace-text`, safe here: solo repository, no forks), or
+   accept it deliberately on a rotated password plus `sslmode=verify-full`.
+   Leaving it undecided while the defect ledger records it as undecided is the
+   one option that is not defensible.
+3. **Decide on `db/seeds/vectors.parquet`** — 69.9 MB, tracked, and about to be
+   invalidated by the `0009` re-embed. It is excluded from the *build* context by
+   `.gcloudignore` and `.dockerignore`, so it never reaches an image; the cost is
+   borne by anyone cloning the repository. Keeping it is defensible — it is what
+   makes `make seed` reproducible without a Titan credential — but it should be a
+   decision rather than an accident.
+4. **`deploy/cloudrun.sh down`** once the walkthrough is recorded, unless the
+   deployment is meant to stay up. A live environment costs money every day it
+   runs; the transcripts under `ops/` are the record of what it did, and `up`
+   rebuilds it.
 
-   **Upgrade to `0009a` by name, never to `head`.** `head` is
-   `0009_gemini_embedding_plane`, which drops `evidence_items.embedding` and
-   destroys all 18,035 Titan vectors.
-
-   `internal.submit_proposal` is bound and builds a valid typed
-   `MemoryProposal`; the applied schema then refuses the INSERT with
-   `CheckViolation: ck_memory_proposals_model`, because `0005` admits only three
-   Bedrock-era Anthropic ids — every one of which was proved un-invocable — plus
-   `deterministic.kernel`, which an agent must not claim, since that field is
-   what makes the model attribution checkable. `0009` widens the CHECK, but it
-   bundles the widening with the destructive re-embed. `0009a` is the widening
-   alone, inserted between `0008` and `0009` so the chain stays a single linear
-   head. Widening a CHECK cannot invalidate an existing row.
-
-   I wrote and verified it but did not apply it: a schema change against the
-   live cluster is yours to authorise.
-
-1. **Rotate the database password.** It was transmitted in a chat transcript.
-   Nothing is pushed, so nothing is exposed yet. **Rotate the Google API key
-   too** — it arrived the same way.
-2. ~~Supply an AI Studio API key.~~ **Done 2026-08-24** — in `.env`, probe run,
-   transcript at `ops/gemini-probe.txt`. Two things follow from it:
-   **rotate that key before the repository goes public** (it was transmitted in
-   a chat transcript, same as the database password), and **say whether billing
-   is enabled** — the re-embed of 18,035 texts is still unscheduled and a
-   free-tier limit decides whether it is a fifty-minute job or an overnight one.
-3. **Decide about `ops/`.** `D-00-037` measures it: the password appears in
-   **zero** files, but the cluster hostname is in 12, the cluster id in 9 and the
-   SQL username in 42. `gitleaks` reports clean because a hostname is not
-   credential-shaped, which is exactly why that record exists. Three options are
-   written out there; committing as-is is one of them.
-4. **A GCP project with Cloud Run**, ideally `us-east4` — same metro as the
-   CockroachDB cluster on AWS `us-east-1`, so the cross-cloud hop stays in
-   single-digit milliseconds.
-5. **Commit.** 462 untracked files. A commit turns the one failing test green
-   and lets `D-04-001` move from `AWAITING_REVERIFY` to `CLOSED`, which needs a
-   fix SHA the protocol will not let anyone fabricate.
-6. **Decide on `db/seeds/vectors.parquet`** — 67 MB, not gitignored.
-7. **Make the repository public** and push, timed to submission.
+Migration `0009` — the destructive Gemini embedding plane — remains deliberately
+unapplied. The cluster is at `0009b`. `upgrade head` would drop all 18,035 Titan
+vectors; upgrade **by name**.
 
 ---
 
-## 7. Ground rules that cost something to learn
+## 9. Ground rules that cost something to learn
 
-- **`CANNOT RUN` is not `FAIL`**, and **absence is not emptiness**. Both lead to
-  opposite decisions, and both were violated this session.
+**A declared fallback is only worth having if swapping to it is one line.**
+On 2026-08-31 `gemini-3.7-flash` answered 0 of 3 two-word prompts -- `503
+UNAVAILABLE  This model is currently experiencing high demand`, and one `504
+DEADLINE_EXCEEDED` after 119 seconds -- while `gemini-3.6-flash` answered 3 of
+3. Tier R moved to 3.6 and 3.7 became the declared fallback. The live agent
+graph went from **PASS 31 / CANNOT RUN 12** to **PASS 34 / CANNOT RUN 8**, and
+`strong_resolution` -- the Tier R node, the one that had never once succeeded
+against a live model -- now PASSES on both resolving artifacts.
+
+Two things made that a configuration change rather than a redesign: both ids are
+above the 3.5 floor this project holds itself to, and both were PROBED in the
+same transcript, so nothing depended on which one was Tier R. The four tests
+that broke had pinned the id rather than the behaviour, and now derive it.
+
+- **`CANNOT RUN` is not `FAIL`**, and **absence is not emptiness**. Both were
+  violated again this session, the second by a `counts.get(...) or -1` that
+  reported FAIL for a legitimate zero, inside the tool written to demonstrate
+  the opposite.
 - **A green run on a sabotage assertion is a gate failure**, not a pass.
-- **`make` reports its own exit code, not the recipe's.**
-- **Piping through `tail` discards the exit code.** It produced a false green
-  three times before this session and once during it.
-- **A sentence predicting which way something fails is a claim to be executed,
-  not written.** It is read at the moment of failure, by someone who cannot yet
-  see the mechanism.
-- **A guard placed inside the thing it guards cannot fire.** No in-session pytest
-  test can detect a session-wide collection abort.
-- **Assert which, not how many.** A count admits any substitute; naming the
-  members fails on a third *and* on the right one being swapped for the wrong one.
-- **An unobserved mapping is a guess with a comment on it.**
-- **A test pinned to a state fails when the state legitimately changes**, and the
-  pressure then is to delete it — removing the guard exactly when there is
-  finally something to guard. Five such tests flipped the day the probe ran.
-  Assert the *property* (claim agrees with evidence) rather than the *state*
-  (claim is currently False), and both directions stay checked.
-- **A probe measures the probe until proven otherwise.** Two of PB-G2 and PB-G6's
-  first verdicts described the fixture and the token budget, not the model.
+- **A hardcoded verdict beside a computed fact is worse than no verdict.** The
+  first rehearsal printed `PASS` next to `git_sha equals HEAD: NO`.
+- **A close-proof must be run, not predicted.**
+- **Assert which, not how many.** A bare `404` check passes when the route does
+  not exist at all.
+- **A guard placed inside the thing it guards cannot fire.**
+- **An unobserved mapping is a guess with a comment on it** — including in a
+  readiness tool that asserted "there is no wake route" as a constant and kept
+  saying so after the route existed.
+- **`git check-ignore -v` output can be misread as a match.** `git add -An`
+  reports what would be staged, which is the question.
 - **A fixture and a type written by the same hand agree with each other and
-  prove nothing.** Both were derived from one reading of the spec, so the suite
-  was green while every live route was 500. Only a captured response can
-  disagree.
-- **`CANNOT RUN` is not `FAIL` applies to HTTP too.** An unbuilt capability
-  answered `500 INTERNAL_ERROR` — "something went wrong on our side" — when
-  nothing had gone wrong and nothing had been attempted. It now answers `501`
-  and names the subsystem it waits on.
-- **Measure the page you think you are measuring.** Three readings this session
-  were taken against a transiently-404ing route and a viewport that had not
-  resized; each looked like a clean pass.
-- **Verification against a database another agent is writing is meaningless in
+  prove nothing.**
+- **Verification against a database another process is writing is meaningless in
   both directions.**

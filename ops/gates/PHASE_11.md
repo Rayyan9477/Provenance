@@ -5,7 +5,7 @@
 > pre-filled, so an assertion that is never run shows up as an **omission**
 > rather than as an absence (§3 rule 2).
 >
-> **Sponsor tool requirement — not cuttable.** §22.4: this phase always gets the
+> **Agent-safe boundary requirement — not cuttable.** §22.4: this phase always gets the
 > **full** verification round.
 
 Commit: `<full sha>`            Branch: `<name>`
@@ -101,4 +101,4 @@ Documented position (§17): roll back to the `G-7` commit; `REVOKE` the agent gr
 set `PV_MCP_ENABLED=false`. The agent then falls back to control-plane retrieval, which
 must therefore stay functional — that is a real dependency and G11.7 asserts it.
 **Cannot be undone:** nothing — but removing MCP removes one of the two required
-CockroachDB tools and would fail the Stage One gate (§24, S5).
+CockroachDB tools and would fail the `G-15` release gate (§24, S5).

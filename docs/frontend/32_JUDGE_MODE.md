@@ -3,9 +3,9 @@
 Purpose: define the four-panel technical-credibility surface — consumer state, State Proof, Memory Trace, systems status — such that every pixel on screen is traceable to a persisted CockroachDB row or an OpenTelemetry span, and no element can be rendered without one.
 
 Status: planning complete v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
-Audience: frontend engineers building `apps/web/src/app/(judge)`, backend engineers implementing the `/v1/judge-mode/*` and `/v1/traces/*` handlers, the demo operator who runs the walkthrough live, the gate reviewer signing `G-11` and `G-12`, and hackathon judges auditing whether the memory system is real.
+Audience: frontend engineers building `apps/web/src/app/(judge)`, backend engineers implementing the `/v1/judge-mode/*` and `/v1/traces/*` handlers, the demo operator who runs the walkthrough live, the gate reviewer signing `G-11` and `G-12`, and reviewers auditing whether the memory system is real.
 
 ---
 
@@ -102,7 +102,7 @@ Desktop (≥ 1440 px) is the target; the video is recorded at 1920×1080.
 ├────────────────────────────┴─────────────────────────────────────────────────┤
 │  C  MEMORY TRACE  — DAG, left→right, deterministic vs model lanes            │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│  D  SYSTEMS STATUS  — six live indicators + sponsor-tool strip               │
+│  D  SYSTEMS STATUS  — six live indicators + platform-surface strip           │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -673,7 +673,7 @@ The trace selector in the Panel C header is fed by `GET /v1/cases/{case_id}/memo
 
 ## 5. Panel D — systems status
 
-Six live indicators, exactly as required by `05_RELIABILITY_EVAL_DEMO.md` §8, plus a clearly separated sponsor-tool strip. Everything is a value read from the currently selected trace or from the case; nothing is a static badge.
+Six live indicators, exactly as required by `05_RELIABILITY_EVAL_DEMO.md` §8, plus a clearly separated platform-surface strip. Everything is a value read from the currently selected trace or from the case; nothing is a static badge.
 
 ### 5.1 The six mandated indicators
 
@@ -688,7 +688,7 @@ Six live indicators, exactly as required by `05_RELIABILITY_EVAL_DEMO.md` §8, p
 
 Indicator 1 renders ✗ in red when the decision is `NOOP_DUPLICATE`, `PENDING_IDENTITY`, `PENDING_HUMAN_REVIEW`, or any `REJECTED_*` value, with the decision string shown. Judge Mode does not hide unsuccessful commits; a rejected proposal that left canonical state untouched is a *feature* and is labelled as one.
 
-### 5.2 Sponsor-tool strip
+### 5.2 Platform-surface strip
 
 Separated by a rule and labelled "CockroachDB and AWS surface". Each row states what the tool did on *this* trace, so it cannot be read as a logo wall.
 
@@ -738,7 +738,7 @@ Judge Mode renders, for every tool call the agent made through the **CockroachDB
 ### 6.2 Where it surfaces — three places, not one
 
 1. **Inside the DAG.** Each call is a `MCP_TOOL_CALL` node parented to its `AGENT_RUN`, on the deterministic lane (the read is deterministic; the model chose *whether* to read, not *what scope* to read). This is the primary surface.
-2. **In the Panel D sponsor-tool strip.** Aggregate: call count, distinct views touched, role, access mode, denied count.
+2. **In the Panel D platform-surface strip.** Aggregate: call count, distinct views touched, role, access mode, denied count.
 3. **In `GET /v1/cases/{case_id}/memory-trace`.** The `mcp_tool_calls[]` array per trace item, which is what a judge sees when they scan the case's history rather than one trace.
 
 `include_mcp=false` on §8.29 hides them; Judge Mode never sets it.
@@ -779,15 +779,15 @@ Volunteering this is not a weakness. A judge who discovers it unaided concludes 
 
 When `PV_MCP_ENABLED=false` (the `G11.7` condition), the Interpreter falls back to the control-plane retrieval endpoint and the trace renders a node with `status: "FAILED"` and `summary: "MCP UNAVAILABLE — degraded read path"`. Judge Mode shows it in red and Panel D's MCP row reads `unavailable — degraded`. Silent success under MCP failure would make MCP decorative by definition, and is a gate failure, not a UI preference.
 
-### 6.6 Qualifying-tool disclosure
+### 6.6 Tool-usage disclosure
 
-The panel footer names the three CockroachDB tools this build uses, which is the submission's tool-usage disclosure rendered in-product:
+The panel footer names the three CockroachDB tools this build uses, which is the tool-usage disclosure rendered in-product:
 
 1. **CockroachDB Cloud** — canonical state, transactional outbox, and the distributed vector index. Remove it and there is no memory.
 2. **CockroachDB Cloud Managed MCP Server** — the agent's governed read path over the five `agent_*_v1` views as `pv_agent_reader`, read-only. Remove it and the Interpreter degrades to the control-plane read path (`G11.7` proves the degradation is visible).
 3. **`ccloud` CLI** — cluster provisioning and inspection during Phase 0 and Phase 2.
 
-The distinction between the Cloud Managed MCP Server and the self-hosted `cockroachdb-mcp-server` is stated explicitly, because they are different products and only one of them is the qualifying tool.
+The distinction between the Cloud Managed MCP Server and the self-hosted `cockroachdb-mcp-server` is stated explicitly, because they are different products and only one of them is the tool in use here.
 
 ---
 
@@ -1195,7 +1195,7 @@ Stated bluntly, each with the detector that catches it.
 
 ### 11.1 Fixture mode
 
-Fixture mode is permitted only for local deterministic graph tests and emergency demonstration (`CANONICAL_DECISIONS.md` → *Fixture mode*). The recorded submission must use live mode.
+Fixture mode is permitted only for local deterministic graph tests and emergency demonstration (`CANONICAL_DECISIONS.md` → *Fixture mode*). The recorded demonstration must use live mode.
 
 When `PV_AGENT_MODE=FIXTURE`:
 
@@ -1221,7 +1221,7 @@ The exact click path, and what a judge should conclude at each step. Total: abou
 
 **Sees:** four relationships, `USD 2,020.0000` outstanding, one case resolved four months ago, one deposit overdue, one reimbursement partial.
 
-**Concludes:** this is a real consumer product with money at stake, not a technology demonstration wearing a UI. (Rubric: Real-World Impact.)
+**Concludes:** this is a real consumer product with money at stake, not a technology demonstration wearing a UI. (Dimension: Real-World Impact.)
 
 ### Step 2 — Upload the June invoice
 
@@ -1237,7 +1237,7 @@ The exact click path, and what a judge should conclude at each step. Total: abou
 
 **Sees:** grounding — two provider-authored documents `SUPPORTS`, one counterparty claim `CONTRADICTS`, each with weight, reason code, source authority, and the exact quoted sentence. Lineage — `balance_owed` v1 `CONFIRMED` superseded by v2 `DISPUTED`, same `$0.0000` value, with the caption "the amount did not change; our confidence in it did."
 
-**Concludes:** grounding and lineage are different things, both are stored, and a belief's *status* can change without its *value* changing — which no prose summary can express and no chunk-based retrieval system can represent. (Rubric: Agentic Memory Design.)
+**Concludes:** grounding and lineage are different things, both are stored, and a belief's *status* can change without its *value* changing — which no prose summary can express and no chunk-based retrieval system can represent. (Dimension: Agentic Memory Design.)
 
 ### Step 4 — Toggle `include_retracted`
 
@@ -1253,7 +1253,7 @@ The exact click path, and what a judge should conclude at each step. Total: abou
 
 **Sees:** the DAG in two lanes. Three model nodes on top. Nineteen deterministic nodes below. Exactly one arrow crosses from the model lane to the deterministic lane, and it terminates at `PROPOSAL`.
 
-**Concludes:** the LLM proposes; a deterministic kernel decides, commits, and acts. The permission boundary is architectural, not prompt-based. (Rubric: Agentic Memory Design, Technological Implementation.)
+**Concludes:** the LLM proposes; a deterministic kernel decides, commits, and acts. The permission boundary is architectural, not prompt-based. (Dimension: Agentic Memory Design, Technological Implementation.)
 
 ### Step 6 — Click any id chip
 
@@ -1269,7 +1269,7 @@ The exact click path, and what a judge should conclude at each step. Total: abou
 
 **Sees:** `agent_evidence_retrieval_v1`, role `pv_agent_reader`, `access_mode: READ_ONLY`, `evidence_embedding_ann_idx`, `beam_size 8`, 20 rows returned, `retraction_filter_applied: true`, 2 excluded. Panel D shows the commit ✓, `revision 12 → 13 · 0 retries (SERIALIZABLE)`, outbox `case.reopened.v1` dispatched, the model route, and approval required. Below it, the caveat that tool calls are caller-reported.
 
-**Concludes:** the CockroachDB Cloud Managed MCP Server is doing real, scoped, read-only work through views whose grants are the actual permission boundary — and the team knows exactly where the evidence for that claim stops. (Rubric: Technological Implementation, Product Readiness.)
+**Concludes:** the CockroachDB Cloud Managed MCP Server is doing real, scoped, read-only work through views whose grants are the actual permission boundary — and the team knows exactly where the evidence for that claim stops. (Dimension: Technological Implementation, Product Readiness.)
 
 ### Step 8 — Run the counterfactual
 
@@ -1277,7 +1277,7 @@ The exact click path, and what a judge should conclude at each step. Total: abou
 
 **Sees:** the parity block (artifact ✓ model ✓ prompt ✓ graph ✓ decode ✓), then two symmetric columns: "Invoice for $186 due 30 June" against "Contradicts your 15 May termination confirmation — case reopened, dispute drafted." Both columns carry a resolvable `agent_runs.id`. The safety block shows four green checks. Optionally: *show request diff*.
 
-**Concludes:** the memory system is doing the work, not the model. The same model with the same prompt on the same bytes produces an ordinary answer when memory is removed. (Rubric: Creativity and Originality.)
+**Concludes:** the memory system is doing the work, not the model. The same model with the same prompt on the same bytes produces an ordinary answer when memory is removed. (Dimension: Creativity and Originality.)
 
 ### Step 9 — Approve and send
 
@@ -1285,7 +1285,7 @@ The exact click path, and what a judge should conclude at each step. Total: abou
 
 **Sees:** approval binds to `basis_case_revision = 13` and `approval_draft_sha256`; the executor revalidates both and only then sends; `action_executions.revalidated_case_revision` appears in the trace.
 
-**Concludes:** no uncommitted proposal and no agent scratchpad can produce an external side effect. An approval goes stale the instant memory moves under it. (Rubric: Product Readiness.)
+**Concludes:** no uncommitted proposal and no agent scratchpad can produce an external side effect. An approval goes stale the instant memory moves under it. (Dimension: Product Readiness.)
 
 ### Step 10 — The second reveal
 
@@ -1334,7 +1334,7 @@ Judge Mode is done when every assertion below passes. These are the `G-11` and `
 
 **R1 — Resolved.** `specs/10_DATABASE_DDL.md` §11.3 now declares `tool_calls JSONB NULL`, `model_calls JSONB NULL` and `capability_status JSONB NULL` on `agent_runs`, with `jsonb_typeof` CHECK constraints and `ck_agent_runs_counterfactual_toolless`; §11.4 now declares `idempotency_records.trace_id UUID NULL` with `idx_idempotency_trace`. All four land inline in migration `0008_events_infrastructure`, which is where both tables are created, so no extra Alembic revision is required. `G11.4` was corrected. The naming rule is fixed: the **column** is `agent_runs.tool_calls`; the **JSON field** carried over HTTP is `mcp_tool_calls[]`. Do not re-litigate that pairing.
 
-**R2 — Resolved.** `POST /v1/judge-mode/probes`, `GET /v1/judge-mode/probes/{probe_id}` and `GET /v1/judge-mode/agent-views` are now rows 8.33, 8.34 and 8.35 of `specs/15_API_SPEC.md` §8.0, with scopes (`judge.probe`, `provenance.memory/read`), rate-limit buckets and the `PROBE_NOT_FOUND` / `PROBE_TARGET_BUSY` / `JUDGE_MODE_DISABLED` error codes. `POST /v1/judge/triggers/{trigger_id}/wake` was added in the same edit as row 8.32, since `submission/51_VIDEO_SCRIPT.md` beat 6 depends on it and it was equally absent. `provenance_contracts` request/response models remain to be written, but the surface these sections describe can now be called.
+**R2 — Resolved.** `POST /v1/judge-mode/probes`, `GET /v1/judge-mode/probes/{probe_id}` and `GET /v1/judge-mode/agent-views` are now rows 8.33, 8.34 and 8.35 of `specs/15_API_SPEC.md` §8.0, with scopes (`judge.probe`, `provenance.memory/read`), rate-limit buckets and the `PROBE_NOT_FOUND` / `PROBE_TARGET_BUSY` / `JUDGE_MODE_DISABLED` error codes. `POST /v1/judge/triggers/{trigger_id}/wake` was added in the same edit as row 8.32, since beat 6 of the demo walkthrough depends on it and it was equally absent. `provenance_contracts` request/response models remain to be written, but the surface these sections describe can now be called.
 
 **R3 — Landed, except one.** The `CANONICAL_CHANGE` node type and the `node.refs` array are now in `specs/15_API_SPEC.md` §8.28's closed seventeen-value enum, with the `change_kind` set enumerated and the explicit statement that `state_transitions` is both the spine and the source of these child nodes — reconciling this document with `quality/21_OBSERVABILITY_ANALYTICS.md` §6.2, which previously specified an incompatible shape. `GET /v1/version` now returns `fixture_mode`, `agent_mode`, `otlp_export`, `schema_revision` and `db_ok` (§8.2), and is the pack's single authoritative disclosure channel; `/v1/healthz` stays a bare liveness probe. **Now closed (2026-08-17).** The counterfactual `parity` block is a documented, normative field on `specs/15_API_SPEC.md` §8.31's response, with the render gate stated there and mirrored as mandatory item 9 in `frontend/30_UX_SPEC.md` §14.4. All three documents now specify one render rule: six parity checks above the columns, and no columns at all when `all_equal` is `false`. §14.4 item 1 was also corrected — its previously fixed header copy ("Both columns ran just now") was false under the default `REPLAY_COMMITTED` strategy, where the MEMORY_ON column is the already-committed production run rather than a fresh execution; the copy is now selected from `memory_on.strategy` and is truthful under both.
 
@@ -1350,10 +1350,10 @@ Judge Mode is done when every assertion below passes. These are the `G-11` and `
 
 **R9 — `ck_agent_runs_counterfactual_consistent` constrains the counterfactual design.** The constraint `is_counterfactual = (memory_mode = 'OFF')` means a MEMORY_ON *sandboxed rerun* cannot be marked `is_counterfactual = true`. Under the default `REPLAY_COMMITTED` this is fine — the ON side is the real production run. Under `RERUN_SANDBOXED` the ON re-run is distinguishable only by `graph_name = 'counterfactual'`, and any query that counts "real" runs by `is_counterfactual = false` will over-count. Judge Mode therefore identifies sandboxed runs by `graph_name`, and any future analytics must do the same.
 
-**R10 — The trace is caller-reported at exactly one point, and that point is the sponsor tool.** §6.4 states this in-product. It remains a genuine limitation: a compromised or buggy agent runtime could under-report MCP calls, and nothing in v1 would detect it. CockroachDB audit logging or MCP server-side logging would close the gap; neither is wired up. The defence is disclosure, and disclosure is not the same as a control.
+**R10 — The trace is caller-reported at exactly one point, and that point is the managed MCP server.** §6.4 states this in-product. It remains a genuine limitation: a compromised or buggy agent runtime could under-report MCP calls, and nothing in v1 would detect it. CockroachDB audit logging or MCP server-side logging would close the gap; neither is wired up. The defence is disclosure, and disclosure is not the same as a control.
 
 **R11 — Panel D's health metrics depend on CloudWatch being reachable from the browser's request path.** The control plane must proxy them, since the browser holds no AWS credentials. That proxy is not specified in `specs/15_API_SPEC.md` and is not specified here either; §5.3's `n/a` rendering is the honest fallback and may well be what ships. A judge seeing three `n/a` values in the health strip is a worse outcome than not showing the strip, so if the proxy is not built, drop the strip rather than render an empty one.
 
-**R12 — The 3-minute video does not have room for §12's eleven steps.** The walkthrough is the unassisted-judge path and the live-Q&A path. The video is segments A–G at 2:55 (`00_PRODUCT.md` §5), which covers steps 1, 2, 3, 8, 9, 10, and a compressed 7. Steps 4, 5, 6, and 11 are Q&A only. Conflating the two paths would either overrun the submission limit or gut the walkthrough; both are worse than keeping them separate and saying so.
+**R12 — The 3-minute video does not have room for §12's eleven steps.** The walkthrough is the unassisted path and the live-Q&A path. The video is segments A–G at 2:55 (`00_PRODUCT.md` §5), which covers steps 1, 2, 3, 8, 9, 10, and a compressed 7. Steps 4, 5, 6, and 11 are Q&A only. Conflating the two paths would either overrun the video's length budget or gut the walkthrough; both are worse than keeping them separate and saying so.
 
 **R13 — Judge group membership is a Cognito group, and group membership is not tested from a clean profile in this document.** `quality/23_PHASE_GATES.md` §21 does test judge login from a clean browser profile. Judge Mode adds a failure mode that test does not cover: a judge who is authenticated but *not* in `provenance-judges` sees `judge_mode_enabled: false` and lands on a disabled surface with no explanation of how to get access. The surface must render an explicit "Judge Mode is not enabled for this account" state naming the group — not a blank panel, and not a `403` envelope dumped on screen.

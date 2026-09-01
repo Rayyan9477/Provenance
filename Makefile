@@ -9,7 +9,7 @@
 #                                         db-verify seed seed-perturb sabotage
 #                                         gate-0 .. gate-15
 #   quality/20_TDD_STRATEGY.md section 3.3 test-fast test-db test-all
-#                             section 14.4 test-submission
+#                             section 14.4 test-release
 #   EXECUTION/72_DEFECT_PROTOCOL.md 11.3   defects debt close-proof triage-round
 #   ops/41_RUNBOOK.md section 0.1          probe run-api run-web run-crdb
 #                                         run-sink embeddings-warm demo-reset
@@ -152,7 +152,7 @@ define require_gate_sh
 	  exit 1; }
 endef
 
-.PHONY: seed-restore help bootstrap lint test test-fast test-db test-all test-submission \
+.PHONY: seed-restore help bootstrap lint test test-fast test-db test-all test-release \
         probe db-probe seed seed-perturb db-migrate db-verify db-reset \
         demo-reset demo-rehearse sabotage \
         run-api run-web run-crdb run-sink stop-local embeddings-warm \
@@ -264,10 +264,19 @@ lint:                   ## ruff + mypy --strict + import-linter contracts.
 # loop then replays that side effect. The rule is unenforceable by review, so it
 # is a lint. G3.5 asserts its output.
 	$(PY) -m tools.txn_purity_lint services packages workers
-# Later phases add their linters to this target rather than to a private script:
-#   Phase 1  tools/contract_lint.py      (no-float-money / schema-version-present)
-#   Phase 3  tools/txn_purity_lint.py    WIRED IN below, 2026-08-18
-#   Phase 4  tools/write_path_lint.py    (canonical writes only from memory_kernel)
+# Phase 1 (T1.6). No float money anywhere, and every boundary contract carries a
+# schema version. G1.4 asserts its output.
+	$(PY) -m tools.contract_lint
+# Phase 4 (T4.14). The canonical write rules: only the Memory Kernel issues a
+# canonical INSERT or UPDATE, nothing anywhere issues a canonical DELETE. This is
+# the project's flagship structural claim -- README and STATUS both lead with it
+# -- and until 2026-08-31 it was enforced nowhere but by hand. The linter was
+# written, correct, and simply never added to this target; the list below said
+# "later phases add their linters here" and two of them never did. A rule nobody
+# runs is a comment. G4.9 asserts its output.
+	$(PY) -m tools.write_path_lint
+# Still to come, and named so the omission stays visible rather than becoming
+# the same silent gap:
 #   Phase 5  tools/log_schema_lint.py    (21_OBSERVABILITY_ANALYTICS.md section 12)
 #   Phase 15 scripts/check_vocabulary.py (Provenance / grounding / lineage)
 
@@ -300,7 +309,7 @@ probe:                  ## Run the Phase 0 capability probes; writes ops/*.txt t
 	  exit 1; \
 	 fi
 
-db-probe: probe         ## Alias for `probe` - the name submission/50_README_DRAFT.md uses.
+db-probe: probe         ## Alias for `probe` - the name the README uses.
 
 run-crdb:               ## Local single-node CockroachDB for CI parity (console on :8081).
 	docker run -d --name pv-crdb \
@@ -344,10 +353,30 @@ triage-round:           ## make triage-round PHASE=4 - merge inbox files report 
 	$(PY) -m tools.defect_lint --merge-inbox --phase $(PHASE)
 
 # =============================================================================
+# The revision this build runs against
+# =============================================================================
+#
+# NOT `head`. The chain head is 0009_gemini_embedding_plane, which widens
+# evidence_items.embedding to VECTOR(1536) for the Gemini embedding space, and
+# it is deliberately unapplied: its own upgrade() refuses without
+# PV_EMBEDDING_REWRITE_ACK, ACTIVE_EMBEDDING_PROFILE resolves to titan-v1, and
+# the 18,035 vectors in the ground are Titan at VECTOR(1024).
+#
+# `alembic upgrade head` therefore ABORTS on any database this code should run
+# against. That is the guard doing its job, but two targets called it anyway:
+# `make demo-reset`, which drops and recreates the database first and so left
+# it empty and unmigrated at the worst possible moment, and G2.1's from-zero
+# round-trip gate, whose only recorded run failed.
+#
+# tools/tests/test_target_revision.py asserts this name is in the chain and is
+# the parent of the Gemini revision, so it cannot silently fall behind.
+TARGET_REVISION := 0009b_kernel_idempotency_grant
+
+# =============================================================================
 # Not yet implemented - each names the phase that owns it
 # =============================================================================
 
-db-migrate:             ## (Phase 2) alembic upgrade head against the target database.
+db-migrate:             ## (Phase 2) alembic upgrade $(TARGET_REVISION) against the target database.
 	$(call unimplemented,2,T2.1 through T2.6 - the 0001..0008 migration chain)
 
 # THE DATABASE MUST BE QUIESCED. V1-V11 are whole-corpus invariants, so a
@@ -391,8 +420,21 @@ db-verify:              ## Run db/verify.sql - the V1..V11 verification queries.
 	   D=$$(grep '^PROVENANCE_TEST_DB_URL=' .env | cut -d= -f2- | tr -d '\r\n' || true); \
 	 fi; \
 	 test -n "$$D" || { printf '\n  db-verify: no database URL. Set PV_VERIFY_URL, or PROVENANCE_TEST_DB_URL in .env.\n\n' >&2; exit 3; }; \
-	 if ! out=$$(psql -X -At -v ON_ERROR_STOP=1 -d "$$D" -f db/verify.sql | tr -d '\r'); then \
-	   printf '\n  db-verify: psql could not run db/verify.sql. The database must be at head first.\n\n' >&2; exit 3; \
+	 if ! out=$$(psql -X -At -v ON_ERROR_STOP=1 -d "$$D" -f db/verify.sql 2>&1 | tr -d '\r'); then \
+	   printf '\n  db-verify: psql could not run db/verify.sql.\n\n' >&2; \
+	   printf '%s\n\n' "$$out" >&2; \
+	   printf '  Two causes account for almost every occurrence and they need opposite\n' >&2; \
+	   printf '  fixes, so read the psql error above rather than guessing.\n\n' >&2; \
+	   printf '    "relation ... does not exist"\n' >&2; \
+	   printf '      No schema. PROVENANCE_TEST_DB_URL points at provenance_ci, which\n' >&2; \
+	   printf '      the migration lane rebuilds from base, so it is empty between runs.\n\n' >&2; \
+	   printf '    "does not have SELECT privilege on relation agent_..._v1"\n' >&2; \
+	   printf '      Wrong ROLE, not a broken database. verify.sql reads the agent views\n' >&2; \
+	   printf '      to prove V9 and V10, and pv_app_reader_writer is denied them BY\n' >&2; \
+	   printf '      DESIGN -- that denial is one of the things this file checks.\n\n' >&2; \
+	   printf '  Either way, run it against a populated database as the migrator:\n' >&2; \
+	   printf '      PV_VERIFY_URL="$$PV_DB_MIGRATOR" make db-verify\n\n' >&2; \
+	   exit 3; \
 	 fi; \
 	 printf '%s\n' "$$out"; \
 	 code=$$(printf '%s\n' "$$out" | sed -n 's/^VERDICT \([A-Z0-9_]*\) .*/\1/p' | head -1); \
@@ -451,7 +493,7 @@ demo-reset:             ## Destructive reset to clean demo state.
 	   D=$$(grep '^PV_DB_MIGRATOR=' .env | cut -d= -f2- | tr -d '\r\n' || true); \
 	 fi; \
 	 test -n "$$D" || { printf '\n  demo-reset: no migrator URL. Set PV_DB_MIGRATOR, or put it in .env.\n\n' >&2; exit 1; }; \
-	 COCKROACH_DATABASE_URL="$$D" $(PY) -m alembic -c alembic.ini upgrade head
+	 COCKROACH_DATABASE_URL="$$D" $(PY) -m alembic -c alembic.ini upgrade $(TARGET_REVISION)
 	@printf '\n  Database recreated and migrated to head. Reseeding is deliberately a\n'
 	@printf '  separate command so a reset that half-succeeds is visible:\n'
 	@printf '      make seed\n'
@@ -498,7 +540,7 @@ run-api:                ## (Phase 8) Control plane on :8080.
 run-web:                ## (Phase 12) Next.js on :3000.
 	@printf '\n  PV_API_BASE_URL unset means FIXTURE mode, behind a permanent\n'
 	@printf '  banner. That is a supported mode, not a broken one -- but the\n'
-	@printf '  recorded submission must run LIVE. Set PV_API_BASE_URL to the\n'
+	@printf '  recorded walkthrough must run LIVE. Set PV_API_BASE_URL to the\n'
 	@printf '  control plane and the banner goes away because the data is real.\n\n'
 	cd apps/web && npm run dev
 
@@ -513,6 +555,52 @@ route-sweep:            ## (Phase 12) Load EVERY live route and report which bre
 	@printf '  Exit 2 means the sweep could not run, which is not the same\n'
 	@printf '  claim as a broken route and must not be recorded as one.\n\n'
 	$(PY) -m tools.route_sweep --warm
+
+# ---------------------------------------------------------------------------
+# Phase 13 -- deploy. Google Cloud Run.
+#
+# These four are the first targets in this file that are NOT deliberate
+# non-zero stubs: they do the work they name. deploy/README.md carries the
+# reasoning, including why the deployment runs PV_PLATFORM=local and what that
+# costs, and why the signing keys are minted once rather than per deploy.
+# ---------------------------------------------------------------------------
+
+deploy-images:          ## (Phase 13) Build both container images locally. No cloud account needed.
+	@printf '\n  Builds deployment units 1 and 2 for linux/amd64.\n'
+	@printf '  Cloud Run runs amd64; an arm64 image pushes happily and then\n'
+	@printf '  fails at start with "exec format error", which reads like a\n'
+	@printf '  broken entrypoint rather than a wrong architecture.\n\n'
+	docker build --platform linux/amd64 -f deploy/Dockerfile.control-plane \
+	  --build-arg GIT_SHA="$$(git rev-parse HEAD)" -t provenance-control-plane:local .
+	docker build --platform linux/amd64 -f deploy/Dockerfile.web \
+	  --build-arg GIT_SHA="$$(git rev-parse HEAD)" -t provenance-web:local .
+	@printf '\n  Both images built. Run them locally before pushing:\n'
+	@printf '    docker run --rm -p 8080:8080 --env-file .env provenance-control-plane:local\n\n'
+
+deploy-up:              ## (Phase 13) Build, push and deploy both services to Cloud Run.
+	@printf '\n  Needs deploy/.env.deploy. Copy deploy/.env.deploy.example and\n'
+	@printf '  fill in four values. The script refuses rather than deploying\n'
+	@printf '  a half-configured revision.\n\n'
+	bash deploy/cloudrun.sh up
+
+deploy-proof:           ## (Phase 13) Print what the demo video must show as proof of deployment.
+	bash deploy/cloudrun.sh proof
+
+demo-rehearse-live:     ## (Phase 13) Drive the demo's beats against the DEPLOYED revision.
+	@printf '\n  Every verdict is computed, not printed. Four beats report\n'
+	@printf '  CANNOT RUN on purpose: firing the trigger and ingesting the June\n'
+	@printf '  invoice are the demo REVEALS, and rehearsing them spends them.\n\n'
+	@REGION=$${PV_GCP_REGION:-us-east4}; \
+	 API=$$(gcloud run services describe provenance-control-plane --region $$REGION --format='value(status.url)'); \
+	 WEB=$$(gcloud run services describe provenance-web --region $$REGION --format='value(status.url)'); \
+	 TOKEN=$$($(PY) scripts/mint_local_token.py --quiet); \
+	 $(PY) -m tools.demo_rehearsal_live --api "$$API" --web "$$WEB" --token "$$TOKEN"
+
+deploy-down:            ## (Phase 13) Pin both Cloud Run services to zero instances. Billing stops.
+	@printf '\n  Nothing requires the services to stay live once a deployment\n'
+	@printf '  has been recorded. Run this when you are done. Images stay in\n'
+	@printf '  Artifact Registry, so coming back up needs no rebuild.\n\n'
+	bash deploy/cloudrun.sh down
 
 evals:                  ## (Phase 14) Score the section 2.2 capability claims; print a report.
 	@printf '\n  Reads the live corpus. Nothing here embeds text: there is no Titan\n'
@@ -564,7 +652,7 @@ demo-rehearse:          ## (Phase 15) Can the dress rehearsal run right now, and
 	$(PY) -m tools.demo_readiness
 
 
-test-submission:        ## (Phase 15) The Definition of Done, checked rather than recited.
+test-release:        ## (Phase 15) The Definition of Done, checked rather than recited.
 #
 # 05_RELIABILITY_EVAL_DEMO.md section 19. Five of its assertions require
 # Cognito, S3, SES, EventBridge and CloudWatch -- the AWS stack PIVOT.md
@@ -577,8 +665,10 @@ test-submission:        ## (Phase 15) The Definition of Done, checked rather tha
 # CANNOT RUN blocks the exit code. MANUAL does not -- three assertions genuinely
 # need a human (is the State Proof *understandable*?) and are never auto-passed.
 #
+# The checker is `tools/release_check.py`.
+#
 # Needs `make run-api` and `make run-web` up for the route sweep.
-	$(PY) -m tools.submission_check
+	$(PY) -m tools.release_check
 
 
 # =============================================================================
@@ -701,7 +791,7 @@ gate-2:                 ## G2.1..G2.8 - schema migrations grants views and seed.
 # this target part-way leaves provenance_ci with NO SCHEMA, and every assertion
 # after it then fails with "relation does not exist" -- which reads like a
 # migration defect and is not one. If you kill it, restore with
-#   COCKROACH_DATABASE_URL=$$PROVENANCE_TEST_DB_URL python -m alembic upgrade head
+#   COCKROACH_DATABASE_URL=$$PROVENANCE_TEST_DB_URL python -m alembic upgrade $(TARGET_REVISION)
 # before drawing any conclusion from a later assertion.
 #
 # Safe to interrupt ONLY because it runs against provenance_ci, which is
@@ -710,9 +800,9 @@ gate-2:                 ## G2.1..G2.8 - schema migrations grants views and seed.
 	$(GATE) G2.1 -- bash -c 'set -euo pipefail; \
 	  export COCKROACH_DATABASE_URL="$$(grep "^PROVENANCE_TEST_DB_URL=" .env | cut -d= -f2- | tr -d "\r\n")"; \
 	  $(PY) -m alembic -c alembic.ini downgrade base; \
-	  $(PY) -m alembic -c alembic.ini upgrade head; \
+	  $(PY) -m alembic -c alembic.ini upgrade $(TARGET_REVISION); \
 	  $(PY) -m alembic -c alembic.ini downgrade base; \
-	  $(PY) -m alembic -c alembic.ini upgrade head; \
+	  $(PY) -m alembic -c alembic.ini upgrade $(TARGET_REVISION); \
 	  $(PY) -m alembic -c alembic.ini current'
 	@printf '\n=== G2.2  the canonical table set is complete and has nothing extra ===\n'
 	$(GATE) G2.2 -- bash -c 'set -euo pipefail; \
@@ -810,5 +900,5 @@ gate-13:                ## (Phase 13) G13.x - deploy.
 gate-14:                ## (Phase 14) G14.x - evals adversarial and concurrency.
 	$(call unimplemented,14,T14.1 onward - the 51 scenarios and the sabotage matrix)
 
-gate-15:                ## (Phase 15) G15.x and S1..S10 - submission artifacts.
+gate-15:                ## (Phase 15) G15.x and S1..S10 - release artifacts.
 	$(call unimplemented,15,T15.1 onward - README video and disclosure)

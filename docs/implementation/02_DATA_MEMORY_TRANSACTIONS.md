@@ -1,7 +1,7 @@
 # Provenance — Data Model, Memory Kernel, and Transactions
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 ## 1. Purpose
 
@@ -68,7 +68,7 @@ Do not hide core domain state in JSONB.
 
 ### 3.5 Status values
 
-Use `STRING` plus application enums and DB `CHECK` constraints for critical states. Avoid migration-heavy custom DB enum churn during the hackathon.
+Use `STRING` plus application enums and DB `CHECK` constraints for critical states. Avoid migration-heavy custom DB enum churn.
 
 ## 4. Core tables
 
@@ -82,7 +82,7 @@ name STRING NOT NULL
 created_at TIMESTAMPTZ NOT NULL
 ```
 
-Hackathon: one tenant per user is acceptable, but keep tenant abstraction.
+For v1: one tenant per user is acceptable, but keep the tenant abstraction.
 
 ### 4.2 `users`
 
@@ -1075,7 +1075,7 @@ If any fails:
 
 ## 19. Deletion and retention
 
-Hackathon implementation:
+v1 implementation:
 
 - raw artifacts retained for demo;
 - canonical evidence/belief lineage retained;
@@ -1090,7 +1090,7 @@ Architecture must reserve a future deletion workflow:
 - recompute beliefs that no longer have support;
 - preserve minimal audit where legally permissible.
 
-Do not build full compliance for the hackathon, but do not make it impossible.
+Do not build full compliance in v1, but do not make it impossible.
 
 ## 20. Required database tests
 

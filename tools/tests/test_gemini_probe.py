@@ -113,7 +113,7 @@ class TestCandidateIdsAgreeWithCanon:
         """``gemini-3.1-pro-preview`` is version 3.1 -- below the 3.5 floor.
 
         Probing it as a tier candidate would invite adopting a model that fails
-        the hackathon's own eligibility rule.
+        this build's own model floor.
         """
         probed = {mid for mid, _ in probe.CHAT_CANDIDATES}
         assert not any("pro" in mid for mid in probed), probed
@@ -240,8 +240,8 @@ class TestTheMultimodalProbeUsesAnImageTheAPIAccepts:
 
     So the recorded FAIL was a property of the test fixture, not of the
     capability, and acting on it would have kept an external OCR dependency and
-    forfeited the multimodal submission category on the evidence of one
-    transparent pixel. The probe's own docstring asserted a 1x1 PNG was "enough
+    given up the native multimodal read path on the evidence of one transparent
+    pixel. The probe's own docstring asserted a 1x1 PNG was "enough
     to establish the request shape is accepted"; that sentence was a prediction,
     and it was wrong.
     """

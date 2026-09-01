@@ -180,7 +180,7 @@ class MaskedDsn(str):
     THE PROBLEM THIS SOLVES, demonstrated rather than assumed:
 
         $ pytest services/control_plane/tests/db/test_zz_probe.py -q
-        test_dsn = 'postgresql://pv_migrator:<the live password>@rayyandb-...'
+        test_dsn = 'postgresql://pv_migrator:<the live password>@<cluster-host>-...'
 
     pytest renders every test-function argument in the failure header using
     ``repr()``. A session fixture returning a plain ``str`` DSN therefore writes

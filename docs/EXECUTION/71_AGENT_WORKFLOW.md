@@ -1,7 +1,7 @@
 # Provenance — Agent-Driven Execution Model
 
 Status: execution process baseline v1.0
-Implementation status: not started. No code, no cloud resource, no test run, and no integration described here exists yet.
+Implementation status: substantial. Most of what this document describes was built. See `STATUS.md` at the repository root, which is measured rather than declared and names what is still partial or absent.
 Authority: subordinate. This document owns **process**. It may not change a name, a count, an enum value, a schema, an endpoint, or an acceptance criterion. Where it appears to, `CANONICAL_DECISIONS.md`, `00_PRODUCT.md`, and the owning numbered specification win, in that order, per `README.md` → *Authority rules*.
 
 Audience: the human running the build, and every agent the human dispatches.
@@ -136,7 +136,7 @@ Invariant or contract at risk: <invariant 1-4 | grounding | a named spec clause>
 Reproduction: <exact commands, exact SQL, exact fixture; must run from a clean clone>
 Observed: <verbatim output>
 Expected, and the document that says so: <clause reference>
-Blast radius if shipped: <what a judge or a user sees>
+Blast radius if shipped: <what a reviewer or a user sees>
 ```
 
 **Parallelism.** 4–6 per phase, all concurrent, all read-only. Which lenses are mandatory for which phase is fixed in §4.7.
@@ -351,7 +351,7 @@ Per-phase lens assignment is owned by `72_` §3, not by §4.7 below; where the t
 - Take every identifier that arrives from a request body and ask whether it is used for authorisation or only for lookup. `specs/15_API_SPEC.md` and `quality/23_PHASE_GATES.md` `G8.5` require capability objects rather than caller-supplied `user_id`.
 - Check that non-existence and non-authorisation are indistinguishable to the caller: `G8.4` demands `404 CASE_NOT_FOUND`, not `403`.
 
-**Mandatory at phases.** 2, 6, 8, 11. (Phase 6 owns retrieval isolation; phase 11 owns the SQL grant boundary and the sponsor tool requirement.)
+**Mandatory at phases.** 2, 6, 8, 11. (Phase 6 owns retrieval isolation; phase 11 owns the SQL grant boundary and the governed MCP read path.)
 
 **Example defects in this system.**
 
@@ -402,7 +402,7 @@ Per-phase lens assignment is owned by `72_` §3, not by §4.7 below; where the t
 1. **A rendered constant where a count is required.** The hero's user-scoped corpus is 16,035 of 18,035 total. Both numbers are known at authoring time, which is exactly why one of them ends up in a template. Canon forbids both the constant and, separately, rendering the cross-tenant 18,035 as a user-scoped figure. Reproduction: insert one evidence row for the hero user, reload Judge Mode, and assert the displayed figure moved to 16,036.
 2. **A trace panel that survives its data.** `DELETE`/`UPDATE ... SET tool_calls = NULL` on the hero `agent_runs` row and reload. If the MCP panel still renders three calls against `pv_agent_reader`, it is templated. Do the same for the Memory Trace nodes and for the State Proof lineage: the pack's `G12.2` proves the rendered node ids are a subset of the API payload, which a template that reads ids from the payload and then renders fixed labels still satisfies.
 3. **Counterfactual parity that is not parity.** Canon permits exactly four differences between MEMORY OFF and MEMORY ON: `retrieval_enabled`, `canonical_memory_enabled`, `corpus_size_visible`, and the resulting `output`. Anything else differing is a parity failure, and `parity.all_equal = false` must replace both output columns with a failure banner rather than rendering them. The reachable defect is a different `max_tokens` or a different decode parameter on the OFF path, which changes `decode_params_sha256` and makes the most persuasive twenty-five seconds of the video a rigged comparison. Also confirm there is no `pv-draft-nomemory-*` prompt asset: canon says MEMORY OFF uses `pv-draft-1.0.0` with an empty TRUSTED STRUCTURED CONTEXT block.
-4. **A disclosure computed from a different source than the behaviour.** `GET /v1/version` carries `fixture_mode`, `agent_mode`, `otlp_export`, `schema_revision`, `db_ok`, `git_sha`. If `fixture_mode` is read from an environment variable at control-plane import time while the agent runtime resolves its own mode per request, the two can disagree: the banner says live and the graph replays cassettes. `S3` makes `fixture_mode: false` a submission-invalidating field, so this is the highest-consequence honesty defect in the build. Reproduction: flip the agent runtime to fixture mode without restarting the control plane and check whether `/v1/version` notices.
+4. **A disclosure computed from a different source than the behaviour.** `GET /v1/version` carries `fixture_mode`, `agent_mode`, `otlp_export`, `schema_revision`, `db_ok`, `git_sha`. If `fixture_mode` is read from an environment variable at control-plane import time while the agent runtime resolves its own mode per request, the two can disagree: the banner says live and the graph replays cassettes. `S3` makes `fixture_mode: false` a release-invalidating field, so this is the highest-consequence honesty defect in the build. Reproduction: flip the agent runtime to fixture mode without restarting the control plane and check whether `/v1/version` notices.
 5. **A `NOOP` that is a swallowed exception.** Query `SELECT reason_code, count(*) FROM kernel_decisions WHERE status='NOOP' GROUP BY 1;` after a full demo run and check every code against the closed enum and against what the demo script expects. A `NULL` or an unexpected code is a defect even though nothing appeared to break.
 6. **Wrong field names in a disclosure.** Canon fixes `git_sha` (not `build_sha`), the HTTP field `mcp_tool_calls[]` against the column `agent_runs.tool_calls`, and `/v1/healthz` as a bare liveness probe that never carries `fixture_mode`.
 
@@ -625,7 +625,7 @@ Invariant or contract at risk: <invariant 1-4 | grounding | named spec clause>
 Reproduction: <exact commands / SQL / fixture, runnable from a clean clone>
 Observed: <verbatim output>
 Expected, and the document clause that says so: <reference>
-Blast radius if shipped: <what a judge or a user sees>
+Blast radius if shipped: <what a reviewer or a user sees>
 
 Then, always, a final section:
 ## Search performed
@@ -834,7 +834,7 @@ Isolation is the whole mechanism. Every role's blind spot is covered by a role t
 - **Canon.** Every role gets `CANONICAL_DECISIONS.md`. There is no version of this process where an agent guesses a name.
 - **Reproductions.** A Hunter's reproduction crosses to the Fixer verbatim. That is the whole value of the reproduction discipline.
 - **Regression tests.** A Fixer's test crosses to the Verifier by being in the tree, which is exactly the intended channel.
-- **Carried debt.** Every gate's carried debt crosses into the next phase's decomposition as a task. Debt that does not become a task is debt that will be discovered at submission.
+- **Carried debt.** Every gate's carried debt crosses into the next phase's decomposition as a task. Debt that does not become a task is debt that will be discovered at release.
 
 ---
 
@@ -947,7 +947,6 @@ Fan-out has a cost, and the cost is not the dispatch. It is that a defect introd
 ops/
 ├── gates/
 │   ├── PHASE_00.md .. PHASE_15.md     # Verifier output, §4.1 template, one per phase
-│   ├── SUBMISSION.md                  # the §24 Stage One battery
 │   └── logs/                          # scrubbed battery output, <ID>.<sha8>.log
 ├── defects/
 │   └── DEFECTS.md                     # every finding, its disposition, its fix
@@ -992,7 +991,7 @@ Everything under `ops/` is committed and `gitleaks`-scanned, per canon. That inc
 
 **5. Hunters generate false positives, and the triage cost is real.** Expect roughly a third of findings to survive triage in the early phases and rather less later, when the obvious classes are exhausted. The cost is the Integrator's attention, which is also the scarcest resource in the build. A hunt dispatched without budget for triage is worse than no hunt: it produces a backlog that gets skimmed, and skimming a defect list is how a real finding gets dispositioned `NOT_A_DEFECT` without a citation.
 
-**6. The Integrator has no adversary.** Every other role is checked by a role denied its context. The Integrator sees everything, decides everything, and is reviewed by nobody. If the Integrator's model of the system is wrong, the decomposition is wrong, the triage is wrong, and the carried debt is wrong, in a mutually consistent way that no gate detects. The only real controls are that the ledgers are committed and timestamped, and that `quality/23_PHASE_GATES.md` §24 runs the submission battery twice — once 24 hours out and once within 2 hours of submitting — with the second run's job being to prove nothing rotted.
+**6. The Integrator has no adversary.** Every other role is checked by a role denied its context. The Integrator sees everything, decides everything, and is reviewed by nobody. If the Integrator's model of the system is wrong, the decomposition is wrong, the triage is wrong, and the carried debt is wrong, in a mutually consistent way that no gate detects. The only real controls are that the ledgers are committed and timestamped, and that `quality/23_PHASE_GATES.md` §24 runs the pre-submission battery twice — once 24 hours out and once within 2 hours of cutting the release — with the second run's job being to prove nothing rotted.
 
 **7. Context isolation is a discipline, not a mechanism.** Nothing enforces it. An agent asked not to read the gate document can read it; a Verifier's clean clone contains every commit message anyone wrote. Repository residue is the leak that will actually happen, and §6.2 R-I2 puts a check for it in the Integrator's phase-7 job precisely because it is the one that requires no bad intent.
 
@@ -1010,13 +1009,13 @@ Everything under `ops/` is committed and `gitleaks`-scanned, per canon. That inc
 
 **R3 — `ops/agents/` is not in the layout canon.** `implementation/00_IMPLEMENTATION_MAP.md` §5 is the layout authority, and canon lists `ops/` as holding probes, decisions, gate ledgers, logs, and `ops/defects/DEFECTS.md`. This document proposes `ops/agents/` with `tasks/` and `hunts/` subdirectories. **Open question:** amend §5 to include it, or place the dispatch ledgers under `ops/gates/` as an appendix per phase. Until that is resolved, the paths in §9 are a proposal, not canon. The change-control rule in `README.md` requires the amendment to land in one documentation change alongside the register.
 
-**R4 — Placement resolved; one relationship still worth watching.** *Resolved 2026-08-17:* `70_TASK_PLAN.md` exists and is the task authority; `72_DEFECT_PROTOCOL.md` is the lens-id and severity authority; all four `EXECUTION/` documents plus `frontend/33_DESIGN_PROTOTYPE_PROMPT.md` are now entries 27–30 in `docs/README.md` under an *Execution layer* heading, and this document's subordinate, process-only authority position is recorded there. **Still worth watching:** `EXECUTION/` **complements** rather than supersedes the root `EXECUTION_PLAN.md` — that document owns workstream ownership boundaries and the phase-level integration milestones, while `70_` owns tasks. Two documents describing sequencing at different altitudes is workable, but if they ever disagree about *order* rather than *granularity*, `EXECUTION_PLAN.md` is the older artifact and `70_` should win. That precedence is not yet written into `README.md`'s authority rules.
+**R4 — Placement resolved; one relationship still worth watching.** *Resolved 2026-08-17:* `70_TASK_PLAN.md` exists and is the task authority; `72_DEFECT_PROTOCOL.md` is the lens-id and severity authority; all four `EXECUTION/` documents plus `frontend/33_DESIGN_PROTOTYPE_PROMPT.md` are now entries 25–28 in `docs/README.md` under an *Execution layer* heading, and this document's subordinate, process-only authority position is recorded there. **Still worth watching:** `EXECUTION/` **complements** rather than supersedes the root `EXECUTION_PLAN.md` — that document owns workstream ownership boundaries and the phase-level integration milestones, while `70_` owns tasks. Two documents describing sequencing at different altitudes is workable, but if they ever disagree about *order* rather than *granularity*, `EXECUTION_PLAN.md` is the older artifact and `70_` should win. That precedence is not yet written into `README.md`'s authority rules.
 
 **R5 — The Verifier's two-message protocol depends on the harness honouring it.** §5.3 and §5.4 assume the Builder's report can be withheld until after the battery run. In a session where the Verifier can read the repository freely and the Builder's report is committed at `ops/agents/tasks/`, the withholding is nominal: nothing stops the agent from opening the file. *Mitigation:* hold task reports outside the tree until the Verifier's message 1 lands, then commit them. That costs a commit-ordering discipline and it is the honest fix; the alternative is to accept that message 1 is a request rather than a constraint.
 
 **R6 — The lens briefs restate gate principles in different words, and paraphrase drifts.** §6.2 R-I1 keeps the Hunter away from `quality/23_PHASE_GATES.md` by restating what it needs. Every restatement is a fork of the original, and a fork that is not maintained becomes wrong. *Mitigation:* the lens blocks in §4 cite the clause they paraphrase, so a reader can check the fork against the source. *Residual risk:* moderate; this document is the fork, and it will need re-reading whenever §23 or §22 of the gate document changes.
 
-**R7 — Parallel Builders against one CockroachDB Cloud BASIC cluster.** Cluster `rayyandb` (`4023638b-52be-42bd-9677-d3611c613477`, BASIC, AWS `us-east-1`) is the only one available, and `quality/23_PHASE_GATES.md` §25 risk 6 already flags that gates share the cluster with the demo, mitigated by a separate `provenance_ci` database. Four to six concurrent agents plus a Hunter running sabotage multiplies that: request-unit consumption, connection count, and the chance that one agent's destructive run lands on the wrong `PV_DB_*` URL. *Mitigation:* one logical database per concurrent agent where the phase involves destructive work, named `provenance_ci_<task-id>`, dropped at task close; read-only credentials for every Hunter. *Open question:* whether a BASIC cluster tolerates that many logical databases and that concurrency at all. This is a Phase 0 probe item and it is not currently one of the eleven.
+**R7 — Parallel Builders against one CockroachDB Cloud BASIC cluster.** A single cluster `<cluster>` (`<cluster-id>`, BASIC, AWS `us-east-1`) is the only one available, and `quality/23_PHASE_GATES.md` §25 risk 6 already flags that gates share the cluster with the demo, mitigated by a separate `provenance_ci` database. Four to six concurrent agents plus a Hunter running sabotage multiplies that: request-unit consumption, connection count, and the chance that one agent's destructive run lands on the wrong `PV_DB_*` URL. *Mitigation:* one logical database per concurrent agent where the phase involves destructive work, named `provenance_ci_<task-id>`, dropped at task close; read-only credentials for every Hunter. *Open question:* whether a BASIC cluster tolerates that many logical databases and that concurrency at all. This is a Phase 0 probe item and it is not currently one of the eleven.
 
 **R8 — Hunter reports are committed and may contain sensitive output.** Everything under `ops/` is committed and `gitleaks`-scanned, and hunt reports by construction contain database rows, connection behaviour, and error text. A hunt into the Isolation lens will deliberately produce cross-user query output. *Mitigation:* the same `tools/scrub.py` and `gitleaks` path as gate logs, applied before commit. *Residual risk:* the seeded corpus is synthetic — 18,000 decoys are generated, 32 hero rows are curated — so the exposure is credentials, not personal data. That is a real distinction and it is why the scrubber matters more than redaction of row content.
 

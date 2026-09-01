@@ -41,7 +41,7 @@ Anthropic chat models on Bedrock are invoked by **inference-profile id**, never
 by bare model id; a bare id returns `ValidationException`. Embeddings
 (`amazon.titan-embed-text-v2:0`, 1024 dimensions) are the exception and use the
 bare id. `agent_runs.model_route` records the id that actually served each run,
-so a submission can state the model it really used.
+so the README can state the model it really used.
 
 Tier R has no downgrade path: a failure persists a pending-human-review result
 rather than quietly answering with a weaker model.

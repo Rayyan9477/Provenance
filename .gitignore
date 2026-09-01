@@ -6,6 +6,14 @@
 .env
 .env.*
 !.env.example
+# The `.env*` rules above are anchored to the repository root, so a dotenv in a
+# subdirectory is NOT covered by them. deploy/.env.deploy holds two live
+# CockroachDB DSNs and the Google API key, which makes this the single most
+# important line in this block after the two above it.
+**/.env
+**/.env.*
+!**/.env.example
+!deploy/.env.deploy.example
 *.pem
 *.key
 *.crt
@@ -112,6 +120,19 @@ desktop.ini
 *.local
 tmp/
 .scratch/
+
+# The filesystem object store's root under PV_PLATFORM=local
+# (storage.objects.DEFAULT_LOCAL_ROOT). These are real artifact bytes written
+# by ingestion runs -- the same bytes source_artifacts.s3_key addresses. They
+# are reproducible from demo/artifacts/ and belong to a machine, not to the
+# repository.
+#
+# There was no rule for this until 2026-08-28, and `git add -A` would have
+# swept them in. A `git check-ignore -v` reading was misread as a match when
+# the pattern field it printed was empty; `git add -An` is the check that
+# actually answers the question, because it reports what would be staged
+# rather than which rule was consulted.
+.pv-objects/
 
 # gitleaks JSON reports. A report written INSIDE the scanned tree is itself
 # scanned on the next run and the secrets it quotes become fresh findings —

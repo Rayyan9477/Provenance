@@ -46,7 +46,7 @@ What each one asserts (§13):
 > Tier E `us.anthropic.claude-haiku-4-5-20251001-v1:0` (verified invocable). Tier R target
 > `us.anthropic.claude-opus-5` (**access denied on this account**, defect `D-00-004`); in
 > force until the grant lands, `us.anthropic.claude-opus-4-6-v1`. Record the id **actually
-> used** here and in `SUBMISSION.md`. Claiming Opus 5 while running 4.6 is exactly the
+> used** here and in `README.md`. Claiming Opus 5 while running 4.6 is exactly the
 > small checkable dishonesty §23 exists to prevent. Any output naming Sonnet 4.6, Gemma 4,
 > GLM 5 or Kimi K2.5 is a FAILURE — those are stale identifiers from superseded documents.
 
@@ -80,7 +80,7 @@ Mandatory lenses at this gate (§3.1): `L-VAC`, `L-DRIFT`, `L-INV`, `L-BND`, `L-
 **Open at instantiation:** `D-00-004` (BLOCKER) — Tier R access denied. A BLOCKER never
 carries at any gate under any schedule pressure (§4.3). It closes either when
 `us.anthropic.claude-opus-5` returns `ok`, **or** when the team decides to ship on 4.6
-and `SUBMISSION.md` and the README state the model actually used.
+and the README states the model actually used.
 
 ## Standing questions (§22.3) — answered honestly
 

@@ -1,7 +1,7 @@
 # Provenance — LangGraph Agents and Contracts
 
 Status: planning-complete implementation baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 ## 1. Principle
 
@@ -24,7 +24,7 @@ A graph may not:
 
 ## 2. Graphs
 
-Only two main graphs are required for the winning build.
+Only two main graphs are required.
 
 1. **Ingestion/Interpretation Graph** — evidence -> proposal -> commit result.
 2. **Advocate Graph** — committed state -> action recommendation/draft.
@@ -416,7 +416,7 @@ There is no weaker-model fallback for Tier R. Invocation or contract failure per
 
 ### 13.3 No dynamic model roulette
 
-For the hackathon demo, model routing must be deterministic from task class/availability. Do not add a meta-agent that chooses models.
+Model routing must be deterministic from task class/availability. Do not add a meta-agent that chooses models.
 
 ## 14. Model-call idempotency and retries
 
@@ -463,7 +463,7 @@ Key rule:
 - `get_artifact_content(artifact_id)`
 - `search_memory_candidates(query_spec)`
 - `get_case_context(case_id)`
-- CockroachDB MCP read tools where useful for hackathon-visible integration
+- CockroachDB MCP read tools where useful
 
 ### Interpreter write tool
 

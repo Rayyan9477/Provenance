@@ -3,9 +3,9 @@
 Purpose: the binding contract for how every line of Provenance gets written — test first, kernel provable without a model, and a named suite for every invariant the architecture claims.
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
-Audience: backend engineers building `services/control_plane/` and `packages/python/provenance_*`; agent engineers building `agents/runtime/`; coding agents generating any of it; reviewers enforcing the PR guardrails in `06_CODING_AGENT_HANDOFF.md` §19; judges checking whether "deterministic kernel" and "production readiness" are claims or facts.
+Audience: backend engineers building `services/control_plane/` and `packages/python/provenance_*`; agent engineers building `agents/runtime/`; coding agents generating any of it; reviewers enforcing the PR guardrails in `06_CODING_AGENT_HANDOFF.md` §19; and anyone checking whether "deterministic kernel" and "production readiness" are claims or facts.
 
 ---
 
@@ -290,7 +290,7 @@ The second-largest layer is database integration rather than agent tests, which 
 provenance/
 ├── pyproject.toml                          # [tool.pytest.ini_options] — §3.4
 ├── .importlinter                           # §2.3 E1
-├── Makefile                                # test-fast | test-db | test-all | test-submission
+├── Makefile                                # test-fast | test-db | test-all | test-release
 │
 ├── packages/python/provenance_domain/
 │   ├── src/provenance_domain/
@@ -985,7 +985,7 @@ def test_database_refuses_a_broken_outstanding_identity(db, as_role):
 
 ### D6 — `test_resolved_case_reopens_on_qualifying_contradictory_evidence`
 
-Requirement 6. Catches, in the positive direction: a reopen that never fires, killing the demo. In the negative direction: a reopen that fires on any new evidence, so an ISP marketing email resurrects a closed case in front of a judge. Both directions are one parametrised test, because shipping either half alone is what produces the failure.
+Requirement 6. Catches, in the positive direction: a reopen that never fires, killing the demo. In the negative direction: a reopen that fires on any new evidence, so an ISP marketing email resurrects a closed case in front of a reviewer. Both directions are one parametrised test, because shipping either half alone is what produces the failure.
 
 ```python
 @pytest.mark.parametrize("fixture,expect_status,expect_rev_delta,expect_reason", [
@@ -1397,7 +1397,7 @@ def test_retracted_evidence_is_never_returned(db, hero_user):
 
 ### 7.1 What it proves
 
-This is required database test 10 and it is the single test a judge should be shown for the "state is transactional" claim. It proves four things at once:
+This is required database test 10 and it is the single test a reviewer should be shown for the "state is transactional" claim. It proves four things at once:
 
 1. Two kernel commits touching one case aggregate serialize.
 2. The final state is order-independent and contains no impossible combination.
@@ -1733,7 +1733,7 @@ def test_proposal_containing_a_fabricated_evidence_id_never_leaves_the_graph():
 | Kernel decision | matches labelled expectation | ≥ 0.95 | `05` §11 |
 | Invariant violations | any | **0** | `05` §11 |
 
-Two of those are absolutes. Draft grounding at 1.00 and invariant violations at 0 are not aspirational targets that can be missed by a point; a single failure fails the gate and blocks submission.
+Two of those are absolutes. Draft grounding at 1.00 and invariant violations at 0 are not aspirational targets that can be missed by a point; a single failure fails the gate and blocks the release.
 
 ```python
 @pytest.mark.live_model
@@ -2010,7 +2010,7 @@ def play_cassette(cassettes, monkeypatch):
 | SES outbound | `sinks.ses` recorder | The assertion target for "no side effect from an uncommitted proposal" |
 | EventBridge | `sinks.eventbridge` recorder + synchronous `drain_workers()` | Removes sleeps from tests; delivery semantics tested separately in D9 |
 | EventBridge Scheduler | `sinks.scheduler` recorder | Schedule creation is asserted by name (`pv-trg-<uuid32>-v<N>`), not by waiting |
-| S3 | `sinks.s3` in-memory object store; real S3 in the pre-submission lane | Byte fidelity matters for hashes, not for storage |
+| S3 | `sinks.s3` in-memory object store; real S3 in the release lane | Byte fidelity matters for hashes, not for storage |
 | Cognito | locally minted JWTs signed by a test JWKS the app is configured to trust | Real signature validation path, no network |
 | CockroachDB | **never substituted** | See §13.3 |
 
@@ -2089,7 +2089,7 @@ Fixture mode may replace the model. It may never replace the kernel, the databas
 | **commit** | every push, every PR | `unit` + `contract` + `adversarial` + `retrieval and not slow` + `db` + `concurrency and not slow` + `lint-imports` + `test_no_kernel_mocks` + `test_no_sql_in_contracts` + `test_no_wallclock_in_tests` | < 7 min | **yes** |
 | **main** | merge to `main` | commit lane + `e2e` + full `retrieval` + a fresh-database migration run from zero | < 20 min | yes |
 | **nightly** | 02:00 UTC | `live_model` + `slow` soak (50 iterations) + real-S3 e2e + eval report to `evals/reports/` | < 45 min | no; opens an issue on gate regression |
-| **pre-submission** | manual, before the hackathon deadline | everything, twice, against the deployed stack; plus the Definition of Done checklist runner | — | **yes** |
+| **pre-submission** | manual, before cutting a release | everything, twice, against the deployed stack; plus the Definition of Done checklist runner | — | **yes** |
 
 ### 14.2 The commit lane in full
 
@@ -2131,7 +2131,7 @@ jobs:
       - run: python -m scripts.check_vocabulary   # 'Provenance' / grounding / lineage lint
 ```
 
-A single-node CockroachDB container is enough for the commit lane, including the concurrency test: `SERIALIZABLE` and `40001` behave identically on one node, and D10's barrier forces the conflict rather than relying on distribution. The nightly and pre-submission lanes run against the real CockroachDB Cloud cluster, where the vector index behaviour, `EXPLAIN` plan shape, and role grants are the ones that will actually ship.
+A single-node CockroachDB container is enough for the commit lane, including the concurrency test: `SERIALIZABLE` and `40001` behave identically on one node, and D10's barrier forces the conflict rather than relying on distribution. The nightly and release lanes run against the real CockroachDB Cloud cluster, where the vector index behaviour, `EXPLAIN` plan shape, and role grants are the ones that will actually ship.
 
 ### 14.3 What is deliberately not on the commit path
 
@@ -2142,7 +2142,7 @@ A single-node CockroachDB container is enough for the commit lane, including the
 
 ### 14.4 Pre-submission gate
 
-`make test-submission` runs everything and then a checklist runner that turns `06_CODING_AGENT_HANDOFF.md` §20 into eighteen assertions. It exits non-zero if any box is unchecked, so "we think it's done" cannot be the release criterion.
+`make test-release` runs everything and then a checklist runner that turns `06_CODING_AGENT_HANDOFF.md` §20 into eighteen assertions. It exits non-zero if any box is unchecked, so "we think it's done" cannot be the release criterion.
 
 ---
 
@@ -2216,10 +2216,10 @@ Nothing in `provenance_domain/kernel/` is ever added to `omit`. A PR that does i
 
 **R7 — L4 gates cannot fail a commit, so model regressions ship silently for up to a day.** Extraction and resolution quality are measured nightly. A prompt change merged at 10:00 that drops date F1 from 0.96 to 0.88 is invisible until 02:00. *Mitigation:* any PR touching `agents/runtime/prompts/**` requires a manual `live_model` run recorded in the PR body, enforced by a CODEOWNERS check on the prompt directory. *Residual risk:* real. The alternative — a nondeterministic gate on the commit path — is worse.
 
-**R8 — The eval corpus is 51 scenarios and every threshold in §9 is calibrated against it.** Fifty-one labelled scenarios yields roughly a ±8-point confidence interval on any rate. A contradiction-recall gate of 0.90 is therefore not distinguishable from 0.82 or 0.98. *Mitigation:* thresholds are stated as floors to clear rather than scores to optimise, and per-scenario diffs are in the report so a regression is attributable to a named case rather than to a moved average. *Residual risk:* high and unavoidable within the hackathon window. The honest framing for a judge: the gates are declared and the corpus is checked in; the corpus is small.
+**R8 — The eval corpus is 51 scenarios and every threshold in §9 is calibrated against it.** Fifty-one labelled scenarios yields roughly a ±8-point confidence interval on any rate. A contradiction-recall gate of 0.90 is therefore not distinguishable from 0.82 or 0.98. *Mitigation:* thresholds are stated as floors to clear rather than scores to optimise, and per-scenario diffs are in the report so a regression is attributable to a named case rather than to a moved average. *Residual risk:* high and unavoidable at the corpus size this project can currently maintain. The honest framing: the gates are declared and the corpus is checked in; the corpus is small.
 
 **R9 — Cassette staleness must include the schema.** **Decision:** every cassette key and header includes `system_sha256`, `schema_sha256`, `prompt_version`, and `model_id`; drift in any field invalidates the cassette. There is no legacy cassette format in v1.
 
-**R10 — Nothing in this document tests the CockroachDB Cloud Managed MCP Server itself.** §8.2 pins which views the agent's MCP tools may reach and asserts they bind `tenant_id` and `user_id`, and §12 proves `pv_agent_reader` cannot reach a base table. But the MCP server is a third-party process between the tool wrapper and the database, and no test in this suite exercises it end to end. The hackathon requires MCP to be load-bearing, and the strongest evidence this suite offers is that the *grant* is correct, not that the *server* honours the parameterisation. *Mitigation:* one `e2e` test in the pre-submission lane issues a real MCP call and asserts the returned rows all carry the principal's `user_id` (the L5 post-hoc audit), which is the same check production performs. *Residual risk:* the audit is the guarantee; the boundary is the wrapper. Stated plainly rather than claimed away.
+**R10 — Nothing in this document tests the CockroachDB Cloud Managed MCP Server itself.** §8.2 pins which views the agent's MCP tools may reach and asserts they bind `tenant_id` and `user_id`, and §12 proves `pv_agent_reader` cannot reach a base table. But the MCP server is a third-party process between the tool wrapper and the database, and no test in this suite exercises it end to end. MCP is load-bearing in this design, and the strongest evidence this suite offers is that the *grant* is correct, not that the *server* honours the parameterisation. *Mitigation:* one `e2e` test in the release lane issues a real MCP call and asserts the returned rows all carry the principal's `user_id` (the L5 post-hoc audit), which is the same check production performs. *Residual risk:* the audit is the guarantee; the boundary is the wrapper. Stated plainly rather than claimed away.
 
 **R11 — CI cannot prove human TDD chronology.** **Decision:** each phase ledger records the exact RED command and output before implementation, while mutation thresholds and sabotage tests remain the mechanical backstop. Commit ordering is recommended but not a gate because the user retains control of commit structure.

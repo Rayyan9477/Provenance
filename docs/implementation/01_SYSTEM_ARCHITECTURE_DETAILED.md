@@ -1,7 +1,7 @@
 # Provenance — Detailed System Architecture
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 ## 1. System context
 
@@ -85,7 +85,7 @@ An action may have real-world consequences.
 Requirements:
 
 - action derived only from committed state;
-- human approval required for hackathon external sends;
+- human approval required for all external sends;
 - approval bound to exact draft hash + case revision;
 - executor revalidates immediately before send;
 - idempotency key prevents duplicate external effects.
@@ -100,7 +100,7 @@ Reasoning:
 
 - broad Bedrock/AgentCore availability;
 - broad AWS service coverage;
-- simple single-region application topology for hackathon.
+- simple single-region application topology.
 
 Before deployment, verify the selected Bedrock model IDs and SES receiving availability in the region. If inbound SES requires another supported region, either place only SES/S3 ingestion there or use `.eml` upload for the live demo; do not move the entire architecture unnecessarily.
 
@@ -145,7 +145,7 @@ The control-plane needs:
 - easy container deployment;
 - no need for Kubernetes.
 
-App Runner can deploy from ECR/source and gives a managed web-service deployment. It is a better hackathon boundary than creating separate ECS services for every module.
+App Runner can deploy from ECR/source and gives a managed web-service deployment. It is a better deployment boundary than creating separate ECS services for every module.
 
 ### 3.4 Why AgentCore Runtime is separate
 
@@ -261,11 +261,11 @@ It checks:
 
 Deterministic side-effect adapter.
 
-Hackathon adapter:
+Current adapter:
 
 - SES outbound to a safe demo counterparty mailbox or simulator.
 
-Production interface can later support Gmail/Outlook OAuth, but that must not contaminate the hackathon core.
+Production interface can later support Gmail/Outlook OAuth, but that must not contaminate the core.
 
 ## 5. Ingestion architecture
 
@@ -496,7 +496,7 @@ The UI renders a simplified DAG from those records.
 
 ## 14. Scaling model
 
-Hackathon scale is small; the architecture should still have clean scaling dimensions.
+Current scale is small; the architecture should still have clean scaling dimensions.
 
 ### Stateless/scalable horizontally
 
@@ -518,7 +518,7 @@ Avoid one tenant-wide mutable “memory row” that would create unnecessary con
 
 ## 15. Production multi-region evolution
 
-Hackathon application compute may remain single-region.
+Application compute may remain single-region for now.
 
 Production CockroachDB evolution:
 

@@ -8,17 +8,13 @@ nobody opened.
 
 | File | What it shows |
 |---|---|
-| [`architecture.md`](architecture.md) | The submission architecture diagram. Five mermaid diagrams: the system and its single canonical write path; the six-way data spine; the SQL role lattice; the human-approval gate; and the deployment picture. |
-
-`architecture.md` is a **hard submission requirement** of the All Things Agentic
-Hackathon ("Architecture Diagram"). The root [`README.md`](../../README.md)
-carries the other one ("Spin-up Instructions").
+| [`architecture.md`](architecture.md) | The architecture diagram. Five mermaid diagrams: the system and its single canonical write path; the six-way data spine; the SQL role lattice; the human-approval gate; and the deployment picture. |
 
 ## How to render
 
 **GitHub** renders ```` ```mermaid ```` blocks inline. Opening
 [`architecture.md`](architecture.md) in the web UI is the intended path, and it
-is what a judge will do.
+is what most readers will do.
 
 **Locally**, any of:
 
@@ -76,8 +72,8 @@ under both GitHub themes.
    checkable from the tree, and the check should be named in the table beneath
    the diagram.
 2. **Never put a credential, DSN, password, API key, hostname or cluster id in a
-   diagram.** This repository becomes public at submission. Filter any file you
-   touch through the project scrubber before committing:
+   diagram.** This repository is public. Filter any file you touch through the
+   project scrubber before committing:
    ```bash
    python -m tools.scrub docs/diagrams/architecture.md | diff - docs/diagrams/architecture.md
    ```

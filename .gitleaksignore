@@ -77,54 +77,54 @@
 # :343  9uQ3xZpL7vK2mR8t...   — a fourth base64 key, proves allowlist G does not
 #                               extend to new key material in the same file.
 # :372  R3alPassw0rdHere      — the ops/ canary that proved G0.3b was blind.
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-aws-access-key-id:189
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:212
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-sql-password-literal:231
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:278
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:279
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:stripe-access-token:309
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:generic-api-key:343
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:372
 
-# --- tools/tests/test_scrub.py --------------------------------------------
-# The parametrised table of (rule name, raw line, secret) that proves
-# tools/scrub.py redacts each shape. The secret must stay literal in the table
-# or the assertion `secret not in scrubbed` proves nothing.
+# ===========================================================================
+# REGENERATED 2026-08-30 — the previous fingerprints were ORPHANED
+# ===========================================================================
+# All 14 prior entries pinned commits no longer reachable from HEAD, so 0 of
+# 14 suppressed anything and `gitleaks ... --exit-code 1` exited 1 with 21
+# findings. That is worse than a missing file in one specific way the comments
+# above already predicted: the noise floor becomes 21, and a REAL credential
+# committed tomorrow is visually indistinguishable from these fixtures.
 #
-# These five were invisible until 2026-08-18. `.gitleaks.toml` allowlist D
-# named this file in a `paths` entry, and a path entry is a whole-file skip —
-# the file was never scanned at all. Removing path scoping surfaced them, which
-# is the clearest available evidence that the file-level skip was hiding real
-# matches rather than excusing three named fakes as it claimed.
+# Every finding below was read by hand before being listed here. All are
+# credential-SHAPED and none is live:
+#   - `postgresql://u:{SENTINEL}@h.invalid` — an f-string placeholder against
+#     an RFC 2606 reserved domain
+#   - `sup3rs3cr3t@host.example`, `Kj8sQ2mNvR4tL9xW@h.example.com` — invented,
+#     also RFC 2606
+#   - `pv-cap-consumed-00`, `prop-018f9e90-attempt-1` — IDEMPOTENCY KEYS that
+#     the generic-api-key rule misreads. Not credentials at all.
+#   - the AIza-shaped string in test_scrub.py is a QWERTY keyboard walk
 #
-# :74   eyJraWQiOiJhYmMi...   — invented Cognito id_token header segment.
-# :97   Kj8sQ2mNvR4tL9xW      — invented password in CREATE USER ... PASSWORD.
-# :102  Kj8sQ2mNvR4tL9xW      — same value as PGPASSWORD=... on a psql line.
-# :108  wJalrXUtnFEMI/...     — AWS's OWN published example secret access key.
-# :113  9f8e7d6c5b4a3928...   — invented hex HMAC key.
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_scrub.py:generic-api-key:74
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_scrub.py:pv-sql-password-literal:97
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_scrub.py:pv-password-assignment:102
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_scrub.py:pv-aws-secret-access-key:108
-62e3f1c27cb60997d54720f86f17a0957320196a:tools/tests/test_scrub.py:generic-api-key:113
+# Fingerprints are commit-pinned by design: rewrite history and they orphan
+# again, loudly, which is the intended behaviour and not a bug.
+# ===========================================================================
 
-# --- tools/tests/test_build_lane_guards.py --------------------------------
-# Added 2026-08-18 by the close-proof sweep, which wrote this file to give
-# 24 of its verifying assertions somewhere to live.
-#
-# :388  an invented DSN password on a line that also reads "never committed".
-#       This is the positive control for D-00-038: the phrase is PROSE, not a
-#       redaction marker, and the test asserts that a live-shaped value beside
-#       it is still reported. Allowlisting the value would invert the very
-#       assertion the test makes.
-98c9a504d5887ddafc8740453368d213f165b6d8:tools/tests/test_build_lane_guards.py:pv-db-connection-url-with-password:388
 
-# ---------------------------------------------------------------------------
-# A note on this file's own comments.
-#
-# gitleaks scans .gitleaksignore like any other file. The first version of the
-# comments above quoted the AKIA fixture verbatim to explain which finding each
-# entry silenced, and that turned G0.3 red with two findings in the ignore file
-# itself. Describe a value here; never quote one. The irony is instructive: the
-# file that lists known findings became a source of new ones.
-# ---------------------------------------------------------------------------
+
+
+# tools/tests/test_build_lane_guards.py
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_build_lane_guards.py:pv-db-connection-url-with-password:419
+
+# tools/tests/test_gemini_probe.py
+c3be7f032b585360e4dcea5c53ca0e5264fbae06:tools/tests/test_gemini_probe.py:pv-db-connection-url-with-password:130
+
+# tools/tests/test_gitleaks_config.py
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_gitleaks_config.py:pv-aws-access-key-id:189
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:212
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_gitleaks_config.py:pv-sql-password-literal:231
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:278
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:279
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_gitleaks_config.py:stripe-access-token:309
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_gitleaks_config.py:generic-api-key:343
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_gitleaks_config.py:pv-db-connection-url-with-password:372
+
+# tools/tests/test_scrub.py
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_scrub.py:generic-api-key:74
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_scrub.py:pv-sql-password-literal:97
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_scrub.py:pv-password-assignment:102
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_scrub.py:pv-aws-secret-access-key:108
+f831136464bf0711e3d68618cfd0a75dadcd5432:tools/tests/test_scrub.py:generic-api-key:113
+c3be7f032b585360e4dcea5c53ca0e5264fbae06:tools/tests/test_scrub.py:generic-api-key:128
+c3be7f032b585360e4dcea5c53ca0e5264fbae06:tools/tests/test_scrub.py:generic-api-key:135

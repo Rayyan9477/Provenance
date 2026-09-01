@@ -1,4 +1,4 @@
-# Gate G-15 — submission artifacts
+# Gate G-15 — release artifacts
 
 > **Status: NOT RUN — phase not started.** Instantiated from
 > `docs/quality/23_PHASE_GATES.md` §4.1 by task `T0.3`. Every assertion row is
@@ -6,11 +6,9 @@
 > rather than as an absence (§3 rule 2).
 >
 > **There is no `G15.x`.** `23_PHASE_GATES.md` §21: "Exit assertions — see §24."
-> `G-15`'s battery is the ten pre-submission items `S1`–`S10`, and the signed
-> battery with its pasted output lives in **`ops/gates/SUBMISSION.md`**. This file
-> is the phase report; that file is the battery. Together they are the last two
-> of the 118 assertions' worth of evidence: `G0.1`–`G14.7` (108) plus `S1`–`S10`
-> (10).
+> `G-15`'s battery is the ten release-readiness items `S1`–`S10`, recorded in the
+> table below with their pasted output. They are the last ten of the 118
+> assertions' worth of evidence: `G0.1`–`G14.7` (108) plus `S1`–`S10` (10).
 >
 > §22.4: this phase always gets the **full** verification round.
 
@@ -28,10 +26,9 @@ Verdict: `SIGNED | REJECTED | SIGNED WITH CARRIED DEBT`
 
 ## Exit assertions
 
-Battery: `make gate-15`, recorded in full in `ops/gates/SUBMISSION.md`. Entry criteria:
-`G-13` and `G-14` signed. **Run the battery twice** — once 24 hours before the deadline,
-once within 2 hours of submitting. The first run finds the problems; the second proves
-nothing rotted.
+Battery: `make gate-15`. Entry criteria: `G-13` and `G-14` signed. **Run the battery
+twice** — once a day before the release is cut, and once immediately before cutting it.
+The first run finds the problems; the second proves nothing rotted.
 
 | ID | Result | Log |
 |---|---|---|
@@ -46,21 +43,20 @@ nothing rotted.
 | S9 | NOT RUN — phase not started | — |
 | S10 | NOT RUN — phase not started | — |
 
-What each one asserts (§24). Stage One is **binary**: every item is PASS or FAIL with
-pasted output.
+What each one asserts (§24). Every item is **binary**: PASS or FAIL with pasted output.
 
 - **S1** — public repository, verified as an anonymous client and not as the authenticated owner.
 - **S2** — Apache-2.0 licence, SPDX-detected by GitHub, `NOTICE` carrying a copyright line.
-- **S3** — functional demo URL from a network that is not the build network; `fixture_mode == false`; judge credentials work from a clean browser profile; the whole hero flow on the public URL.
+- **S3** — functional demo URL from a network that is not the build network; `fixture_mode == false`; demo credentials work from a clean browser profile; the whole hero flow on the public URL.
 - **S4** — demo video strictly under 180.0 seconds and publicly viewable. 179.4 is fine; 180.2 is a FAIL.
 - **S5** — at least two CockroachDB tools genuinely used, **each with its stated degradation if removed**: vector index, Managed MCP Server, `ccloud`. A "tool used" that breaks nothing when removed is decoration; say so if it is true.
 - **S6** — at least one AWS service, evidenced by a real trace on the demo path, not by a list.
-- **S7** — the tool-usage disclosure in `SUBMISSION.md` and the "what is seeded vs what is computed" table in `README.md`.
+- **S7** — the tool-usage disclosure and the "what is seeded vs what is computed" table, both in `README.md`.
 - **S8** — clean `gitleaks` scan on the repository **and** separately on `ops/gates`.
 - **S9** — a stranger can run it, timed by someone who did not build it. Record the real number even if it is 90 minutes; an honest number is useful and an aspirational one is not.
 - **S10** — the demo survives a full reset. Run it **last**, then re-run S3.
 
-`<verbatim output for every assertion — or the link to ops/gates/SUBMISSION.md, which is where it belongs>`
+`<verbatim output for every assertion>`
 
 ## Tests green
 
@@ -87,13 +83,13 @@ Mandatory lenses at this gate (§3.1): **all six**.
 
 **`G-15` has no debt section by construction (§9.4):** the battery is `S1`–`S10` and every
 item is binary. `make debt --assert-empty` runs once at `G-14` and once as part of the
-final `SUBMISSION.md` assembly, and its failure blocks submission the same way a failing
+final release assembly, and its failure blocks the release the same way a failing
 `G14.2` threshold does. The section below therefore records the assertion, not a ledger.
 
 ## Standing questions (§22.3) — answered honestly
 
 - **Q1** What did I claim without running?
-- **Q2** What is mocked that should be real? — anything still substituted at submission is a **disclosure**, and it ships in `README.md` and `SUBMISSION.md` rather than being carried silently.
+- **Q2** What is mocked that should be real? — anything still substituted at release is a **disclosure**, and it ships in `README.md` rather than being carried silently.
 - **Q3** Which invariant is currently unproven?
 - **Q4** What would a hostile judge click on first?
 - **Q5** What passed because of seeded state rather than logic?
@@ -110,9 +106,9 @@ final `SUBMISSION.md` assembly, and its failure blocks submission the same way a
 
 `<the exact command that returns the system to the last known-good state>`
 
-Documented position (§21): roll back to the `G-13` deployed revision. Submission artifacts
-are documents and carry no runtime risk. **Cannot be undone: a submitted entry.** Verify
-§24 before submitting, not after.
+Documented position (§21): roll back to the `G-13` deployed revision. Release artifacts
+are documents and carry no runtime risk. **Cannot be undone: a published release.** Verify
+§24 before publishing, not after.
 
 ## Ledger completeness check
 

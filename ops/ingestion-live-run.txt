@@ -1,0 +1,35 @@
+
+Provenance -- live ingestion of northline-june-invoice.eml
+  536 bytes, sha256=d389d6655aba007b...
+  mode: ROLLBACK (nothing kept)
+
+  [   PASS   ] 0. the worker's bytes are in the store
+               key=ses/2026/06/14/0100018f9e70abcd-northline-june
+  [   PASS   ] connected
+               role=pv_app_reader_writer database=provenance
+  [   PASS   ] 8.18 write.upload_intent
+               artifact_id=01a054d0-db56-7038-bfe5-50c65c6e65d8 transport=LOCAL_FILESYSTEM s3_key=raw/eaf56bfd-2fa3-5de4-bf55-34478e87b351/88f54715-2808-58e8-8591-93f515ee21ba/01a054d0-db56-7038-bfe5-50c65c6e65d8/original
+  [   PASS   ] 8.19 write.complete_artifact
+               status=QUEUED parser_status=PARSED blocks=3 agent_run_id=01a054d0-dd2d-728c-8bf2-18632a2e0f28
+  [   PASS   ] the uploaded artifact's row, read back
+               parser_status=PARSED parser_version=pv-eml-1.0.0 parser_metadata.blocks=3
+  [   PASS   ] 9.1 internal.ingest_artifact
+               artifact_id=01a054d0-e185-73a2-b05a-74d274eb0a16 status=QUEUED parser_status=PARSED blocks=3 agent_run_id=01a054d0-e187-7275-a569-a7af71c91dbb
+  [   PASS   ] the source_artifacts row, read back from the cluster
+               s3_key=raw/eaf56bfd-2fa3-5de4-bf55-34478e87b351/88f54715-2808-58e8-8591-93f515ee21ba/01a054d0-e185-73a2-b05a-74d274eb0a16/original parser_status=PARSED parser_version=pv-eml-1.0.0 parser_metadata.blocks=3
+  [   PASS   ] 9.3 internal.artifact_content
+               3 blocks: SUBJECT, HEADER, BODY
+  [   PASS   ] 9.4 internal.register_evidence
+               created=3 deduplicated=0 embedding_status=NOT_COMPUTED types=['DATE_ASSERTION', 'AMOUNT_ASSERTION', 'IDENTIFIER_ASSERTION']
+  [   PASS   ] 9.4 steps 1-2 refuse an invented quotation
+               VALIDATION_FAILED reason=SPAN_NOT_IN_BLOCK
+  [   PASS   ] evidence_items, counted on the cluster
+               3 rows for this artifact (the canon is exactly 3)
+  [   PASS   ] 9.7 the typed MemoryProposal is constructed and validates
+               proposal_id=d77d3fa8-c625-4a83-aa9d-bc7e44571242 claims=1 evidence_ids=3 model=gemini-3.7-flash
+  [   PASS   ] 9.7 the app-side memory_proposals INSERT
+               1 row written
+  [CANNOT RUN] 9.7 commit_proposal
+               the Kernel commits its own transaction and this run is about to be rolled back, so its decision would outlive the proposal row it decides. Re-run with --persist to attempt it.
+
+  ROLLED BACK. Every statement above was accepted by CockroachDB and nothing was kept.

@@ -1,9 +1,11 @@
 # Provenance — Consistency and Integrity Review
 
+*Documents 50 and 51 — `submission/50_README_DRAFT.md` and `submission/51_VIDEO_SCRIPT.md` — were retired after this review was written. The references to them below are left exactly as they stood, for the record.*
+
 Purpose: merge two adversarial reviews of the design pack into one ranked remediation list, record which contradictions were resolved in place and by what authority, and state plainly whether the pack can be built from.
 
 Status: planning complete v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 Audience: the implementation team and any coding agent about to start Phase 1; the documentation owners of `specs/`, `frontend/`, `ops/`, `quality/` and `submission/`.
 
 ---
@@ -106,7 +108,7 @@ This also removes the objection the panel exists to defeat. Under the old design
 
 ### B8 — Four columns the trace is built on did not exist in the DDL · **FIXED**
 
-`idempotency_records.trace_id`, `agent_runs.tool_calls`, `agent_runs.model_calls`, `agent_runs.capability_status`. `15_API_SPEC.md` §4 states "If an example differs from the DDL, the DDL wins," so the trace contract was resting on nothing. `G11.4` additionally spelled the column `agent_runs.mcp_tool_calls`, a third spelling. Without these, `G11.4` cannot pass and MCP visibility — a sponsor-tool requirement — is unprovable.
+`idempotency_records.trace_id`, `agent_runs.tool_calls`, `agent_runs.model_calls`, `agent_runs.capability_status`. `15_API_SPEC.md` §4 states "If an example differs from the DDL, the DDL wins," so the trace contract was resting on nothing. `G11.4` additionally spelled the column `agent_runs.mcp_tool_calls`, a third spelling. Without these, `G11.4` cannot pass and MCP visibility is unprovable.
 
 **Authority:** `10_DATABASE_DDL.md` owns tables; `15_API_SPEC.md` owns the trace contract and its field names. Both are satisfied by adding the columns rather than removing the contract.
 
@@ -122,11 +124,11 @@ This also removes the objection the panel exists to defeat. Under the old design
 
 ### B10 — The fixture-mode disclosure had no defined home · **FIXED**
 
-The pack's only anti-fraud signal was read from three different endpoints by three different documents: `/healthz` (`41_RUNBOOK`, `23_PHASE_GATES` §24 `S3`, `51_VIDEO_SCRIPT` pre-flight, `50_README`), `/v1/version` (`32_JUDGE_MODE`, which calls it "the authoritative source"), and `/v1/me.feature_flags` (`30_UX_SPEC`, which drives the banner). `15_API_SPEC.md` §8.1 specifies `/v1/healthz` as returning exactly `{"status":"ok"}` with no auth and no database access; §8.2 returns seven fields, none of them `fixture_mode`. **`S3` — the submission item that invalidates the video — grepped a field no endpoint was specified to return.** The field names `build_sha` / `schema_revision` / `db_ok` also did not match §8.2's `git_sha` / `built_at`.
+The pack's only anti-fraud signal was read from three different endpoints by three different documents: `/healthz` (`41_RUNBOOK`, `23_PHASE_GATES` §24 `S3`, `51_VIDEO_SCRIPT` pre-flight, `50_README`), `/v1/version` (`32_JUDGE_MODE`, which calls it "the authoritative source"), and `/v1/me.feature_flags` (`30_UX_SPEC`, which drives the banner). `15_API_SPEC.md` §8.1 specifies `/v1/healthz` as returning exactly `{"status":"ok"}` with no auth and no database access; §8.2 returns seven fields, none of them `fixture_mode`. **`S3` — the gate item that invalidates the video — grepped a field no endpoint was specified to return.** The field names `build_sha` / `schema_revision` / `db_ok` also did not match §8.2's `git_sha` / `built_at`.
 
 **Authority:** `15_API_SPEC.md` owns the HTTP surface.
 
-**Applied:** `15_API_SPEC.md` §8.2 `GET /v1/version` is now the single authoritative disclosure channel and returns `fixture_mode`, `agent_mode`, `otlp_export`, `schema_revision` and `db_ok` alongside `git_sha`, each with a documented type and meaning, unauthenticated by design so a judge can `curl` it with nothing but the URL. `/v1/healthz` stays a bare liveness probe and explicitly does not carry `fixture_mode`. `/v1/me.feature_flags.fixture_mode` remains the UI-binding mirror. Every `/healthz` probe in `41_RUNBOOK.md` (§5.2, §7.6, §8.1, §8.3, §9, §11), `23_PHASE_GATES.md` (§13, `G13.2`, §24, the fixture-mode detector), `51_VIDEO_SCRIPT.md` §7.2 P6, `50_README_DRAFT.md`, `40_INFRA_IAC.md` §17 and `21_OBSERVABILITY_ANALYTICS.md` §3.2 was rewritten to `GET /v1/version`, and `build_sha` to `git_sha`. This also closes minor finding `m11` (`$PV_API/healthz` was an unversioned path that does not exist).
+**Applied:** `15_API_SPEC.md` §8.2 `GET /v1/version` is now the single authoritative disclosure channel and returns `fixture_mode`, `agent_mode`, `otlp_export`, `schema_revision` and `db_ok` alongside `git_sha`, each with a documented type and meaning, unauthenticated by design so a reviewer can `curl` it with nothing but the URL. `/v1/healthz` stays a bare liveness probe and explicitly does not carry `fixture_mode`. `/v1/me.feature_flags.fixture_mode` remains the UI-binding mirror. Every `/healthz` probe in `41_RUNBOOK.md` (§5.2, §7.6, §8.1, §8.3, §9, §11), `23_PHASE_GATES.md` (§13, `G13.2`, §24, the fixture-mode detector), `51_VIDEO_SCRIPT.md` §7.2 P6, `50_README_DRAFT.md`, `40_INFRA_IAC.md` §17 and `21_OBSERVABILITY_ANALYTICS.md` §3.2 was rewritten to `GET /v1/version`, and `build_sha` to `git_sha`. This also closes minor finding `m11` (`$PV_API/healthz` was an unversioned path that does not exist).
 
 ### B11 — The hero conflict had two mutually exclusive canonical values · **FIXED**
 
@@ -150,7 +152,7 @@ That is producible by `12` §3.3 exactly as written, matches `00_PRODUCT.md` §2
 
 ### B13 — The server-side anti-fabrication proof could not run: its credential did not exist · **FIXED**
 
-`21_OBSERVABILITY_ANALYTICS.md` §7.3 and §9 run `tools/trace_verify.py` — the tool `50_README_DRAFT.md` hands a sceptical judge, and the only mechanism that falsifies "the DAG is a hand-authored fixture" — as `pv_ops_reader` via `provenance/db:ops_reader_url`. `40_INFRA_IAC.md` §11.5 stated flatly "It is **not** created in this deployment," and both `40` §8.7 and `41` §2.3 enumerate exactly four keys. Even the hypothetical role sketched there (five views + `outbox_events` + `kernel_decisions`) could not read the eight further tables §7.2's row census requires.
+`21_OBSERVABILITY_ANALYTICS.md` §7.3 and §9 run `tools/trace_verify.py` — the tool `50_README_DRAFT.md` hands a sceptical reviewer, and the only mechanism that falsifies "the DAG is a hand-authored fixture" — as `pv_ops_reader` via `provenance/db:ops_reader_url`. `40_INFRA_IAC.md` §11.5 stated flatly "It is **not** created in this deployment," and both `40` §8.7 and `41` §2.3 enumerate exactly four keys. Even the hypothetical role sketched there (five views + `outbox_events` + `kernel_decisions`) could not read the eight further tables §7.2's row census requires.
 
 **Authority:** `CANONICAL_DECISIONS.md`, *SQL roles*, permits "optional `pv_ops_reader`". `40_INFRA_IAC.md` owns deployment. The tie-breaker is that a real consumer now exists, which is precisely the condition under which "optional" becomes "create it."
 
@@ -182,13 +184,13 @@ Ranked by how much they cost if left. `M6`, `M7`, `M16` and `M18` were fixed opp
 
 ### M1 — `vector_search_beam_size` default is 32, not 8 · owner `specs/13_RETRIEVAL_SPEC.md`
 
-§16.1 states "Default **8**" and §16.2 ships `SET LOCAL vector_search_beam_size = 8` while claiming to ship the default. The CockroachDB default is **32**. `41_RUNBOOK.md`, `40_INFRA_IAC.md`, `10_DATABASE_DDL.md` and `21_OBSERVABILITY_ANALYTICS.md` all correctly say 32, and `21`'s R8 cites `13` §16.2 as authority for "frozen at the CockroachDB default of 32" — mutually contradictory. `32_JUDGE_MODE.md` renders `beam_size 8` in the sponsor strip judges read.
+§16.1 states "Default **8**" and §16.2 ships `SET LOCAL vector_search_beam_size = 8` while claiming to ship the default. The CockroachDB default is **32**. `41_RUNBOOK.md`, `40_INFRA_IAC.md`, `10_DATABASE_DDL.md` and `21_OBSERVABILITY_ANALYTICS.md` all correctly say 32, and `21`'s R8 cites `13` §16.2 as authority for "frozen at the CockroachDB default of 32" — mutually contradictory. `32_JUDGE_MODE.md` renders `beam_size 8` in the third-party tool strip Judge Mode shows.
 
 **Edit:** correct `13_RETRIEVAL_SPEC.md` §16.1 to 32, and either change the `SET LOCAL` to `32` or delete it and ship the true default (deleting is better — a `SET` that restates the default is noise that will drift again). Then update `32_JUDGE_MODE.md`'s four rendered examples. Recall at beam 32 is strictly better than at 8, so no eval number regresses.
 
 ### M2 — `00_PRODUCT.md` lists three agent-safe views; there are five · owner `00_PRODUCT.md`
 
-§3's glossary entry and §5's *Technological Implementation* rubric row name only `agent_case_context_v1`, `agent_active_beliefs_v1`, `agent_evidence_retrieval_v1`. `CANONICAL_DECISIONS.md` freezes five, and every downstream document uses five.
+§3's glossary entry and §5's rubric row name only `agent_case_context_v1`, `agent_active_beliefs_v1`, `agent_evidence_retrieval_v1`. `CANONICAL_DECISIONS.md` freezes five, and every downstream document uses five.
 
 **Edit:** add `agent_belief_lineage_v1` and `agent_open_obligations_v1` to both places in `00_PRODUCT.md`. `CANONICAL_DECISIONS.md` outranks `00_PRODUCT.md` on names, so this is a correction, not a negotiation.
 
@@ -246,7 +248,7 @@ The brief commissions seven screens: Relationship Dashboard, Case Timeline, Stat
 
 ### M13 — Three documents describe three shot lists · owner `00_PRODUCT.md` §5
 
-`32_JUDGE_MODE.md` §7 still calls the counterfactual "the single most persuasive twenty-five seconds in the video (`00_PRODUCT.md` §5, segment D)." `51_VIDEO_SCRIPT.md` §2 deliberately reduces it to a **5-second** closing frame in beat 7 and reassigns the 25 seconds to the prospective-memory reveal. `00_PRODUCT.md` §5's shot list and *Creativity & Originality* rubric row still describe the old cut.
+`32_JUDGE_MODE.md` §7 still calls the counterfactual "the single most persuasive twenty-five seconds in the video (`00_PRODUCT.md` §5, segment D)." `51_VIDEO_SCRIPT.md` §2 deliberately reduces it to a **5-second** closing frame in beat 7 and reassigns the 25 seconds to the prospective-memory reveal. `00_PRODUCT.md` §5's shot list and rubric row still describe the old cut.
 
 **Edit:** land `51_VIDEO_SCRIPT.md` §2's stated edit — update `00_PRODUCT.md` §5's shot-list table and rubric column, and remove the "twenty-five seconds" claim from `32_JUDGE_MODE.md` §7. `51` is the owner of the cut; `00_PRODUCT.md` §5 must follow it.
 
@@ -291,7 +293,7 @@ Update `51_VIDEO_SCRIPT.md` beat 7's narration to match. The replay is a *strong
 
 ### M22 — The isolation probe permanently falsifies a Panel D indicator · owner `quality/21_OBSERVABILITY_ANALYTICS.md` and `frontend/32_JUDGE_MODE.md`
 
-`32` §5.3 renders `provenance.auth.tenant_mismatch` with the stated meaning "In a correct system this is `0` and a non-zero value is either a bug or an attack. It is displayed precisely because it should never move." §9.1's isolation probe deliberately drives it `0 → 1`. After any judge runs the probe, Panel D shows a non-zero value with that tooltip for the whole CloudWatch period, and nothing distinguishes probe-induced from genuine.
+`32` §5.3 renders `provenance.auth.tenant_mismatch` with the stated meaning "In a correct system this is `0` and a non-zero value is either a bug or an attack. It is displayed precisely because it should never move." §9.1's isolation probe deliberately drives it `0 → 1`. After anyone runs the probe, Panel D shows a non-zero value with that tooltip for the whole CloudWatch period, and nothing distinguishes probe-induced from genuine.
 
 **Edit:** emit the probe's attempt with a distinguishing dimension — `provenance.auth.tenant_mismatch{source="JUDGE_PROBE"}` versus `{source="RUNTIME"}`. Add the dimension to `21` §4 and to the §8.3 alarm's metric filter so the alarm watches only `RUNTIME`. Have Panel D render the `RUNTIME` series, with the probe count shown separately and labelled.
 
@@ -342,7 +344,7 @@ Recording this deliberately, because a remediation list read alone gives a false
 - **1024 dimensions, cosine.** Consistent everywhere.
 - **Sixteen gates `G-0` … `G-15`.** Every gate id cited by the newer documents resolves to a real assertion. The only additions are `G12.8` and `G13.10`, disclosed in `21`'s R12.
 - **51 scenarios, split 9-8-10-9-7-8.** Identical in `CANONICAL_DECISIONS.md`, `22_EVAL_DATASETS.md`, `50_README_DRAFT.md` and `23_PHASE_GATES.md`, and internally consistent with `22`'s 18-conflict / 33-no-conflict and 43-of-51 extraction subsets. Only `20_TDD_STRATEGY.md` dissents (`M3`).
-- **External vendor facts.** `40_INFRA_IAC.md` §10 correctly states `feature.vector_index.enabled`, the three index-syntax variants, the 32/16/128 partition and beam defaults, the `IMPORT INTO` restriction on vector-indexed tables, and the load-then-index seed ordering that follows from it. The Managed-versus-self-hosted MCP distinction is drawn correctly. Submission constraints — Apache-2.0, under 180 seconds, at least two CockroachDB tools, at least one AWS service, written tool-usage disclosure — are all present and correctly sourced.
+- **External vendor facts.** `40_INFRA_IAC.md` §10 correctly states `feature.vector_index.enabled`, the three index-syntax variants, the 32/16/128 partition and beam defaults, the `IMPORT INTO` restriction on vector-indexed tables, and the load-then-index seed ordering that follows from it. The Managed-versus-self-hosted MCP distinction is drawn correctly. Release constraints — Apache-2.0, a demo video under 180 seconds, at least two CockroachDB tools, at least one AWS service, and a written tool-usage disclosure — are all present and correctly sourced.
 - **Money.** USD 1,800 + USD 220 = USD 2,020 holds in all eight documents; 420 − 200 = 220 with status `PARTIAL` matches `ck_commitments_outstanding_identity`.
 - **No fabricated claims.** Neither reviewer found a claim that code, cloud resources, tests, or benchmarks exist, nor a fabricated metric presented as a measurement. `21`'s R11, `32`'s §6.4 and §7.4, `50`'s *Build status* and *Known limitations*, and `51`'s R11 all volunteer weaknesses rather than papering over them. No place was found where an agent is handed a write credential, or where SES is reachable from uncommitted state.
 
@@ -371,7 +373,7 @@ That last point is the reason the remediation above was worth doing rather than 
 
 **R2 — The `B11` resolution rests on a reading of two documents as describing different datasets, and that reading is mine.** `12_KERNEL_ALGORITHMS.md` §1.6 and `00_PRODUCT.md` §2.3 use different case ids, different revisions (7 → 8 against 12 → 13) and different dates (`2026-09-05` against `2026-09-18`), which is strong evidence they are separate worked examples rather than one contradictory one. If the intent was in fact that §1.6 *is* the hero commit, then the hero conflict is `AUTO_RESOLVED` and six documents are now wrong in a new way. **This must be confirmed by whoever wrote §1.6 before `G-4`.** The confirming test is cheap: run the hero seed, submit the hero proposal, and read `conflicts.status`. If it is `AUTO_RESOLVED`, revert `B11` and take the integrity reviewer's original recommendation instead — which is also a good demo, just a different one.
 
-**R3 — Nineteen major defects remain, and three of them are on the video path.** `M13`, `M17` and `M21` all touch the recorded submission, which is the artifact judges actually score. They are individually small and collectively the difference between a recording that survives scrutiny and one that does not. The schedule pressure at Phase 15 is exactly when they will be tempting to skip.
+**R3 — Nineteen major defects remain, and three of them are on the video path.** `M13`, `M17` and `M21` all touch the recorded walkthrough, which is the artifact most people will actually watch. They are individually small and collectively the difference between a recording that survives scrutiny and one that does not. The schedule pressure at Phase 15 is exactly when they will be tempting to skip.
 
 **R4 — Fixing a contradiction by picking a winner can silently discard the losing document's reasoning.** `B5` withdrew `pv-draft-nomemory-1.0.0` because `CANONICAL_DECISIONS.md` is binding, but that variant existed for a reason: a prompt written to *use* memory, run with no memory, may produce a degenerate output that flatters the comparison rather than a fair one. The mitigation is that `pv-draft-1.0.0`'s grounding rule already handles empty supports gracefully — it produces `omitted_because_unsupported` entries rather than hallucinating. That is an argument, not a measurement. **Verify it at `G-7` with a real invocation before the counterfactual is filmed**, and if the OFF output is degenerate rather than merely memoryless, reopen the decision through change control rather than quietly reintroducing a second prompt.
 

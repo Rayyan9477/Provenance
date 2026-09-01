@@ -2,26 +2,63 @@
 
 Written 2026-08-24. Everything below is measured on this tree, not remembered.
 
-The build is **green**: `2,797 passed, 0 failed, 4 skipped`, `make lint` exit 0,
+The build is **green**: `2,904 passed, 0 failed, 4 skipped`, `make lint` exit 0,
 `make route-sweep` 50 routes 0 broken. Nothing here is a blocker on the build
 itself — these are the things I could not do, or should not decide alone.
 
 ---
 
-## 1. Apply migration `0009a` — one command, unblocks the agent to Kernel path
+## 1. Apply the two pending migrations — one command, unblocks the agent path AND prospective memory
 
 **Status:** written, chain-verified, tested. **Not applied.** I attempted it and
 the permission classifier refused a schema change against the live cluster,
 which is the correct guardrail. I did not work around it.
 
 ```bash
-cd d:/Repo/neverreset
+cd "$(git rev-parse --show-toplevel)"
 set -a; . ./.env; set +a
 export COCKROACH_DATABASE_URL="$(python -c "import os,re;print(re.sub(r'/(provenance_ci|defaultdb)(\?|$)', r'/provenance\2', os.environ['PV_DB_MIGRATOR']))")"
-python -m alembic -c alembic.ini upgrade 0009a_widen_proposal_model_check
+python -m alembic -c alembic.ini upgrade 0009b_kernel_idempotency_grant
 ```
 
-> **Upgrade to `0009a` BY NAME. Never `upgrade head`.**
+That single command applies **both** pending revisions, `0009a` and `0009b`.
+`0009b` is the second one and it is just as blocking:
+
+**`0009b` — the Kernel cannot claim its own idempotency key.** Waking an armed
+trigger against the live cluster returns:
+
+```
+HTTP 500  INTERNAL_ERROR
+psycopg.errors.InsufficientPrivilege: user pv_kernel_writer does not have
+SELECT privilege on relation idempotency_records
+```
+
+`commit_trigger_evaluation` makes the idempotency claim the **first** statement
+of the Kernel transaction — that is what closes the window in which the effect
+commits and the key does not — so the transaction dies on its first statement
+and **every trigger evaluation fails**. Prospective memory is one of the four
+capabilities `00_PRODUCT.md` §2.2 claims ordinary RAG structurally cannot do,
+and step 10 of the dress rehearsal could not fire at all.
+
+It is a conflict rather than a typo. `0008` revokes it deliberately: *"The
+Kernel can never send anything, and can never mint an approval."*
+`idempotency_records` was grouped with the *action* tables because idempotency
+used to be an API-request concern; the Kernel later took ownership of the
+trigger path and needs the same table to dedupe its own evaluation, which is
+neither sending nor approving. `0009b` grants the narrowest set that works —
+`SELECT, INSERT`, **no `UPDATE`, no `DELETE`** — so the Kernel cannot rewrite a
+claim made by anything else, and `action_intents` / `action_executions` /
+`ingest_aliases` stay revoked. `D-10-002`.
+
+Nothing caught it because the Kernel's statements and the grant list are two
+files nobody compared, and every unit test drives a fake connection — a fake
+grants everything.
+`services/control_plane/tests/kernel/test_kernel_role_can_reach_its_own_statements.py`
+now compares them statically in both directions, and I proved it by
+counterfactual: removing the grant turns it red, and widening it to
+`action_executions` turns the send/approve assertion red.
+
+> **Upgrade to `0009b` BY NAME. Never `upgrade head`.**
 > `head` is `0009_gemini_embedding_plane`, which drops `evidence_items.embedding`
 > and rebuilds it at 1536 dimensions — destroying all **18,035 Titan vectors**
 > and requiring roughly an hour of re-embedding. See section 4.
@@ -47,7 +84,9 @@ row that exists to prevent false attribution.
 stays a single linear head:
 
 ```
-0008_events_infrastructure -> 0009a_widen_proposal_model_check -> 0009_gemini_embedding_plane
+0008_events_infrastructure -> 0009a_widen_proposal_model_check
+                           -> 0009b_kernel_idempotency_grant
+                           -> 0009_gemini_embedding_plane   (destructive; see section 4)
 ```
 
 **Risk: very low.** It widens a CHECK to a strict superset. Widening cannot
@@ -58,8 +97,51 @@ which stays admitted.
 **Verify it worked:**
 
 ```bash
-python -m alembic -c alembic.ini current   # -> 0009a_widen_proposal_model_check
+python -m alembic -c alembic.ini current   # -> 0009b_kernel_idempotency_grant
 ```
+
+---
+
+## 1b. What applying those two migrations actually unlocks
+
+Since the last update the ingestion path and the counterfactual engine were
+built. **Unbound port methods went 20 → 6.** `make demo-rehearse` moved from
+`READY 5 / BLOCKED 5` to **`READY 8 / BLOCKED 2`**.
+
+The hero flow now runs end to end against the live cluster, and stops in exactly
+one place — the one `0009a` fixes:
+
+```
+PASS  8.18 write.upload_intent           key raw/{tenant}/{user}/{artifact}/original
+PASS  8.19 write.complete_artifact       parser_status=PARSED  blocks=3
+PASS  9.1  internal.ingest_artifact      minted, stored, PARSED
+PASS  9.3  internal.artifact_content     3 blocks: SUBJECT, HEADER, BODY
+PASS  9.4  internal.register_evidence    created=3 (DATE/AMOUNT/IDENTIFIER)
+PASS  9.4  steps 1-2 refuse an invented quotation   SPAN_NOT_IN_BLOCK
+PASS  9.7  the typed MemoryProposal constructs and validates
+FAIL  9.7  the app-side memory_proposals INSERT     CheckViolation
+CANNOT RUN 9.7 commit_proposal
+```
+
+That `FAIL` is `ck_memory_proposals_model` refusing a Gemini id, which is
+precisely what section 1 fixes. `commit_proposal` is correctly `CANNOT RUN`
+rather than `FAIL` — nothing was attempted.
+
+**The counterfactual is real, and it is the product's central claim made
+falsifiable.** Two live runs, same model, same prompt, same graph, same decode
+parameters (`parity.all_equal = true`, computed per field from the persisted
+rows). The only difference is the memory:
+
+| | memory OFF | memory ON |
+|---|---|---|
+| classification | `ROUTINE_DOCUMENT` | `COUNTERPARTY_CLAIM_CONTRADICTING_RECORD` |
+| conflicts detected | 0 | 1 |
+| action recommended | none | `OUTBOUND_EMAIL_DISPUTE` |
+| support ids cited | 0 | 1 |
+
+The wording moves between runs; the structural verdict does not. That is what a
+scripted animation cannot do. `cases.revision` was read for **all 10 cases**
+before and after from a fresh connection: 10 compared, 0 moved.
 
 ---
 
@@ -96,8 +178,8 @@ untracked: 475 files
 Nothing is pushed. `git reset` undoes the staging if you disagree.
 
 Before committing, note that `ops/` contains real gate transcripts, the defect
-ledger, probe results, and the live agent-graph run. Those are deliverables for a
-submission, not scratch. gitleaks is clean over all of them, and the targeted
+ledger, probe results, and the live agent-graph run. Those are deliverables, not
+scratch. gitleaks is clean over all of them, and the targeted
 `ops/**/*.raw.txt` and `ops/**/*.unscrubbed.txt` ignore rules still exclude
 unscrubbed material by design.
 
@@ -121,7 +203,7 @@ provenance are untouched. Only the vectors go.
 no credential for. **What it costs:** retrieval stops working until re-embedding
 completes.
 
-My recommendation: run it *after* the submission is recorded, not before.
+My recommendation: run it *after* the walkthrough is recorded, not before.
 
 ---
 
@@ -252,16 +334,16 @@ All figures measured on this tree today.
 | `make lint` | **exit 0** — ruff clean, mypy strict clean, import-linter 5 kept 0 broken |
 | `make route-sweep` | **50 routes discovered, 0 broken** |
 | `npm --prefix apps/web run verify` | **74 passed**, exit 0 |
-| `write_path_lint` | **5 rules, 0 violations** — 26 canonical writes, 19 in the Kernel |
+| `write_path_lint` | **5 rules, 0 violations** — 27 canonical writes, 19 in the Kernel |
 | `txn_purity_lint` | 8 transaction callbacks, **0 network constructs** |
 | `defect_lint` | **0 violations** |
 | gitleaks over `ops/` | **no leaks** |
 | `make evals` | **PASS 9, FAIL 0, CANNOT RUN 6** — exit 0 |
 | `make sabotage` | **12 caught, 0 survived, 1 cannot-run** — exit 1 until 5b(a) is done |
-| `make demo-rehearse` | READY 5, NOT READY 2, **BLOCKED 5** (steps 5-9, 11 need unbound ports) |
-| `make test-submission` | **PASS 8, FAIL 0, MANUAL 3, SUPERSEDED 5** — exit 0 |
+| `make demo-rehearse` | **READY 8**, NOT READY 2, BLOCKED 2 |
+| `make test-release` | **PASS 8, FAIL 0, MANUAL 3, SUPERSEDED 5** — exit 0 |
 
-**Ports bound:** unbound went 20 → **14** this session.
+**Ports bound:** unbound went 20 → **6** this session.
 
 **The app runs on its own record.** It was in FIXTURE mode behind a permanent
 banner; it is now LIVE against the seeded cluster. The `USD 2,020.00` on the
@@ -281,9 +363,9 @@ committed run. Transcript: `ops/agent-graph-live-run.txt`.
 
 # What is still unbuilt, and why
 
-14 port methods remain unbound. Each refuses with a typed error naming the
+Six port methods remain unbound. Each refuses with a typed error naming the
 subsystem it waits on — and as of today that refusal is **`501 NOT_IMPLEMENTED`**,
-not `500 INTERNAL_ERROR`. A judge reading 500 concludes the product is broken;
+not `500 INTERNAL_ERROR`. A reader who sees 500 concludes the product is broken;
 501 says the capability does not exist yet. That distinction is the repository's
 founding rule (`CANNOT RUN` is not `FAIL`) applied to HTTP.
 
@@ -291,10 +373,7 @@ founding rule (`CANNOT RUN` is not `FAIL`) applied to HTTP.
 |---|---|
 | the trace assembler (`app/observability` span DAG) | `read.get_trace`, `read.memory_trace` |
 | the retrieval pipeline (stages A–G) | `internal.retrieve` |
-| artifact storage + parser | `internal.ingest_artifact`, `internal.artifact_content`, `write.complete_artifact`, `write.upload_intent` |
-| `evidence_items.embedding` is `VECTOR(1024)` and the CHECK admits only Titan | `internal.register_evidence` |
 | ordering: `model_calls[].prompt_version` is written at run *completion*, after section 9.8 needs it | `internal.create_action_intent` |
-| the counterfactual engine | `write.start_counterfactual`, `write.get_counterfactual`, `write.run_probe` |
 | correction + alias rotation paths | `write.create_correction`, `write.rotate_ingest_alias` |
 
 **The eval harness (Phase 13) is built.** `make evals` exits 0:

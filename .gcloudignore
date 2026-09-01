@@ -1,0 +1,68 @@
+# What `gcloud builds submit` must not upload.
+#
+# This file exists because gcloud does NOT read .dockerignore. Without a
+# .gcloudignore it synthesises one from .gitignore — which does not exclude
+# db/seeds/vectors.parquet, because that file is tracked. The result is a 70 MB
+# upload on every build of a file no image reads.
+#
+# It must stay a superset of the secrecy rules in .dockerignore. Anything
+# uploaded here reaches Cloud Build's staging bucket, which is a real place with
+# real retention, so `.env` is as load-bearing here as it is there.
+#
+# `#!include:.dockerignore` is deliberately NOT used: it would make the ignore
+# set depend on Docker syntax gcloud parses slightly differently (notably `!`
+# re-inclusion), and a difference in interpretation here is a credential in a
+# bucket. Two explicit lists, and deploy/README.md says to change both.
+
+# --- secrets ------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.local
+*.pem
+*.key
+*.p12
+.aws/
+.gcloud/
+service-account*.json
+
+# --- version control ----------------------------------------------------------
+.git/
+.github/
+
+# --- the discarded AWS estate -------------------------------------------------
+infra/
+
+# --- large data no image reads ------------------------------------------------
+db/seeds/vectors.parquet
+.pv-objects/
+demo/artifacts/
+
+# --- caches and build output --------------------------------------------------
+**/node_modules/
+**/.next/
+**/__pycache__/
+**/*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.import_linter_cache/
+.coverage
+htmlcov/
+*.egg-info/
+infra/cdk/cdk.out/
+
+# --- scratch and evidence -----------------------------------------------------
+tmp/
+.scratch/
+.playwright-mcp/
+*-report.json
+ops/
+docs/
+evals/
+tools/
+tests/
+**/tests/
+Design.pdf

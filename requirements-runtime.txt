@@ -9,8 +9,8 @@
 #   1. A clean clone following README step 1 (`make bootstrap`) installs no
 #      fastapi, no uvicorn, no pydantic, no google-genai and no mcp. Every one
 #      of them was present on the build machine only because it had been
-#      installed by hand. "Spin-up instructions" is a submission requirement and
-#      the instructions did not produce a runnable process.
+#      installed by hand. The README promises spin-up instructions, and the
+#      instructions did not produce a runnable process.
 #   2. A container built from `.[dev]` would ship the AWS CDK and the whole test
 #      toolchain into a serving image.
 #
@@ -22,7 +22,7 @@
 # `-e .[dev]` rather than restating.
 #
 # Pins are exact. A serving image whose dependency versions depend on the day it
-# was built is not a reproducible artifact, and the one thing a judge can check
+# was built is not a reproducible artifact, and the one thing a reader can check
 # about a deployment is that it is the same thing as the repository.
 #
 # What is deliberately NOT here
@@ -60,8 +60,8 @@ pydantic-settings==2.12.0
 psycopg[binary,pool]==3.3.4
 
 # --- models -------------------------------------------------------------------
-# One of the four agent frameworks the hackathon rules accept, and the one the
-# agent layer is written against. CANONICAL_DECISIONS.md -> Gemini model id canon.
+# The Google agent framework the agent layer is written against.
+# CANONICAL_DECISIONS.md -> Gemini model id canon.
 google-genai==1.60.0
 
 # --- MCP ----------------------------------------------------------------------

@@ -72,7 +72,7 @@ from tools.scrub import scrub_text  # noqa: E402
 Outcome = Literal["PASS", "FAIL", "CANNOT RUN"]
 
 #: Candidate ids, from https://ai.google.dev/gemini-api/docs/models (2026-08).
-#: The hackathon floor is "Gemini 3.5 or newer". ``gemini-3.1-pro-preview`` is
+#: The model floor is "Gemini 3.5 or newer". ``gemini-3.1-pro-preview`` is
 #: deliberately absent: it is version 3.1, *below* the floor, so no Pro model
 #: qualifies and both tiers are Flash-class.
 CHAT_CANDIDATES: Final[tuple[tuple[str, str], ...]] = (
@@ -377,9 +377,9 @@ def probe_g5_determinism(client: Any, t: Transcript) -> ProbeResult:
 def probe_g6_multimodal(client: Any, t: Transcript) -> ProbeResult:
     """``PB-G6`` -- native multimodal ingestion, which replaces Textract.
 
-    If this passes, the ingestion pipeline loses an external OCR service *and*
-    the submission gains the Best Multimodal UX category. If it fails, the
-    parser-first path stands unchanged and nothing downstream breaks.
+    If this passes, the ingestion pipeline loses an external OCR service and
+    gains a native multimodal read path. If it fails, the parser-first path
+    stands unchanged and nothing downstream breaks.
     """
     from google.genai import types
 

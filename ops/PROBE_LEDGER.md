@@ -1,6 +1,6 @@
 # Phase 0 probe ledger
 
-Cluster `rayyandb` (`4023638b-52be-42bd-9677-d3611c613477`) · BASIC · AWS · us-east-1 · CockroachDB CCL **v26.2.5**
+Cluster `<cluster>` (`<cluster-id>`) · BASIC · AWS · us-east-1 · CockroachDB CCL **v26.2.5**
 Run 2026-08-17 by the bootstrap SQL user. A gate reviewer reads this table first.
 
 > ## Evidence destroyed, then regenerated. Resolved 2026-08-18.
@@ -27,7 +27,7 @@ Run 2026-08-17 by the bootstrap SQL user. A gate reviewer reads this table first
 > **The lesson is worth more than the incident.** The failing script reported *"none of the
 > three variants was accepted by this cluster"* when none had been *attempted*. That reads as a
 > capability verdict and would have driven `PV_RETRIEVAL_MODE` into the brute-force fallback,
-> blocking the sponsor vector-indexing claim — over a missing binary. Inability to run and
+> blocking the vector-indexing claim — over a missing binary. Inability to run and
 > failure are opposite findings and must never share an output path.
 
 | Probe | Question | Result | Variant / fallback taken | Transcript |
@@ -43,9 +43,9 @@ Run 2026-08-17 by the bootstrap SQL user. A gate reviewer reads this table first
 
 The four probes that could have forced a redesign all passed, and three of them passed without needing their fallbacks at all:
 
-- **Vector indexing works, cosine works, and the `user_id` prefix drives filter acceleration.** `PV_RETRIEVAL_MODE` stays `VECTOR_INDEX`; the brute-force per-user scan is not needed; the sponsor vector-indexing claim is unblocked and needs no disclosure.
+- **Vector indexing works, cosine works, and the `user_id` prefix drives filter acceleration.** `PV_RETRIEVAL_MODE` stays `VECTOR_INDEX`; the brute-force per-user scan is not needed; the vector-indexing claim is unblocked and needs no disclosure.
 - **The cosine posture holds**, so `EMBEDDING_NORMALIZATION=L2_UNIT` and Variant C's L2-ordering equivalence argument are both unused.
-- **The agent-safe view boundary holds.** This was the only probe whose failure stops a phase. `pv_agent_reader` on views alone, base tables denied, MCP wired read-only — the product's central safety claim is enforceable by SQL grants on this cluster, which is what the submission asserts to judges.
+- **The agent-safe view boundary holds.** This was the only probe whose failure stops a phase. `pv_agent_reader` on views alone, base tables denied, MCP wired read-only — the product's central safety claim is enforceable by SQL grants on this cluster, which is what the project asserts.
 - **`STORED` computed columns, row-level TTL and column families are all available**, so three separate schema fallbacks stay unused.
 
 ## What is still open
@@ -55,7 +55,7 @@ The four probes that could have forced a redesign all passed, and three of them 
 | **PB-6 timing** — clone wall-clock against the seeded template, unmeasured until T2.8 | Per-scenario database isolation may be unaffordable; falls back to sequential scenarios with rollback and a `hero-lite` 500-decoy commit lane | G-14 throughput only, not correctness |
 | **PB-6 index survival** — whether a `VECTOR INDEX` survives BACKUP/RESTORE *and is still chosen by the planner* | Sharper than the timing question. A restore that silently invalidates the ANN index leaves every cloned scenario correct but full-scanning — right answers, no error, no warning, which is the exact failure shape of `D-06-001`. Assert `EXPLAIN` on the restored clone at T2.8. | G-14, and any retrieval measurement taken on a cloned database |
 
-**Tier R access is no longer on this list.** It was, as `D-00-004`, filed as *"no frozen reasoning model is invocable"*. The re-run disproved the statement: `us.anthropic.claude-opus-4-6-v1` invokes, and `us.anthropic.claude-sonnet-4-6` invokes behind it. The original probe had tested only the Anthropic family and drawn a catalogue-wide conclusion from a one-family sample — the same shape of error as `D-00-005`, where a probe that could not connect reported that a capability had failed. **A negative result is only as broad as the search that produced it.** What survives is a disclosure obligation, not a blocker: the submission ships on Opus 4.6 and must say so.
+**Tier R access is no longer on this list.** It was, as `D-00-004`, filed as *"no frozen reasoning model is invocable"*. The re-run disproved the statement: `us.anthropic.claude-opus-4-6-v1` invokes, and `us.anthropic.claude-sonnet-4-6` invokes behind it. The original probe had tested only the Anthropic family and drawn a catalogue-wide conclusion from a one-family sample — the same shape of error as `D-00-005`, where a probe that could not connect reported that a capability had failed. **A negative result is only as broad as the search that produced it.** What survives is a disclosure obligation, not a blocker: the build ships on Opus 4.6 and must say so.
 
 ## Findings that changed nothing but must not be forgotten
 

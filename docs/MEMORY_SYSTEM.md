@@ -1,7 +1,7 @@
 # Provenance - Memory System Design
 
 Status: planning-complete memory architecture baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 Date: 2026-08-17
 
 ## 1. Purpose
@@ -571,7 +571,7 @@ Agent scratch state and uncommitted proposals cannot.
 
 ### I6. Human approval gate
 
-Hackathon version: every external communication action requires explicit user approval.
+v1: every external communication action requires explicit user approval.
 
 ### I7. Tenant isolation
 
@@ -1037,10 +1037,10 @@ Tier 2 - prepare
 - draft communication
 
 Tier 3 - execute reversible/low-risk action
-- hackathon: requires human approval
+- v1: requires human approval
 
 Tier 4 - consequential/ambiguous
-- never autonomous in hackathon build
+- never autonomous in v1
 
 ### 19.2 Action authorization invariant
 
@@ -1146,7 +1146,7 @@ Never delete the mistake from history; show that it was corrected.
 
 Not every memory should live forever at full detail.
 
-Hackathon policy:
+v1 policy:
 
 - raw demo artifacts: retained for demo lifespan
 - evidence/claims/state lineage: retained
@@ -1548,10 +1548,8 @@ This closed loop is the core meaning of agentic memory in Provenance.
 
 Provenance is a provenance-aware, bitemporal, transactional memory system in which LLM agents interpret evidence but CockroachDB-backed deterministic rules decide what becomes canonical state and what that state is allowed to cause.
 
-## 36. Official references
+## 36. External references
 
-- Hackathon: https://cockroachdb-ai.devpost.com/
-- Hackathon resources: https://cockroachdb-ai.devpost.com/resources
 - CockroachDB pricing: https://www.cockroachlabs.com/pricing/
 - CockroachDB free trial: https://www.cockroachlabs.com/docs/cockroachcloud/free-trial
 - CockroachDB vector indexes: https://www.cockroachlabs.com/docs/stable/vector-indexes

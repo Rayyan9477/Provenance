@@ -186,8 +186,8 @@ RULES: tuple[Rule, ...] = (
         replacement="[REDACTED-ACCOUNT]",
         why=(
             "An AWS account id is not a credential on its own, but it is the identifier an "
-            "attacker needs to target one, and gitleaks and the hackathon submission both "
-            "treat a public account id as a finding."
+            "attacker needs to target one, and gitleaks treats a public account id as a "
+            "finding."
         ),
     ),
     Rule(

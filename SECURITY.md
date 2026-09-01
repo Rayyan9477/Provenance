@@ -1,9 +1,8 @@
 # Security policy
 
-## This is hackathon software. It has not been audited for production use.
+## This software has not been audited for production use.
 
-Provenance was built for the CockroachDB x AWS hackathon, "Build with Agentic
-Memory". It is a working system, not a shipped product, and it carries none of
+Provenance is a working system, not a shipped product, and it carries none of
 the assurances a product should carry:
 
 - **No security audit, no penetration test, no threat-model sign-off.** The
@@ -16,32 +15,37 @@ the assurances a product should carry:
 - **No supported release.** Only the tip of `main` exists. There are no tags,
   no backports, and no security patches for any earlier commit.
 
-**Do not put real documents into a deployment of this software.** The demo
-corpus is entirely synthetic: every counterparty is fictional, every domain is a
-`.example` domain, every account reference is invented, and the judge account is
-seeded for evaluation only. Real correspondence with a real bank, landlord,
-insurer or clinic is exactly the class of data this system is *about*, and
-exactly the class of data it is not yet fit to hold.
+**Do not put real documents into a deployment of this software.** The
+demonstration corpus is entirely synthetic: every counterparty is fictional,
+every domain is a `.example` domain, every account reference is invented, and
+the seeded account exists for evaluation only. Real correspondence with a real
+bank, landlord, insurer or clinic is exactly the class of data this system is
+*about*, and exactly the class of data it is not yet fit to hold.
+
+## Supported versions
+
+| Version | Supported |
+|---|---|
+| tip of `main` | Yes, best effort |
+| any earlier commit or tag | No |
 
 ## Reporting a vulnerability
 
-Report privately. Do not open a public issue with exploit detail, and do not
-post it to Devpost.
+Report privately. Do not open a public issue carrying exploit detail.
 
 1. **Preferred:** GitHub private vulnerability reporting at
    <https://github.com/Rayyan9477/Provenance> - the **Security** tab, then
    **Report a vulnerability**. This creates a private advisory thread visible
    only to the maintainers.
-2. **If that is unavailable** (the repository is private until submission, and
-   private vulnerability reporting may not be reachable to you), open a public
-   issue whose entire content is a request for a private channel - no
-   reproduction, no payload, no affected path - and a maintainer will open the
-   advisory thread and continue there.
+2. **If that is unavailable to you**, open a public issue whose entire content
+   is a request for a private channel - no reproduction, no payload, no
+   affected path - and a maintainer will open the advisory thread and continue
+   there.
 
 Please include, when you have them:
 
 - the commit SHA you tested (`git rev-parse HEAD`), and the deployment if it was
-  the hosted demo rather than a local stack;
+  a hosted instance rather than a local stack;
 - a minimal reproduction, ideally as a `curl` sequence or a failing test;
 - what an attacker gains: which principal, whose data, and which of the four
   data-integrity invariants or the ownership boundary it crosses;
@@ -49,16 +53,20 @@ Please include, when you have them:
 
 **Response expectations, stated honestly.** This is a small project with no
 on-call. Acknowledgement is best effort within five working days. There is no
-fix SLA and there is no bug bounty. If a report is valid and unfixed at
-submission time, it will be recorded as carried debt in
-`ops/gates/SUBMISSION.md` rather than quietly dropped.
+fix SLA and there is no bug bounty. A report that is valid and still unfixed at
+a release point is recorded as carried debt in the gate log under `ops/gates/`
+rather than quietly dropped.
+
+**Disclosure.** Please give the maintainers 90 days before publishing, or until
+a fix ships if that comes sooner. If a report goes unacknowledged past the five
+working days above, treat that window as having started rather than waiting
+indefinitely. Reporters are credited in the advisory unless they ask not to be.
 
 ## Credentials in a report, and credentials in this repository
 
 Everything under `ops/` is committed and secret-scanned, including gate logs and
 probe transcripts, because the evidence trail is the point. That makes an
-accidentally pasted credential a permanent public leak once the repository is
-public.
+accidentally pasted credential a permanent public leak.
 
 - **Never paste a live connection URL, access key, session token or JWT into an
   issue, an advisory, or a pull request.** Run reproductions so the credential
@@ -69,8 +77,8 @@ public.
   a public repository does not un-leak anything, and doing it first only removes
   the evidence of what needs rotating.
 - `gitleaks detect --source . --exit-code 1` and
-  `gitleaks detect --source ops/gates --exit-code 1` are gate assertions G0.3
-  and submission item S8, and the scanner configuration is `.gitleaks.toml`. An
+  `gitleaks detect --source ops/gates --exit-code 1` are gate assertion G0.3 and
+  checklist item S8, and the scanner configuration is `.gitleaks.toml`. An
   allowlist entry that excuses a whole directory is itself a defect worth
   reporting.
 
@@ -103,24 +111,23 @@ Out of scope:
 
 - The design pack under `docs/`. It is prose; report factual errors as ordinary
   issues.
-- The synthetic seed corpus and the seeded judge account, which contain no real
-  data by construction.
+- The synthetic seed corpus and the seeded demonstration account, which contain
+  no real data by construction.
 - Missing production hardening that is already disclosed as absent: rate limits,
   WAF, DDoS protection, account lockout, MFA, session revocation UX, and
   multi-region failover. These are known gaps, not discoveries.
-- Anything that requires the maintainer's own AWS credentials, CockroachDB
-  Cloud console access, or physical access to the build machine.
-- Denial of service against the hosted demo. **Do not load-test, fuzz, or scan
-  the demo deployment.** It is a single small environment shared with the
-  judges; take it down and you have only broken the demo. Run against a local
-  stack instead - `make bootstrap` and the setup in the README get you one.
-
-## Supported versions
-
-| Version | Supported |
-|---|---|
-| tip of `main` | Yes, best effort |
-| any earlier commit or tag | No |
+- Anything that requires the maintainer's own credentials: the Gemini Developer
+  API key, the Google Cloud project, the CockroachDB Cloud console, or physical
+  access to the build machine.
+- `infra/cdk/`. Those ten AWS stacks were discarded by the 2026-08-24 platform
+  migration recorded in `PIVOT.md`. They are still committed and their 304 tests
+  still run, but nothing is deployed from them and no AWS account is reachable
+  from the running system, so a finding there has no live target. Report it as
+  an ordinary issue.
+- Denial of service against a hosted deployment. **Do not load-test, fuzz, or
+  scan one.** It is a single small shared environment; take it down and you have
+  only broken the demonstration. Run against a local stack instead -
+  `make bootstrap` and the setup in the README get you one.
 
 ## Licence
 

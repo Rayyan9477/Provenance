@@ -241,7 +241,7 @@ Copy discipline follows from that posture. The product never characterises anyon
 
 ### 3.2 Audience two: engineers evaluating this as a serious system
 
-The same interface is judged by database and AI engineers on five equally weighted criteria: memory design, technical implementation, real-world impact, product readiness — security, observability, resilience, access control — and creativity. They will look for production seriousness and they will notice its absence immediately.
+The same interface is read by database and AI engineers weighing five things equally: memory design, technical implementation, real-world impact, product readiness — security, observability, resilience, access control — and creativity. They will look for production seriousness and they will notice its absence immediately.
 
 They want to see typed values, version numbers, identifiers they can copy, transaction boundaries, permission boundaries, retry counts, millisecond durations, model identifiers, and honest failure states. Identifiers on this product are **content, not debug output**: a case revision, a belief version identifier, a support identifier, a draft fingerprint, and a trace identifier are what make the record citable, and they are rendered as visible, selectable, copyable text wherever their object is rendered. They are never hidden behind a developer toggle.
 

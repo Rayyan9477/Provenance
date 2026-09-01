@@ -14,7 +14,7 @@ Verdict: **REJECTED**
 ## Environment of record
 
 - Checkout: reused working tree at `291ef912`. **Not a fresh clone** — G0.4 requires one and could not run; see below.
-- Database: `rayyandb` (`4023638b-52be-42bd-9677-d3611c613477`), database `provenance`, **CockroachDB CCL v26.2.5**, BASIC, AWS us-east-1.
+- Database: `<cluster>` (`<cluster-id>`), database `provenance`, **CockroachDB CCL v26.2.5**, BASIC, AWS us-east-1.
 - Deployed target: none. Nothing is deployed until Phase 13.
 - Toolchain deviations that materially affect this gate: **GNU Make 4.4.1** (ezwinports, installed this round; GnuWin32 3.81 is still first on the system PATH), **gitleaks 8.30.1** (installed this round, floor raised from 8.21.2), `psql 16` standing in for the absent `cockroach` CLI, `ccloud` and `asm-exec` **not installed**.
 
@@ -192,11 +192,11 @@ but no database to enforce it against; `INVARIANTS.md` and
 mapping from invariant to proving test.
 
 **Q4 · What would a hostile judge click on first?** The claim that vector indexing
-works. It is the sponsor-facing claim and it rests on `ops/cluster-probe.txt`. That
+works. It is the load-bearing retrieval claim and it rests on `ops/cluster-probe.txt`. That
 file is honest and re-derived, but the planner proof it contains is the reason
 `D-06-001` exists: a correlated subquery produces a full scan with correct results
 and no warning. If Phase 6 ships that shape, every functional test still passes and
-the sponsor claim is quietly false.
+the vector-index claim is quietly false.
 
 **Q5 · What passed because of seeded state rather than logic?** Nothing — there is
 no seed. This is the one round where that answer is legitimately "nothing", and it

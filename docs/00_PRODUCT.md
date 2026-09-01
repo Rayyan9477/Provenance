@@ -3,9 +3,9 @@
 Purpose: fix the product thesis, the domain vocabulary, and the naming decisions that every other document in this repository defers to.
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
-Audience: implementation team, coding agents, hackathon judges, future contributors. Read this before `ARCHITECTURE.md`, `MEMORY_SYSTEM.md`, or anything under `docs/implementation/`.
+Audience: implementation team, coding agents, reviewers, future contributors. Read this before `ARCHITECTURE.md`, `MEMORY_SYSTEM.md`, or anything under `docs/implementation/`.
 
 ---
 
@@ -313,7 +313,7 @@ The toggle is implemented as a request flag on the Advocate graph that (a) skips
 
 Alphabetical.
 
-**ActionIntent** — A proposed consequential side effect (for the hackathon build: one outbound email) carrying its draft, a `draft_sha256`, its supporting belief version IDs, its `basis_case_revision`, and its idempotency key; it cannot execute without explicit human approval.
+**ActionIntent** — A proposed consequential side effect (in v1: one outbound email) carrying its draft, a `draft_sha256`, its supporting belief version IDs, its `basis_case_revision`, and its idempotency key; it cannot execute without explicit human approval.
 
 **agent-safe view** — A read-only CockroachDB view (`agent_case_context_v1`, `agent_active_beliefs_v1`, `agent_evidence_retrieval_v1`) granted to `pv_agent_reader` and reachable through the CockroachDB MCP server; the SQL grant, not the prompt, is the permission boundary.
 
@@ -353,7 +353,7 @@ Alphabetical.
 
 **idempotency key** — A caller-supplied or generated string scoping a side-effecting operation; same key plus same request hash replays the same result, same key plus different request hash returns `409 IDEMPOTENCY_CONFLICT`; stored in `idempotency_records`.
 
-**Judge Mode** — A demo surface exposing four panels built from real records: consumer state, State Proof, Memory Trace, and system status — plus the Memory ON/OFF counterfactual toggle.
+**Judge Mode** — An inspection surface exposing four panels built from real records: consumer state, State Proof, Memory Trace, and system status — plus the Memory ON/OFF counterfactual toggle.
 
 **lineage** — The `belief_versions` chain (v1 superseded by v2 superseded by v3) together with the recorded reason for each supersession. **Not** the evidence edges — those are grounding.
 
@@ -393,7 +393,7 @@ Alphabetical.
 |---|---|---|
 | **NeverReset** | Names the core promise — the relationship does not restart from zero each time. | Defines the product by what it refuses to do. It is a negation, it reads as a password-manager or a factory-reset utility, and it says nothing about evidence, obligation, or trust. It also ages badly: "never" is a claim the retention section of `MEMORY_SYSTEM.md` explicitly declines to make. |
 | **Recourse** | Names the user benefit precisely: you have somewhere to go. | Adversarial framing. It presumes a fight before one exists, which is the wrong default for a system whose most common outcome is "your deposit arrived, case resolved." It also implies legal remedy, which is an explicit non-goal (§6). |
-| **Standing** | Elegant double meaning — legal standing plus the standing of a relationship. | Too abstract to survive first contact with a judge or a user. Nothing in the word suggests documents, memory, or state. Heavily overloaded in finance and in ordinary English ("standing order", "standing by"). |
+| **Standing** | Elegant double meaning — legal standing plus the standing of a relationship. | Too abstract to survive first contact with a reviewer or a user. Nothing in the word suggests documents, memory, or state. Heavily overloaded in finance and in ordinary English ("standing order", "standing by"). |
 | **Lineage** | Names a real and central mechanism: the versioned belief chain. | Names *one* of the two mechanisms and would have made the three-term vocabulary impossible — the product name and the technical term would be the same word, which is exactly the collision we are trying to avoid. Also the narrower of the two mechanisms: grounding is what convinces a skeptic; lineage is what convinces an auditor. |
 | **Provenance** | Names what the product actually produces. | One real weakness — see §4.3. |
 
@@ -436,11 +436,11 @@ The database table keeps its name. `belief_support` was never called `provenance
 
 ---
 
-## 5. Rubric alignment
+## 5. Capability map and demo walkthrough
 
-The CockroachDB x AWS Hackathon — Build with Agentic Memory — judges five criteria, **equally weighted**. Equal weighting is the important part: a build that is technically extraordinary and impossible to understand scores the same as one that is charming and shallow. Each row below names the specific artifact in this build that earns the criterion and the exact place in the 3-minute video where a judge sees it.
+Five dimensions carry this build, and they carry it at **equal weight**. Equal weighting is the important part: a system that is technically extraordinary and impossible to understand is worth no more than one that is charming and shallow. Each row below names the specific artifact in this build that earns the dimension and the exact place in the three-minute walkthrough where it is visible.
 
-**Video shot list (2:55 total):**
+**Walkthrough shot list (2:55 total):**
 
 | Segment | Time | Content |
 |---|---|---|
@@ -452,7 +452,7 @@ The CockroachDB x AWS Hackathon — Build with Agentic Memory — judges five cr
 | F | 2:10–2:35 | Second reveal: landlord deposit trigger fired on its own, no reminder was ever set |
 | G | 2:35–2:55 | Memory Trace: MCP tool calls, vector candidates, one serializable commit, outbox event |
 
-| Criterion | The artifact in this build that earns it | Where the judge sees it |
+| Dimension | The artifact in this build that earns it | Where it is visible |
 |---|---|---|
 | **Agentic Memory Design** | Six separated levels with distinct tables and lifecycles (`source_artifacts` → `evidence_items` → `claims` → `beliefs`/`belief_versions` → `commitments` → `cases`), grounding via `belief_support` with `SUPPORTS`/`CONTRADICTS`/`QUALIFIES`, lineage via versioned supersession with reason codes, conflicts as durable rows, bitemporal valid/record time, and retraction filtering on the vector index so corrected evidence cannot resurface. | **C (0:50–1:20)** — State Proof shows both grounding and lineage explicitly, including a belief whose *value* did not change while its *epistemic status* did. Reinforced at **G**. |
 | **Technological Implementation** | One `SERIALIZABLE` CockroachDB transaction writing claim + belief version + support edges + conflict + case reopen + revision increment + state transition + outbox event, with `40001` retry handling; CockroachDB Distributed Vector Indexing (`amazon.titan-embed-text-v2:0`, 1024-dim, cosine, `user_id`-prefixed) doing the semantic candidate work; CockroachDB Cloud Managed MCP Server serving `agent_case_context_v1` / `agent_active_beliefs_v1` / `agent_evidence_retrieval_v1` to `pv_agent_reader`; LangGraph on Bedrock AgentCore Runtime with `anthropic.claude-opus-5` for reasoning and `anthropic.claude-haiku-4-5` for extraction. | **G (2:35–2:55)** — Memory Trace surfaces the actual MCP tool calls and the views they hit as first-class trace nodes, plus vector candidate counts and the single commit with its revision transition. Setup shown at **B**. |
@@ -460,7 +460,7 @@ The CockroachDB x AWS Hackathon — Build with Agentic Memory — judges five cr
 | **Product Readiness** | Cognito human app client plus M2M client-credentials clients with scoped resource servers (`provenance.memory/propose`, `provenance.action/execute`, …); five separated SQL roles (`pv_migrator`, `pv_app_reader_writer`, `pv_kernel_writer`, `pv_agent_reader`, and the read-only `pv_ops_reader` used by trace verification); approval bound to `basis_case_revision` **and** `approval_draft_sha256` so any memory change between approval and send makes the approval stale; idempotency keys on every side-effecting endpoint; transactional outbox with backoff and SQS DLQ; `processed_events` consumer dedupe; OpenTelemetry spans and CloudWatch metrics on every stage; architectural prompt-injection containment (the Interpreter has no send tool and no write privilege, so a malicious PDF has no capability path). | **E (1:45–2:10)** — the executor visibly revalidates case revision 13 and the draft hash before sending, and the UI shows the approval was bound to a specific state. Panel D of Judge Mode shows commit, retry count, outbox delivery, and model route live. |
 | **Creativity & Originality** | The Memory ON/OFF counterfactual: the same artifact, the same model, the same prompt, run with retrieval and canonical memory disabled versus enabled, rendered side by side — "Invoice for $186 due 30 June" against "Contradicts your 15 May termination confirmation — case reopened, dispute drafted." Plus prospective memory that fires on elapsed time against current state, producing an alert the user never asked for and never scheduled. | **D (1:20–1:45)** for the counterfactual — the single most persuasive twenty-five seconds in the video. **F (2:10–2:35)** for the unprompted trigger. |
 
-Two rules for the video: never show a fabricated commit or trace, and never let infrastructure precede the product moment. The judge should feel the "wait, it reopened the case" reaction at **B** before being shown a single database concept.
+Two rules for the walkthrough: never show a fabricated commit or trace, and never let infrastructure precede the product moment. The viewer should feel the "wait, it reopened the case" reaction at **B** before being shown a single database concept.
 
 ---
 
@@ -468,15 +468,15 @@ Two rules for the video: never show a fabricated commit or trace, and never let 
 
 Taken from `ARCHITECTURE.md` §5 and preserved deliberately. Each carries the reason it is excluded, because a non-goal without a reason gets quietly re-adopted by the next contributor.
 
-- **Full Gmail mailbox ingestion.** OAuth mailbox scopes turn a demo into a compliance project and put the entire ingestion surface on a review path we cannot complete in the hackathon window. Upload-first with SES inbound layered on later gives the same evidence with a fraction of the blast radius.
+- **Full Gmail mailbox ingestion.** OAuth mailbox scopes turn a demo into a compliance project and put the entire ingestion surface on a review path this build cannot complete inside its schedule. Upload-first with SES inbound layered on later gives the same evidence with a fraction of the blast radius.
 - **Autonomous legal advice.** Provenance asserts what the record contains, never what a person is entitled to. The moment the system characterises an entitlement it inherits an obligation to be right about jurisdiction, and the honest posture — "here is the documented history, cited" — is both safer and more defensible.
 - **Autonomous financial decisions.** No payment, no dispute filing, no chargeback initiation. Every consequential action passes through the human approval gate, and money movement is a category where an idempotency bug is not a retry, it is a loss.
 - **Background web browsing of arbitrary institutions.** Scraping counterparty portals introduces unauthenticated, unversioned, untyped content of unknown authority into the evidence plane — precisely the input the source-authority model is designed to keep out.
 - **Universal life-assistant behaviour.** The value comes from the narrowness. A system that remembers everything about a person cannot maintain a per-predicate authority model or a meaningful invariant set, and it dilutes the one thing this product does that nothing else does.
-- **Broad robotic process automation.** Clicking through counterparty UIs on the user's behalf is a brittle, permission-hostile capability that would need its own safety model, and it earns nothing on any of the five judging criteria.
+- **Broad robotic process automation.** Clicking through counterparty UIs on the user's behalf is a brittle, permission-hostile capability that would need its own safety model, and it earns nothing on any of the five dimensions in §5.
 - **Full policy/legal interpretation engine.** Provenance stores `POLICY_TERM` claims with valid-time intervals and surfaces which version applied when. It does not resolve what those terms *mean* in contested cases; that is human work, and pretending otherwise would put unearned confidence into a State Proof.
-- **Cross-border regulatory compliance implementation.** GDPR/CCPA erasure, data residency, and lawful-basis tracking are real production requirements. The architecture reserves room for them — tombstones, belief recomputation when support is erased, tenant-scoped S3 paths — but implementing them now would consume the entire build budget for zero demonstrable rubric value.
-- **Multi-region active-active AWS application compute.** CockroachDB's multi-region capability is real and we will describe the production topology truthfully; standing up active-active application compute for a demo-scale workload would be theatre, and claiming it without deploying it would be a lie a judge could catch.
+- **Cross-border regulatory compliance implementation.** GDPR/CCPA erasure, data residency, and lawful-basis tracking are real production requirements. The architecture reserves room for them — tombstones, belief recomputation when support is erased, tenant-scoped S3 paths — but implementing them now would consume the entire build budget for zero demonstrable v1 value.
+- **Multi-region active-active AWS application compute.** CockroachDB's multi-region capability is real and we will describe the production topology truthfully; standing up active-active application compute for a demo-scale workload would be theatre, and claiming it without deploying it would be a lie a reader could catch.
 
 The system stays narrow: **maintain the user's relationship state and safely continue from the record.**
 
@@ -484,18 +484,18 @@ The system stays narrow: **maintain the user's relationship state and safely con
 
 ## 7. Risks and decided posture
 
-**R1 — The name collides with a common noun, and lint only covers our own prose.** §4.4 removes the lowercase word from our documents, but a judge, a blog post, or a future integration doc will still use "provenance" generically, and the CockroachDB MCP tooling and OpenTelemetry ecosystems both use it. *Mitigation:* the three-term table appears in §0 of this document and is restated in the glossary; every UI string uses "grounding" or "lineage" and never the bare word; the lint runs in CI. *Residual risk:* moderate and permanent. We accept it because the alternative names were worse on the dimensions that matter more.
+**R1 — The name collides with a common noun, and lint only covers our own prose.** §4.4 removes the lowercase word from our documents, but a reviewer, a blog post, or a future integration doc will still use "provenance" generically, and the CockroachDB MCP tooling and OpenTelemetry ecosystems both use it. *Mitigation:* the three-term table appears in §0 of this document and is restated in the glossary; every UI string uses "grounding" or "lineage" and never the bare word; the lint runs in CI. *Residual risk:* moderate and permanent. We accept it because the alternative names were worse on the dimensions that matter more.
 
 **R2 — The counterfactual toggle is the most persuasive asset and also the easiest to accuse of being rigged.** A side-by-side where one side is obviously worse invites the question "did you nerf it?" *Mitigation:* Memory OFF must run the identical graph, identical model (`anthropic.claude-opus-5`), identical prompt, and identical artifact, differing only in that retrieval returns empty and State Proof is empty. **Decision:** keep the request-payload diff as a live Q&A artifact; do not spend eight seconds of the three-minute video on it.
 
-**R3 — Belief-status-without-value-change is subtle and may not land in twenty seconds.** The `balance_owed` v1→v2 transition — same `$0.00`, `CONFIRMED` → `DISPUTED` — is the most intellectually interesting thing in the data model and the hardest to explain quickly. *Mitigation:* State Proof renders status as the visual primary and value as secondary for disputed beliefs. *Risk:* a judge reads "$0.00 → $0.00" as "nothing happened." Consider a one-line caption in the UI: "the amount did not change; our confidence in it did."
+**R3 — Belief-status-without-value-change is subtle and may not land in twenty seconds.** The `balance_owed` v1→v2 transition — same `$0.00`, `CONFIRMED` → `DISPUTED` — is the most intellectually interesting thing in the data model and the hardest to explain quickly. *Mitigation:* State Proof renders status as the visual primary and value as secondary for disputed beliefs. *Risk:* a reader takes "$0.00 → $0.00" for "nothing happened." Consider a one-line caption in the UI: "the amount did not change; our confidence in it did."
 
 **R4 — Retraction filtering is a correctness requirement disguised as a demo detail.** Non-active evidence retains its embedding in the distributed vector index. If any retrieval path forgets `retraction_status = 'ACTIVE'`, corrected evidence resurfaces and grounds a belief on a fact the user already disowned — a silent, plausible-looking failure. *Mitigation:* the filter lives inside `agent_evidence_retrieval_v1` and the repository query; a golden test seeds a retracted item that ranks top-1 by cosine and asserts it is absent. **Decision:** `RETRACTED`, `SUPERSEDED`, and `QUARANTINED` evidence are excluded from new retrieval and new grounding, while remaining visible in historical State Proof.
 
 **R5 — "System of record" is a strong claim and retention policy undercuts it.** `MEMORY_SYSTEM.md` §23 explicitly declines to promise "remember forever," and the production direction includes user-initiated deletion. *Mitigation:* market continuity with user control, never permanence; preserve minimal audit where legally permissible; recompute beliefs that lose their grounding rather than leaving them dangling. **Decision:** a belief that loses all grounding becomes `RETRACTED` with a tombstoned support edge; it is never silently deleted.
 
-**R6 — The wedge may be too narrow to be a business and too broad to be a demo.** Obligations with institutions is a real category, but the per-user event rate is low — a handful of qualifying artifacts a year — which is excellent for correctness and poor for engagement. *Mitigation for the hackathon:* the "Move" context bundles four relationships so the demo has density. **Decision:** v1 is consumer-facing; professional advocates remain a post-hackathon discovery hypothesis and do not change v1 contracts.
+**R6 — The wedge may be too narrow to be a business and too broad to be a demo.** Obligations with institutions is a real category, but the per-user event rate is low — a handful of qualifying artifacts a year — which is excellent for correctness and poor for engagement. *Mitigation:* the "Move" context bundles four relationships so the demo has density. **Decision:** v1 is consumer-facing; professional advocates remain a post-v1 discovery hypothesis and do not change v1 contracts.
 
-**R7 — Authority scores are configuration presented as knowledge.** The predicate-aware authority bands in `02_DATA_MEMORY_TRANSACTIONS.md` §6 are hand-set numbers. They will be read by judges as if they were measured. *Mitigation:* the kernel uses explicit rules for high-value predicates and treats the numeric band as a tiebreaker, not an oracle; the eval corpus tests conflict outcomes, not scores. *Assumption stated plainly:* the initial bands are engineering judgement, not empirical calibration, and the documents say so wherever the table appears.
+**R7 — Authority scores are configuration presented as knowledge.** The predicate-aware authority bands in `02_DATA_MEMORY_TRANSACTIONS.md` §6 are hand-set numbers. They will be read as if they were measured. *Mitigation:* the kernel uses explicit rules for high-value predicates and treats the numeric band as a tiebreaker, not an oracle; the eval corpus tests conflict outcomes, not scores. *Assumption stated plainly:* the initial bands are engineering judgement, not empirical calibration, and the documents say so wherever the table appears.
 
-**R8 — Single-tenant demo, multi-tenant claims.** The build seeds at least two tenants to prove vector-search isolation in tests, but the UI only ever shows one. A judge cannot see isolation working. *Mitigation:* the cross-tenant retrieval test is part of the required database test list and its result can be shown on request; the `user_id`-prefixed vector index makes isolation a schema property rather than a query-authoring discipline. *Residual risk:* low technically, moderate rhetorically.
+**R8 — Single-tenant demo, multi-tenant claims.** The build seeds at least two tenants to prove vector-search isolation in tests, but the UI only ever shows one. A reader cannot see isolation working. *Mitigation:* the cross-tenant retrieval test is part of the required database test list and its result can be shown on request; the `user_id`-prefixed vector index makes isolation a schema property rather than a query-authoring discipline. *Residual risk:* low technically, moderate rhetorically.

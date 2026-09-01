@@ -2,12 +2,12 @@
 
 Two failure modes, both cheap to prevent and expensive to discover late:
 
-**Drift.** A template that omits a required variable sends a judge into a
-startup error the README does not explain. The hackathon requires "Spin-up
+**Drift.** A template that omits a required variable sends a newcomer into a
+startup error the README does not explain. This project requires "Spin-up
 Instructions: A step-by-step guide in your README.md", and a guide whose
 template is incomplete does not satisfy it.
 
-**Leakage.** This repository becomes public at submission. ``D-00-037`` is
+**Leakage.** This repository is public. ``D-00-037`` is
 already open about a real SQL username and cluster FQDN being committed; a
 credential reaching the template would be worse, because a template is the one
 file a reader is invited to copy.
@@ -49,7 +49,7 @@ class TestItCoversWhatIsRequired:
     def test_every_universally_required_variable_is_present_uncommented(self) -> None:
         """A variable required on all platforms must be live in the template.
 
-        Commented out would leave a judge with a startup failure and a file
+        Commented out would leave a newcomer with a startup failure and a file
         that looks complete.
         """
         live = set(re.findall(r"^([A-Z][A-Z0-9_]{2,})=", _template(), re.M))

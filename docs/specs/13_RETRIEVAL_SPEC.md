@@ -3,7 +3,7 @@
 One-line purpose: the exact, deterministic, eight-stage pipeline that turns an incoming artifact into a bounded `RetrievalContext`, with the SQL, the regexes, the scoring weights, the isolation proof, and the metrics that decide whether any of it works.
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 Audience: the engineer implementing `provenance_domain.retrieval` and `provenance_db.queries.retrieval`; the engineer wiring the CockroachDB MCP tools into the LangGraph ingestion graph; the engineer building the retrieval eval harness. Assumes `docs/implementation/02_DATA_MEMORY_TRANSACTIONS.md` (schema, bitemporal rules, kernel pipeline) and `docs/implementation/03_AGENTS_LANGGRAPH_CONTRACTS.md` (graph node contracts) have been read.
 
@@ -513,7 +513,7 @@ def extract_sender_domain(raw_text: str, header_sender: str | None
 
 Both domains are kept where they differ: the outer domain is recorded on the artifact, the inner domain drives identity. When `source == "FORWARDED_FROM"` and the inner domain differs from the outer, the extractor emits an `unresolved_identity_question` string — `"artifact was forwarded by the user; counterparty attributed to <domain> from the inner From: header"` — so the Memory Trace shows the inference rather than hiding it.
 
-Registrable-domain reduction (`billing.example-isp.com` → `example-isp.com`) uses a frozen 40-entry suffix list checked into `provenance_domain/retrieval/public_suffix.py`. Both the full host and the registrable domain go into `identifier_refs` lookups; a full public-suffix list is a production concern, not a hackathon one, and the list is stated as an assumption rather than pretended away.
+Registrable-domain reduction (`billing.example-isp.com` → `example-isp.com`) uses a frozen 40-entry suffix list checked into `provenance_domain/retrieval/public_suffix.py`. Both the full host and the registrable domain go into `identifier_refs` lookups; a full public-suffix list is a production concern, not a v1 one, and the list is stated as an assumption rather than pretended away.
 
 #### 7.1.2 Reference identifiers
 
@@ -1440,7 +1440,7 @@ def score(c: Candidate, now: datetime) -> tuple[float, dict[str, float]]:
     return max(0.0, sum(parts.values())), parts
 ```
 
-`score_breakdown` is carried on every `EvidenceSnippet` and rendered in the Memory Trace. A ranking that cannot be explained term by term is a ranking nobody will trust in a judging session.
+`score_breakdown` is carried on every `EvidenceSnippet` and rendered in the Memory Trace. A ranking that cannot be explained term by term is a ranking nobody will trust under scrutiny.
 
 #### Why each weight has the value it has
 
@@ -2165,7 +2165,7 @@ gold:
     - ev_landlord_deposit_promise      # different relationship
 ```
 
-Minimum for submission: **40 queries** across the four hero relationships plus the six adversarial cases from `MEMORY_SYSTEM.md` §29. Composition: 18 identity-resolvable, 8 deliberately ambiguous (two plausible cases), 6 genuinely unresolvable (a counterparty the user has no relationship with), 4 retraction traps, 4 cross-user honeypots.
+Minimum for release: **40 queries** across the four hero relationships plus the six adversarial cases from `MEMORY_SYSTEM.md` §29. Composition: 18 identity-resolvable, 8 deliberately ambiguous (two plausible cases), 6 genuinely unresolvable (a counterparty the user has no relationship with), 4 retraction traps, 4 cross-user honeypots.
 
 **Stated honestly:** at n = 40 and an observed rate near 0.90, the 95% confidence interval is roughly ±9 percentage points. **Any measured difference under 10 points is noise.** This corpus is large enough to catch a broken extractor, a missing filter, or an inverted weight. It is not large enough to justify a tuning decision, and no number produced from it should be presented as a calibrated metric. That constraint drives §16 entirely.
 

@@ -1,11 +1,11 @@
 # Provenance — Observability and Analytics Contract
 
-Purpose: fix the correlation-id model, the OpenTelemetry span map, the metric catalogue, the log and redaction contract, the Memory Trace persistence model, its tamper check, the CloudWatch dashboard and alarm set, and the analytics questions this system must be able to answer after the hackathon.
+Purpose: fix the correlation-id model, the OpenTelemetry span map, the metric catalogue, the log and redaction contract, the Memory Trace persistence model, its tamper check, the CloudWatch dashboard and alarm set, and the analytics questions this system must be able to answer once it has real users.
 
 Status: planning complete v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
-Audience: backend engineers instrumenting `services/control_plane` and `workers/`, agent engineers instrumenting the LangGraph graphs on AgentCore Runtime, the engineer who builds `packages/python/provenance_telemetry`, the reviewer running the `G-13` battery, and judges scoring Product Readiness — which is one of five equally weighted criteria and is the criterion this document is written to earn.
+Audience: backend engineers instrumenting `services/control_plane` and `workers/`, agent engineers instrumenting the LangGraph graphs on AgentCore Runtime, the engineer who builds `packages/python/provenance_telemetry`, and the reviewer running the `G-13` battery. Product readiness is the property this document exists to make checkable rather than assertable.
 
 Product: **Provenance** — a system of record for the institutions that already have one of you.
 
@@ -39,7 +39,7 @@ This document owns telemetry: correlation ids, spans, metrics, logs, the persist
 
 Every node in `GET /v1/traces/{trace_id}` and `GET /v1/cases/{case_id}/memory-trace` is a projection of one persisted row. If the row does not exist, the node does not exist. If the row is deleted, the panel goes empty. There is no fallback narration, no template that fills a gap, no "the model probably did X" node, and no client-side animation that advances on a timer.
 
-This is not a stylistic preference. `CANONICAL_DECISIONS.md` freezes it: *"Judge Mode is built from persisted runtime rows and spans. Scripted trace animation and hard-coded object identifiers are forbidden."* A judge who catches one fabricated node has correctly concluded that none of the others can be trusted either, and the Agentic Memory Design and Product Readiness scores both collapse at once. §6 defines exactly which rows constitute a trace and §7 defines how a reviewer proves the correspondence.
+This is not a stylistic preference. `CANONICAL_DECISIONS.md` freezes it: *"Judge Mode is built from persisted runtime rows and spans. Scripted trace animation and hard-coded object identifiers are forbidden."* A reviewer who catches one fabricated node has correctly concluded that none of the others can be trusted either, and the credibility of the whole surface collapses with it. §6 defines exactly which rows constitute a trace and §7 defines how a reviewer proves the correspondence.
 
 ### 1.2 The telemetry invariant, stated as the four product invariants see it
 
@@ -177,13 +177,13 @@ The error handlers in `15_API_SPEC.md` §4.1 already read `request.state.trace_i
 Two propagation rules that are easy to get wrong and expensive to fix later:
 
 1. **A retry does not mint a new `trace_id`.** It mints a new `request_id`. The retried request carries the same `Idempotency-Key`, so the flow is one flow; the transport attempt is what differs. `idempotency_records.trace_id` therefore holds the trace of the **first** attempt, and the replay response carries the original trace id in the body while the header carries the new request's trace id (`15_API_SPEC.md` §6.5). Both are recoverable, which is the point.
-2. **A causally-downstream flow does not inherit the parent's `trace_id` when the two are separated by a human decision or by wall-clock time.** Approval and execution stay on the trace of the case activity that produced them, because the judge needs to see one story. A trigger wake four months later does not, because pretending it is the same flow would make trace duration meaningless and would let one `trace_id` accumulate an unbounded number of nodes. The link between them is `causation_id`, which is what it is for.
+2. **A causally-downstream flow does not inherit the parent's `trace_id` when the two are separated by a human decision or by wall-clock time.** Approval and execution stay on the trace of the case activity that produced them, because the reviewer needs to see one story. A trigger wake four months later does not, because pretending it is the same flow would make trace duration meaningless and would let one `trace_id` accumulate an unbounded number of nodes. The link between them is `causation_id`, which is what it is for.
 
-### 2.4 The judge's click path
+### 2.4 The Judge Mode click path
 
 Judge Mode's job is to make every one of these ids a link, so that a skeptical reader can walk the whole chain without leaving the browser. The path below is the one the demo follows and the one the video's segment G shows.
 
-| Start from | Click target | Endpoint that resolves it | What the judge sees next |
+| Start from | Click target | Endpoint that resolves it | What the reviewer sees next |
 |---|---|---|---|
 | Case card on the dashboard | "Why?" | `GET /v1/cases/{case_id}/state-proof` | grounding (`SUPPORTS`/`CONTRADICTS`/`QUALIFIES` edges with source authority) and lineage (v1 → v2 and the supersession reason) |
 | State Proof | "What changed this?" | `GET /v1/cases/{case_id}/memory-trace` | The list of traces that materially changed this case, newest first, each with `case_revision_before` → `case_revision_after` |
@@ -418,7 +418,7 @@ Common to all four:
 | `provenance.retrieval.relationship_candidates` | int | ≤ 12 from stage B |
 | `provenance.retrieval.case_candidates` | int | ≤ 12 from stage B |
 
-`retrieval.vector` adds, and this is the span that carries the sponsor-technology evidence:
+`retrieval.vector` adds, and this is the span that carries the vector-index evidence:
 
 | Attribute | Type | Value |
 |---|---|---|
@@ -587,7 +587,7 @@ Head-based, deterministic on `trace_id`, configured by `PV_TRACE_SAMPLE_RATIO`.
 | `GET /v1/healthz`, `GET /v1/version` | 0.0 | Never traced. App Runner health checks would otherwise dominate the log group. |
 | All other read traffic | 0.1 default, 1.0 in `demo` | Read traffic is the only volume worth sampling at this scale, and on demo day there is no volume. |
 
-Because `demo` runs at 1.0 across the board, nothing in the recorded submission depends on a sampling decision. That is the point.
+Because `demo` runs at 1.0 across the board, nothing in a recorded walkthrough depends on a sampling decision. That is the point.
 
 ---
 
@@ -652,7 +652,7 @@ One statement, fourteen scalars, once a minute. At demo scale this is free; the 
 | `provenance.memory.urgent_cases` | ObservableGauge | — | Whether attention classification is producing anything actionable, or classifying everything as `NONE` | none |
 | `provenance.memory.unresolved_commitments` | ObservableGauge | — | The size of the wedge. If this trends to zero the product has nothing to do. | none |
 | `provenance.memory.overdue_commitments` | ObservableGauge | — | Whether prospective triggers are keeping up with deadlines that have actually passed | `> 0` and `provenance.trigger.armed == 0` for 15 min: deadlines exist and nothing is armed to catch them |
-| `provenance.memory.outstanding_total` | ObservableGauge | `currency` | The money at stake, which is segment A of the video and the Real-World Impact claim | none |
+| `provenance.memory.outstanding_total` | ObservableGauge | `currency` | The money at stake, which is segment A of the video and the real-world-impact claim | none |
 | `provenance.memory.active_conflicts` | ObservableGauge | — | Contradiction load. A conflict count that only rises means resolution is never happening. | `> 20` for 1 h on `demo` (seed is ~1) |
 | `provenance.memory.conflicts_awaiting_human` | ObservableGauge | — | The human queue depth | none |
 | `provenance.memory.evidence_admitted` | Counter | `evidence_type` | Append-only evidence growth; the denominator for extraction quality | none |
@@ -890,7 +890,7 @@ python -m tools.pricing_snapshot \
 python -c "from provenance_telemetry.pricing import load_snapshot; load_snapshot(); print('pricing snapshot OK')"
 ```
 
-`tools/pricing_snapshot.py` fails loudly if any requested model is absent from the price list, which is the failure that matters: silently pricing Opus 5 at Haiku rates would understate cost by an order of magnitude and would be exactly the sort of number a judge asks about.
+`tools/pricing_snapshot.py` fails loudly if any requested model is absent from the price list, which is the failure that matters: silently pricing Opus 5 at Haiku rates would understate cost by an order of magnitude and would be exactly the sort of number a reviewer asks about.
 
 ---
 
@@ -1002,7 +1002,7 @@ Two rules, applied in this order.
 
 2.  DENY-LIST WINS ON VALUES.  Even an allowed key is scanned, because the
     dangerous case is not ``{"password": "hunter2"}`` -- nobody writes that --
-    it is ``{"error_detail": "... postgresql://pv_kernel_writer:hunter2@..."}``,
+    it is ``{"error_detail": "... postgresql://<user>:hunter2@..."}``,
     where the leak arrives inside a string a driver produced.
 
 The function is pure, total, and idempotent: ``redact(redact(x)) == redact(x)``.
@@ -1281,11 +1281,11 @@ def test_asyncpg_connection_error_leaks_the_database_password_without_redaction(
     text -- from correct-looking, well-intentioned error handling.
     """
     raw = (
-        'connection to server at "pv-demo-1.g8x.cockroachlabs.cloud" (10.0.4.11), '
+        'connection to server at "<cluster-host>.cockroachlabs.cloud" (10.0.4.11), '
         "port 26257 failed: FATAL: password authentication failed for user "
         '"pv_kernel_writer"; url was '
-        "postgresql://pv_kernel_writer:S3cr3t-Rot4te-Me@"
-        "pv-demo-1.g8x.cockroachlabs.cloud:26257/provenance?sslmode=verify-full"
+        "postgresql://<user>:S3cr3t-Rot4te-Me@"
+        "<cluster-host>.cockroachlabs.cloud:26257/provenance?sslmode=verify-full"
     )
     assert "S3cr3t-Rot4te-Me" in raw                      # the leak, if nothing intervenes
 
@@ -1473,7 +1473,7 @@ The lint is AST-based. It finds every `logger.*(...)` call and every `emit(...)`
 
 Concretely, and these are all failures of the same rule:
 
-- No node is created from a span, a log line, or an in-memory object. Spans are for operators; rows are for judges. A span expires with the log group's retention; a row does not.
+- No node is created from a span, a log line, or an in-memory object. Spans are for operators; rows are for auditors. A span expires with the log group's retention; a row does not.
 - No node is created because the renderer expected one. If the Advocate never ran, there is no `AGENT_RUN` node for it, and the trace ends at `OUTBOX_EVENT`. The gap is the information.
 - No node's `summary` is written by a model. Summaries are formatted from the row's own columns by a pure function in `provenance_db/read_models/memory_trace.py`.
 - No node id, case id, revision number, or count is a literal in frontend source. `G12.3` greps `apps/web/src` for UUID literals and requires zero.
@@ -1923,7 +1923,7 @@ This contract needs four columns that `15_API_SPEC.md` already assumes and `10_D
 | Column | Type | Required by | Consequence if absent |
 |---|---|---|---|
 | `idempotency_records.trace_id` | `UUID NOT NULL` | `15_API_SPEC.md` §6.3 | The `api_request` CTE returns zero rows; traces lose their `API_REQUEST` node and start at `ARTIFACT_PARSE`. |
-| `agent_runs.tool_calls` | `JSONB NULL` | `15_API_SPEC.md` §8.29, §9.9 | No `MCP_TOOL_CALL` nodes. `G11.4` cannot pass, and MCP visibility — a sponsor-tool requirement — is unprovable. |
+| `agent_runs.tool_calls` | `JSONB NULL` | `15_API_SPEC.md` §8.29, §9.9 | No `MCP_TOOL_CALL` nodes. `G11.4` cannot pass, and MCP visibility is unprovable. |
 | `agent_runs.model_calls` | `JSONB NULL` | `15_API_SPEC.md` §9.9 | No `MODEL_CALL` nodes; the deterministic/model boundary block in `15_API_SPEC.md` §8.28 has nothing to classify. |
 | `agent_runs.capability_status` | `STRING NOT NULL DEFAULT 'ACTIVE'` | `15_API_SPEC.md` §3.3, §3.7 | Capability lifecycle is unobservable; `CAPABILITY_CONSUMED` cannot be distinguished from a crashed run. |
 
@@ -1933,9 +1933,9 @@ Without those four the assembly SQL still runs and still returns a coherent, tru
 
 ## 7. Trace integrity
 
-### 7.1 The problem a judge actually has
+### 7.1 The problem a reviewer actually has
 
-A judge looking at Judge Mode sees a beautiful DAG and has no way to distinguish four cases:
+A reviewer looking at Judge Mode sees a beautiful DAG and has no way to distinguish four cases:
 
 1. The DAG is a projection of rows written by a live run. (What we claim.)
 2. The DAG is a projection of rows written by the seed script and replayed. (Plausible, and a much easier build.)
@@ -2090,15 +2090,15 @@ def write_id_manifest(minted: set[uuid.UUID], path: Path) -> None:
 
 ### 7.4 What this does not prove, stated plainly
 
-Three honest limits. A judge who asks about any of them deserves the real answer, and the real answer is better than a defensive one.
+Three honest limits. A reviewer who asks about any of them deserves the real answer, and the real answer is better than a defensive one.
 
 1. **`agent_runs.tool_calls` and `model_calls` are caller-reported.** The AgentCore tool wrapper writes them at `POST /internal/v1/agent-runs/{id}/complete`. A compromised or buggy agent could under-report. `15_API_SPEC.md` §17.13 says this in the same words. The verifier proves the rendered MCP panel matches the stored array; it does not prove the stored array matches reality. The authoritative record of what the agent *could* read is the SQL grant on `pv_agent_reader`, which `G11.1` and `G11.2` demonstrate by refusal, and which is a stronger guarantee than a log anyway: an audit log tells you what happened, a grant tells you what can happen. Server-side proof of what was actually read would require CockroachDB audit logging or MCP server-side logging, neither of which is wired up in v1.
 2. **A digest match proves correspondence, not correctness.** If the Kernel wrote the wrong `case_revision_after`, the trace faithfully renders the wrong number and the verifier passes. Correctness of the write is the Kernel's problem and is gated separately at `G-4`; this section is about the rendering being faithful to the write.
-3. **The verifier trusts the database.** Somebody with `pv_migrator` could write consistent lies into both the rows and the seeded-id manifest. That is a compromise-of-the-operator scenario, not a demo-credibility scenario, and defending against it would need external attestation that the hackathon build has no way to provide. It is out of scope and is said so rather than implied away.
+3. **The verifier trusts the database.** Somebody with `pv_migrator` could write consistent lies into both the rows and the seeded-id manifest. That is a compromise-of-the-operator scenario, not a demo-credibility scenario, and defending against it would need external attestation this build has no way to provide. It is out of scope and is said so rather than implied away.
 
-### 7.5 The two-minute judge protocol
+### 7.5 The two-minute verification protocol
 
-Everything above is only useful if a skeptical reader can run it fast. This is the sequence, and it is printed in `SUBMISSION.md`:
+Everything above is only useful if a skeptical reader can run it fast. This is that sequence:
 
 ```bash
 # 1. Do the thing live. Forward the invoice, or POST it.
@@ -2127,7 +2127,7 @@ curl -sS -X POST "$PV_API/v1/cases/$CASE/corrections" -H "Authorization: Bearer 
 #    → 14     (and GET /v1/cases/$CASE/memory-trace gains a new item at the top)
 ```
 
-Step 3 is deliberately destructive against the demo tenant and is reversible with `make seed`. A team that will not let a judge run step 3 does not believe its own trace.
+Step 3 is deliberately destructive against the demo tenant and is reversible with `make seed`. A team that will not let a reviewer run step 3 does not believe its own trace.
 
 ---
 
@@ -2587,9 +2587,9 @@ alarms:
     comparison: GreaterThanThreshold
     treat_missing_data: notBreaching
     reason: >
-      A full scan may return correct results and is still a failure: the sponsor
-      claim is distributed vector indexing, and G6.2 treats a full-scan plan as a
-      gate failure even when the answer is right.
+      A full scan may return correct results and is still a failure: the claim
+      being made is distributed vector indexing, and G6.2 treats a full-scan plan
+      as a gate failure even when the answer is right.
     runbook: EXPLAIN the retrieval query. Confirm evidence_embedding_ann_idx by name.
 
   - name: provenance-identity-unresolved-share
@@ -2801,7 +2801,7 @@ SOURCE '/provenance/workers/trigger-wakeup'
 
 Operational telemetry answers *is it working*. Product analytics answers *is it worth working*. They use the same events and require different aggregation windows, different cardinality tolerance, and different honesty about sample size.
 
-The hackathon build has one real user's worth of seeded data plus whatever the demo generates. **No number in this section is a finding.** Each row below names the question, the event or metric that will eventually answer it, and the query that produces it, so that the instrumentation exists on day one and the answers accumulate from the first real user rather than from a retrofit six weeks later. That is the whole value of writing this down now.
+The current build has one real user's worth of seeded data plus whatever the demo generates. **No number in this section is a finding.** Each row below names the question, the event or metric that will eventually answer it, and the query that produces it, so that the instrumentation exists on day one and the answers accumulate from the first real user rather than from a retrofit six weeks later. That is the whole value of writing this down now.
 
 Per-user and per-counterparty questions are answered from **CloudWatch Logs**, not from metrics, because §4.1 forbids unbounded metric dimensions. Logs carry `user_hash` and `sender_domain`; that is exactly enough to segment without holding a user list.
 
@@ -2810,7 +2810,7 @@ Per-user and per-counterparty questions are answered from **CloudWatch Logs**, n
 | # | Product question | Signal | Query / derivation | What each answer would mean |
 |---|---|---|---|---|
 | 1 | **Is the wedge frequent enough to be a product?** `00_PRODUCT.md` R6 states the risk plainly: a handful of qualifying artifacts a year is excellent for correctness and poor for engagement. | `evidence.admitted.v1`, `memory.artifact_to_commit_ms{count}` | `stats count(*) by user_hash, bin(7d)` over `event = 'evidence_admitted'` | Under ~1 qualifying artifact per user per month, the consumer wedge needs a bundling mechanism (the "Move" context) or a different initial audience. Over ~4, the retention story writes itself. |
-| 2 | **Does memory change the outcome, or does the model?** The Creativity criterion rests on this. | `POST /v1/judge-mode/counterfactual` results; `agent_runs.memory_mode` | `delta.conflicts_detected`, `delta.cases_reopened`, `delta.actions_recommended` per artifact, aggregated | A `delta.conflicts_detected` of zero on artifacts that genuinely contradict canonical state would mean retrieval, not memory architecture, is doing the work. |
+| 2 | **Does memory change the outcome, or does the model?** The entire premise of the architecture rests on this. | `POST /v1/judge-mode/counterfactual` results; `agent_runs.memory_mode` | `delta.conflicts_detected`, `delta.cases_reopened`, `delta.actions_recommended` per artifact, aggregated | A `delta.conflicts_detected` of zero on artifacts that genuinely contradict canonical state would mean retrieval, not memory architecture, is doing the work. |
 | 3 | **Do users approve what the Advocate drafts?** | `provenance.action.intent_transition{to_status}` | `APPROVED / PROPOSED` over 30 days | Below ~0.5, drafting is not yet worth the human's attention and the product should propose fewer, better actions. |
 | 4 | **When users reject, is it the draft or the memory?** This is the single most valuable question in the list. | `provenance.action.rejection_reason` | share of `WRONG_FACTS` among rejections | `WRONG_TONE` is a prompt problem. `WRONG_FACTS` is a **memory** problem and should route the user to `POST /v1/cases/{id}/corrections`, which is why the API already does that. A rising `WRONG_FACTS` share invalidates the system-of-record claim faster than any latency number. |
 | 5 | **Is conflict detection precise enough to be trusted?** | `conflict.detected.v1`, `conflict.resolved.v1` with `resolution_reason_code` | conflicts resolved with a reason code indicating the conflict was spurious, over conflicts opened | Authority scores are hand-set engineering judgement, not calibration (`00_PRODUCT.md` R7). This ratio is the first empirical evidence about whether the bands are roughly right. |
@@ -2933,7 +2933,7 @@ python -m tools.span_map_check --expected docs/quality/21_OBSERVABILITY_ANALYTIC
 
 **R2 — `rows_written` is a lower bound because `claims`, `conflicts`, `commitments`, and `fulfillments` carry no `kernel_decision_id`.** §6.5 handles this by naming the field `rows_written_attributable` and counting only what the database can prove. That is honest and it is also slightly weaker than the story the demo wants to tell — "one transaction wrote seven rows" becomes "one transaction wrote at least six rows we can attribute". **Recommended fix, additive and cheap:** add `kernel_decision_id UUID NULL` to those four tables, written by the Kernel in the same statement that already writes them, with an index on it. This costs one column and makes attribution exact. It belongs in the same DDL change as R1. Until then, the number rendered is a lower bound and the UI must not label it "rows written" without qualification.
 
-**R3 — `agent_runs.tool_calls` and `model_calls` are self-reported by the agent runtime.** Already conceded in `15_API_SPEC.md` §17.13 and restated in §7.4. A compromised or buggy agent can under-report, so the MCP panel is an accurate observability artifact and not a tamper-proof audit record. **Decided posture:** say so, in Judge Mode, in one line of UI text next to the panel, rather than letting a judge discover it. The authoritative statement about what the agent could access remains the SQL grant on `pv_agent_reader`, demonstrated by refusal at `G11.2`, which is a stronger guarantee than any log. Server-side proof would need CockroachDB audit logging or MCP server-side logging; neither is in v1 scope and pretending otherwise would be the exact kind of overclaim this document exists to prevent.
+**R3 — `agent_runs.tool_calls` and `model_calls` are self-reported by the agent runtime.** Already conceded in `15_API_SPEC.md` §17.13 and restated in §7.4. A compromised or buggy agent can under-report, so the MCP panel is an accurate observability artifact and not a tamper-proof audit record. **Decided posture:** say so, in Judge Mode, in one line of UI text next to the panel, rather than letting a reviewer discover it. The authoritative statement about what the agent could access remains the SQL grant on `pv_agent_reader`, demonstrated by refusal at `G11.2`, which is a stronger guarantee than any log. Server-side proof would need CockroachDB audit logging or MCP server-side logging; neither is in v1 scope and pretending otherwise would be the exact kind of overclaim this document exists to prevent.
 
 **R4 — Binding the OpenTelemetry trace id to the UUIDv7 rules out AWS X-Ray.** §1.3. UUIDv7's timestamp prefix is milliseconds-since-epoch in the high 48 bits, which is not X-Ray's epoch-seconds prefix, so X-Ray would reject the id. **Decision:** accept it. Spans go to CloudWatch Logs as structured records, which is what `G13.5` actually asserts, plus OTLP where available. The mandatory `provenance.trace_id` span attribute exists so that reverting to the default id generator is a one-line change that costs nothing but a join. **Residual risk: low.** The cost is that there is no flame-graph UI in v1, which at eighteen spans per flow is not the bottleneck to understanding anything.
 
@@ -2951,7 +2951,7 @@ python -m tools.span_map_check --expected docs/quality/21_OBSERVABILITY_ANALYTIC
 
 **R11 — Alarm thresholds are engineering judgement at demo scale, not SLOs derived from measurement.** Nothing in §8.3 was derived from observed production behaviour, because there is none. Each threshold carries its reasoning in the `reason:` field precisely so that the first person to see a false page can evaluate the reasoning rather than guess at intent. **Expect to move:** `provenance-kernel-retry-rate` (0.5 retries per commit is a guess about contention on one hot case), `provenance-cost-per-artifact` (USD 0.25 is a round number, not a budget), and `provenance-extraction-schema-invalid-rate` (10% assumes the repair budget is absorbing occasional failures). **Do not move:** the six P1 correctness alarms whose threshold is zero. Those are not tuned; they are invariants, and a non-zero value means something the architecture says cannot happen has happened.
 
-**R12 — This document adds two gate assertions (`G12.8`, `G13.10`) and one new tool (`tools/trace_verify.py`) to a schedule that is already tight.** `23_PHASE_GATES.md` §5 marks phase 12 and phase 13 as not cuttable, and this adds work to both. **Honest assessment:** `G12.8` and `trace_verify` are worth the cost, because Judge Mode credibility is the mechanism by which the Agentic Memory Design and Product Readiness criteria are actually earned, and an unverifiable trace earns neither. `G13.10` and `tools/span_map_check` are the cuttable item in this document; if time runs out, drop `G13.10` and rely on `G13.5`'s seven named spans, and record the drop as carried debt rather than deleting the assertion from this table.
+**R12 — This document adds two gate assertions (`G12.8`, `G13.10`) and one new tool (`tools/trace_verify.py`) to a schedule that is already tight.** `23_PHASE_GATES.md` §5 marks phase 12 and phase 13 as not cuttable, and this adds work to both. **Honest assessment:** `G12.8` and `trace_verify` are worth the cost, because Judge Mode credibility is the mechanism by which the memory-design and product-readiness claims are actually earned, and an unverifiable trace earns neither. `G13.10` and `tools/span_map_check` are the cuttable item in this document; if time runs out, drop `G13.10` and rely on `G13.5`'s seven named spans, and record the drop as carried debt rather than deleting the assertion from this table.
 
 
 

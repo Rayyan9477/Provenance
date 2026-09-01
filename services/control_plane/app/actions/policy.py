@@ -6,9 +6,8 @@ Authority
   -- ``PV_ACTION_ALLOWLIST`` (default ``""``), ``PV_ACTION_EXECUTION_MODE``
   (default ``ENABLED``), ``ACTION_RECIPIENT_MODE`` (default ``DEMO_SINK``),
   ``SES_DEMO_SINK_DOMAIN`` (default ``None``).
-- ``docs/specs/15_API_SPEC.md`` section 9.8 step 3 -- "for the hackathon the
-  allowlist is the counterparty's ``canonical_domain`` plus
-  ``demo-sink.provenance.app``".
+- ``docs/specs/15_API_SPEC.md`` section 9.8 step 3 -- the allowlist is the
+  counterparty's ``canonical_domain`` plus ``demo-sink.provenance.app``.
 - ``docs/quality/23_PHASE_GATES.md`` ``G9.5`` and ``G9.6``.
 
 Empty means nothing, not everything

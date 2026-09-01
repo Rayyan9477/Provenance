@@ -1,14 +1,14 @@
 # Provenance — Implementation Map
 
 Status: planning-complete implementation baseline v1.1  
-Implementation status: not started  
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared  
 Purpose: remove architectural ambiguity before code generation  
-Audience: coding agents, backend/frontend engineers, judges reviewing technical depth
+Audience: coding agents, backend/frontend engineers, reviewers assessing technical depth
 
 ## 1. Frozen decisions
 
-**Rewritten 2026-08-24 for the pivot** from the CockroachDB × AWS hackathon to the
-All Things Agentic Hackathon. `CANONICAL_DECISIONS.md` → *Gemini model id canon* is
+**Rewritten 2026-08-24 for the platform pivot** from an AWS-hosted application plane
+to a Google Cloud one. `CANONICAL_DECISIONS.md` → *Gemini model id canon* is
 the binding record; this table is the summary and defers to it on any conflict.
 
 | Concern | Decision | Changed by the pivot |
@@ -34,19 +34,18 @@ the binding record; this table is the summary and defers to it on any conflict.
 | Database isolation | CockroachDB `SERIALIZABLE`; Kernel retries SQLSTATE `40001` | no |
 | Cloud region | Cloud Run in **`us-east4`** | yes |
 
-**There is no Pro reasoning tier, and that is the rules rather than a preference.**
+**There is no Pro reasoning tier, and that is a constraint rather than a preference.**
 `gemini-3.1-pro-preview` is the only Pro model on the Gemini API and it is version
-3.1 — *below* the mandated "3.5 or newer" floor. Both tiers are therefore
+3.1 — *below* this project's "3.5 or newer" model floor. Both tiers are therefore
 Flash-class. Any statement elsewhere in this pack implying a Pro tier is superseded.
 
 **Why the database did not move.** Keeping CockroachDB preserves eight migrations,
 twenty-six tables, five agent views, the seed and roughly 390 database and retrieval
 tests — the largest block of verified work in the repository. `CREATE VECTOR INDEX`
 has no exact pgvector or ScaNN equivalent, so moving would mean re-deriving the
-vector strategy under deadline. The hackathon requires *at least one* Google Cloud
-infrastructure service, and Cloud Run satisfies that on its own. `us-east4` and AWS
-`us-east-1` are both Northern Virginia, so the cross-cloud hop stays in single-digit
-milliseconds.
+vector strategy from scratch. The application plane runs on Cloud Run; the data plane
+stays on CockroachDB Cloud. `us-east4` and AWS `us-east-1` are both Northern Virginia,
+so the cross-cloud hop stays in single-digit milliseconds.
 
 **Every Gemini id above is UNPROBED.** All are transcribed from documentation and
 none has been invoked. The previous canon was frozen the same way and *every one of
@@ -70,7 +69,7 @@ If an implementation decision breaks any invariant, reject the decision.
 
 ## 4. Logical architecture vs deployment architecture
 
-Provenance has many logical modules, but the hackathon build should **not** deploy one microservice per box.
+Provenance has many logical modules, but the build should **not** deploy one microservice per box.
 
 ### 4.1 Logical modules
 
@@ -88,7 +87,7 @@ Provenance has many logical modules, but the hackathon build should **not** depl
 - trigger evaluator
 - observability/evaluation
 
-### 4.2 Hackathon deployment units
+### 4.2 Deployment units
 
 Use only these deployment units initially:
 
@@ -100,12 +99,12 @@ the deploy phase got cheaper rather than more expensive.
    retrieval, Memory Kernel, State Proof, action-policy logic, the agent runtime and
    internal tool endpoints.
 3. **`workers`** — trigger wakeups and outbox sweeping/dispatch. In-process behind a
-   transport Protocol for the hackathon build; a separate deployment unit only if the
-   demo shows it needs one.
+   transport Protocol in the current build; a separate deployment unit only if load
+   shows it needs one.
 4. **CockroachDB Cloud** — canonical memory plane, on AWS `us-east-1`.
 5. **Cloud Storage** — raw artifact bytes.
-6. **Gemini Developer API** — model inference. Not a Cloud infrastructure service, so
-   it does **not** satisfy the hackathon's infrastructure requirement; Cloud Run does.
+6. **Gemini Developer API** — model inference. A managed model endpoint rather than a
+   Cloud infrastructure service; the hosted infrastructure surface is Cloud Run.
 
 `agent-runtime` is no longer a separate deployment unit. It was one because AgentCore
 Runtime was a distinct hosting product; with the `google-genai` SDK the agent layer is
@@ -198,7 +197,7 @@ provenance/
 │   ├── probes/                       # phase0-probe.sh / .ps1
 │   ├── cluster-probe.txt  grant-probe.txt  bedrock-probe.txt  restore-probe.txt
 │   ├── decisions/                    # VECTOR_INDEX_VARIANT.md
-│   ├── gates/                        # PHASE_00.md .. PHASE_15.md, SUBMISSION.md, logs/
+│   ├── gates/                        # PHASE_00.md .. PHASE_15.md, logs/
 │   └── defects/                      # DEFECTS.md
 │
 ├── demo/
@@ -210,15 +209,14 @@ provenance/
 └── docs/
 ```
 
-### 5.1 Layout authority and the four trees it reconciles
+### 5.1 Layout authority and the three trees it reconciles
 
-**This tree is authoritative.** Four documents previously specified four different layouts, and one of them contradicted this one outright. Resolved 2026-08-17, recorded in `CANONICAL_DECISIONS.md` → *Repository layout canon*:
+**This tree is authoritative.** Three documents previously specified three different layouts, and one of them contradicted this one outright. Resolved 2026-08-17, recorded in `CANONICAL_DECISIONS.md` → *Repository layout canon*:
 
 | Source | Status |
 |---|---|
 | `implementation/00_IMPLEMENTATION_MAP.md` §5 (this tree) | **Authoritative.** |
 | `ARCHITECTURE.md` §25 | **Superseded.** Specified a microservice tree — five `services/*`, three `agents/*`, no `workers/` — that §4.2 of this document explicitly rejects. Marked superseded in place. |
-| `submission/50_README_DRAFT.md` | Merged in: `ops/`, `tools/`, `tests/`, `db/verify.sql`. |
 | `quality/20_TDD_STRATEGY.md` §3.3 | Merged in: `pyproject.toml`, `.importlinter`, `Makefile`, `.coveragerc`, `tests/{retrieval,e2e,support}`, `evals/fixtures/model/`. |
 | `quality/22_EVAL_DATASETS.md` §1.4 | Merged in: `evals/{decoys,runner,reports}`, `datasets/schema/`. |
 
@@ -382,7 +380,7 @@ Read in this order:
 3. `02_DATA_MEMORY_TRANSACTIONS.md` — schema, invariants, indexes, transaction boundaries.
 4. `03_AGENTS_LANGGRAPH_CONTRACTS.md` — graph state, nodes, tools, model routing.
 5. `04_API_EVENTS_SECURITY.md` — public/internal APIs, events, auth, idempotency, MCP.
-6. `05_RELIABILITY_EVAL_DEMO.md` — failure handling, observability, evaluation, judge scenario.
+6. `05_RELIABILITY_EVAL_DEMO.md` — failure handling, observability, evaluation, demo scenario.
 
 ## 14. Official references
 

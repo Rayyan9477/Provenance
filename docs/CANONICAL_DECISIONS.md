@@ -1,7 +1,7 @@
 # Provenance — Canonical Decisions Register
 
 Status: frozen planning baseline v1.1  
-Implementation status: not started  
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared  
 Decision date: 2026-08-17
 
 This register resolves cross-document ambiguities. These decisions are binding for implementation. External capability checks are assigned to Phase 0; they are not invitations to redesign the product.
@@ -15,7 +15,7 @@ This register resolves cross-document ambiguities. These decisions are binding f
 | Wedge | Unresolved obligations and the events that contradict, fulfill, withdraw, or expire them. |
 | Grounding | `belief_support` edges that support, contradict, or qualify a belief version. |
 | Lineage | The ordered `belief_versions` supersession chain and reason for each change. |
-| Initial audience | Individual consumer in the hackathon build. Professional advocate workflows are a post-hackathon market hypothesis, not v1 scope. |
+| Initial audience | Individual consumer in v1. Professional advocate workflows are a post-v1 market hypothesis, not v1 scope. |
 
 ## Names and counts
 
@@ -74,7 +74,7 @@ This register resolves cross-document ambiguities. These decisions are binding f
 | Concern | Canonical decision |
 |---|---|
 | Counterfactual | Memory OFF and ON use the same artifact, model, prompt, and graph. OFF receives empty retrieval and State Proof. The request diff is kept for live Q&A, not the three-minute video. |
-| Fixture mode | Permitted for local deterministic graph tests and emergency demonstration only with a permanent visible banner and `fixture_mode: true`. The recorded submission must use live mode. |
+| Fixture mode | Permitted for local deterministic graph tests and emergency demonstration only with a permanent visible banner and `fixture_mode: true`. The recorded demonstration must use live mode. |
 | Seed disclosure | 32 hero evidence rows are curated; 18,000 decoys are synthetic; state changes, conflict detection, retrieval, trigger evaluation, and drafting are computed at demo time. |
 | Judge Mode | Built from persisted runtime rows and spans. Scripted trace animation and hard-coded object identifiers are forbidden. |
 
@@ -101,10 +101,10 @@ These questions cannot be answered truthfully in prose. The architecture already
 
 | Probe | Success path | Predetermined fallback |
 |---|---|---|
-| CockroachDB vector-index syntax/opclass | Use the first supported cosine variant in DDL order. | L2-normalized vector index; if no vector index works, disclose brute-force user-partition scan and fail the sponsor vector-index submission gate. |
+| CockroachDB vector-index syntax/opclass | Use the first supported cosine variant in DDL order. | L2-normalized vector index; if no vector index works, disclose brute-force user-partition scan and fail the vector-index gate. |
 | Computed stored column support | Use generated `is_retrieval_eligible`. | Plain boolean plus consistency check, written only by the kernel. |
 | View/grant behavior | MCP role reads views and is denied base tables. | Stop Phase 11; do not weaken grants. Use a controlled read API until the database boundary is proven. |
-| Bedrock model access | Use canonical Tier E and Tier R IDs. | Fixture mode for development only; live submission remains blocked until model access works. |
+| Bedrock model access | Use canonical Tier E and Tier R IDs. | Fixture mode for development only; live release remains blocked until model access works. |
 | Seed database clone/restore | Per-scenario logical databases from template dump. | Sequential scenarios with transaction rollback; isolate live-model writes explicitly. |
 
 ## Hero dataset canon (frozen 2026-08-17)
@@ -149,7 +149,7 @@ Phase 0 probing against the live account disproved the model ids frozen earlier.
 | Embeddings | **`amazon.titan-embed-text-v2:0`**, unchanged, invoked by **bare id**. Verified: 1024 dims, L2 norm 1.0000000 with `"normalize": true`. |
 | Reachable but unadopted | `zai.glm-5`, `zai.glm-4.7`, `moonshotai.kimi-k2.5`, `google.gemma-3-27b-it`, `deepseek.v3.2`, `qwen.qwen3-next-80b-a3b`, `openai.gpt-oss-120b-1:0` are all invocable. None is adopted. A second model family in the reasoning path would mean two prompt calibrations, two refusal shapes and two JSON-mode behaviours to hold the extraction contract against, and `14_PROMPTS.md` is calibrated once. They are recorded because a **capacity** failure — not a capability one — is the scenario in which reaching for one is the right move, and that decision should not have to be re-probed under time pressure. |
 | Router obligation | Both tier ids are read from configuration (`BEDROCK_REASONING_MODEL_ID`, `BEDROCK_EXTRACTION_MODEL_ID`). Swapping either is a one-line environment change, never a code change. Because the two identifier forms differ by provider, the router **must not** synthesise a profile prefix; it passes the configured string through unmodified. `agent_runs.model_route` records the id actually used, so every run is attributable to the model that served it. |
-| Disclosure | The submission ships on **Opus 4.6**. `SUBMISSION.md` and the README state that, and do not claim Opus 5. Claiming a model you did not run is the kind of small, checkable dishonesty the pack exists to prevent, and `agent_runs.model_route` makes it checkable against persisted state. |
+| Disclosure | The build ships on **Opus 4.6**. The README states that, and does not claim Opus 5. Claiming a model you did not run is the kind of small, checkable dishonesty the pack exists to prevent, and `agent_runs.model_route` makes it checkable against persisted state. |
 
 Every occurrence of a bare `anthropic.claude-*` id elsewhere in the pack is superseded by this section.
 
@@ -157,29 +157,27 @@ Evidence: `ops/bedrock-probe.txt`, run 2026-08-17T22:14:20Z. Every row above is 
 
 ## Gemini model id canon (frozen 2026-08-24, supersedes the Bedrock canon above)
 
-The build pivoted from the CockroachDB × AWS hackathon to the All Things Agentic
-hackathon (deadline 2026-08-31T17:00 PDT), which mandates **Gemini 3.5 or newer**,
-**at least one Google agent framework**, and **at least one Google Cloud
-infrastructure service**. The CockroachDB entry is discarded; the cluster itself
-stays, because the eight migrations, twenty-six tables, five agent views, the seed
-and roughly 390 database and retrieval tests are the largest block of verified work
-in the repository, and `CREATE VECTOR INDEX` has no exact pgvector/ScaNN equivalent.
+On 2026-08-24 the model and hosting platform moved off AWS Bedrock and onto
+Google: **Gemini 3.5 or newer**, a Google agent framework, and Google Cloud for
+the runtime. The CockroachDB cluster stays, because the eight migrations,
+twenty-six tables, five agent views, the seed and roughly 390 database and
+retrieval tests are the largest block of verified work in the repository, and
+`CREATE VECTOR INDEX` has no exact pgvector/ScaNN equivalent.
 
-Model access is the **Gemini Developer API** via an AI Studio API key, which the
-rules name explicitly ("accessed through Gemini API or Vertex AI"). No GCP service
-account, no ADC, no IAM. The Google Cloud requirement is therefore satisfied by
-**Cloud Run**, not by the model API.
+Model access is the **Gemini Developer API** via an AI Studio API key. No GCP
+service account, no ADC, no IAM. The Google Cloud footprint is therefore
+**Cloud Run**, not the model API.
 
 | Concern | Canonical decision |
 |---|---|
-| Reasoning tier — **there is no Pro option** | `gemini-3.1-pro-preview` is the only Pro model on the API and it is version **3.1**, *below* the mandated 3.5 floor; it also has no free tier. Gemini 3.5 Pro was announced but has not rolled out. **Both tiers are therefore Flash-class**, and any document implying a Pro reasoning tier is superseded. |
+| Reasoning tier — **there is no Pro option** | `gemini-3.1-pro-preview` is the only Pro model on the API and it is version **3.1**, *below* the 3.5 floor this build holds to; it also has no free tier. Gemini 3.5 Pro was announced but has not rolled out. **Both tiers are therefore Flash-class**, and any document implying a Pro reasoning tier is superseded. |
 | Tier E | `gemini-3.5-flash-lite` — extraction, classification, bulk structured output. |
 | Tier R | `gemini-3.7-flash` — semantic resolution, contradiction characterisation, attention assessment, advocacy drafting. |
 | Tier R fallback | `gemini-3.6-flash` (GA), held for capacity failure, not capability failure. |
 | Embeddings | **`gemini-embedding-2`** at `output_dimensionality=1536`, `embedding_version = 'v2'`. |
 | Why `gemini-embedding-2` and not `gemini-embedding-001` | `gemini-embedding-2` **auto-normalizes truncated dimensions** (768, 1536); `001` requires manual normalization for any width other than 3072. This stack ranks by **cosine**, and a missed normalization is silent — the distances stay numbers, stay ordered, and stop meaning anything. The model that makes the failure structurally impossible wins over the one that costs $0.05/1M less. It also raises the input ceiling from 2,048 to 8,192 tokens and is multimodal. |
 | Embedding width | **1536**. On Google's recommended list (768 / 1536 / 3072), halves storage and index-build cost against the 3072 default, and MRL truncation costs little quality. |
-| Agent framework | **`google-genai`** SDK (installed, 1.60.0), which is itself one of the four accepted frameworks. ADK remains an option for how the agent layer *reads*, never a requirement to satisfy a rule. |
+| Agent framework | **`google-genai`** SDK (installed, 1.60.0). ADK remains an option for how the agent layer *reads*, never a requirement. |
 | Router obligation | Every id is read from configuration — `GEMINI_REASONING_MODEL_ID`, `GEMINI_EXTRACTION_MODEL_ID`, `GEMINI_REASONING_FALLBACK_MODEL_ID`, `GEMINI_EMBEDDING_MODEL_ID`. Swapping one is an environment change, never a code change. `agent_runs.model_route` records the id actually used, so every run is attributable to the model that served it. |
 | Database | CockroachDB Cloud, **unchanged**, on AWS `us-east-1`. Cloud Run should therefore sit in GCP `us-east4` — same physical metro, so the cross-cloud hop stays in single-digit milliseconds instead of 70+. |
 
@@ -231,8 +229,8 @@ FAIL in the first transcript:
 2. **PB-G6's FAIL was the fixture, not the capability.** The probe uploaded a 1×1
    *transparent* PNG and the API answered `400 INVALID_ARGUMENT: Unable to process
    input image`. An 8×8 solid red PNG — **the same 75 bytes** — succeeds. Acting on
-   that FAIL would have kept an external OCR dependency and forfeited the
-   multimodal category on the evidence of one transparent pixel. This is `D-00-005`
+   that FAIL would have kept an external OCR dependency and forfeited native
+   multimodal ingestion on the evidence of one transparent pixel. This is `D-00-005`
    in its purest form: the probe could not perform the action and reported that the
    capability had failed.
 

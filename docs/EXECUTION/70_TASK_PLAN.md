@@ -1,7 +1,7 @@
 # Provenance — Task Plan (Phase → Task → Sub-task)
 
 Status: execution-planning baseline v1.0
-Implementation status: **not started.** No code, no cloud resource, no test run, and no integration described in this document exists yet.
+Implementation status: **substantial.** Most of what this plan describes was built. See `STATUS.md` at the repository root, which is measured rather than declared and names what is still partial or absent.
 Written: 2026-08-17
 
 ---
@@ -149,13 +149,13 @@ Sub-tasks:
 - Fetch the canonical Apache-2.0 text, write `LICENSE` byte-exact, compute its SHA-256, and record it in `ops/decisions/LICENSE_SHA.txt` with the source URL and retrieval date.
 - Write `NOTICE` with the copyright line that `S2`'s `grep -rn "Copyright" NOTICE` requires.
 - Configure `.gitleaks.toml` with an allowlist that permits `ops/gates/logs/` **only** for already-scrubbed patterns, never for URL-with-credential shapes.
-- Decide and record repository visibility. The live environment note says the repository `github.com/Rayyan9477/Provenance.git` is private for now; G0.2 requires `PUBLIC`. Record in `ops/gates/PHASE_00.md` whether G0.2 is PASS or **NOT RUN — repository intentionally private until submission**, and carry it as explicit debt closed at `T15.4`.
+- Decide and record repository visibility. The live environment note says the repository `github.com/Rayyan9477/Provenance.git` is private for now; G0.2 requires `PUBLIC`. Record in `ops/gates/PHASE_00.md` whether G0.2 is PASS or **NOT RUN — repository intentionally private until release**, and carry it as explicit debt closed at `T15.4`.
 - Add `.gitignore` entries for `.env`, `*.pem`, `build/`, `.venv/`, `node_modules/`, and `evals/reports/*.json`.
 
 #### T0.3 — Gate tooling: `gate.sh`, `scrub.py`, `gate-env.sh`, ledger skeleton
 
 - **Read first:** `23_PHASE_GATES.md` §2.2, §3, §4, §4.1; `EXECUTION/72_DEFECT_PROTOCOL.md` §11.3.
-- **Creates:** `tools/gate.sh`, `tools/scrub.py`, `ops/gate-env.sh`, `ops/gates/PHASE_00.md` … `ops/gates/PHASE_15.md` (template-filled), `ops/gates/SUBMISSION.md`, `ops/gates/logs/.gitkeep`, `ops/defects/DEFECTS.md`, and the defect toolchain `72_` §11.3 makes a binding precondition of every gate verdict: `tools/defect_lint.py`, `tools/close_proof.py`, `tools/sabotage_guard.py`, plus the `defects`, `debt`, `close-proof` and `triage-round` targets in the `Makefile` that `T0.1` creates.
+- **Creates:** `tools/gate.sh`, `tools/scrub.py`, `ops/gate-env.sh`, `ops/gates/PHASE_00.md` … `ops/gates/PHASE_15.md` (template-filled), `ops/gates/logs/.gitkeep`, `ops/defects/DEFECTS.md`, and the defect toolchain `72_` §11.3 makes a binding precondition of every gate verdict: `tools/defect_lint.py`, `tools/close_proof.py`, `tools/sabotage_guard.py`, plus the `defects`, `debt`, `close-proof` and `triage-round` targets in the `Makefile` that `T0.1` creates.
 - **Tests first:** `tools/tests/test_scrub.py` **(derived)** — asserts that a line containing `postgresql://user:pw@host/db`, a JWT-shaped token, and an ARN containing a 12-digit account id are each replaced by a redaction marker, and that a line containing none of them passes through byte-identical.
 - **Acceptance:** `tools/gate.sh G0.0 -- echo 'postgresql://u:p@h/d'` produces `ops/gates/logs/G0.0.<sha8>.log` whose body contains no `:p@` substring, whose header records `exit=0`, and which `gitleaks detect --source ops/gates` passes.
 - **Feeds:** G0.3, and the evidence mechanism for all 118 assertions.
@@ -194,13 +194,13 @@ Sub-tasks:
 - **Read first:** `ops/41_RUNBOOK.md` §1, §2; `ops/40_INFRA_IAC.md` §11; `specs/10_DATABASE_DDL.md` §2.
 - **Creates:** `ops/cluster-provision.txt`, `ops/decisions/CLUSTER.md` **(derived)**; the AWS Secrets Manager secret `provenance/db` with five keys.
 - **Tests first:** none — this is provisioning. Its evidence is a transcript, and `T0.6` is the test.
-- **Acceptance:** `ccloud cluster list --output json | jq -r '.[] | .name + " " + .state'` prints `rayyandb CREATED`; `asm-exec --env U='{{resolve:secretsmanager:provenance/db:SecretString:migrator_url}}' -- cockroach sql --url "$U" --format=csv -e "SELECT version();"` returns one row beginning `CockroachDB CCL v`; `SELECT current_database();` returns `provenance`, not `defaultdb`; `ops/cluster-provision.txt` is non-empty and contains no credential after scrubbing.
-- **Feeds:** G0.5, and S5 tool 3 (ccloud as the third qualifying CockroachDB tool).
+- **Acceptance:** `ccloud cluster list --output json | jq -r '.[] | .name + " " + .state'` prints `<cluster> CREATED`; `asm-exec --env U='{{resolve:secretsmanager:provenance/db:SecretString:migrator_url}}' -- cockroach sql --url "$U" --format=csv -e "SELECT version();"` returns one row beginning `CockroachDB CCL v`; `SELECT current_database();` returns `provenance`, not `defaultdb`; `ops/cluster-provision.txt` is non-empty and contains no credential after scrubbing.
+- **Feeds:** G0.5, and S5 tool 3 (ccloud as the third CockroachDB tool).
 - **Depends on:** T0.3 (needs `tools/gate.sh` to capture the transcript).
 - **Parallel-safe:** yes — lane P0-L4.
 
 Sub-tasks:
-- Authenticate `ccloud` and record the transcript of `ccloud cluster create` (or, for the already-provisioned cluster `rayyandb`, id `4023638b-52be-42bd-9677-d3611c613477`, plan BASIC, AWS `us-east-1`, `ccloud cluster describe`) into `ops/cluster-provision.txt`. S5's genuineness test requires that the cluster be reprovisionable from this transcript; if it records a describe rather than a create, say so in the file.
+- Authenticate `ccloud` and record the transcript of `ccloud cluster create` (or, for an already-provisioned cluster `<cluster>`, id `<cluster-id>`, plan BASIC, AWS `us-east-1`, `ccloud cluster describe`) into `ops/cluster-provision.txt`. S5's genuineness test requires that the cluster be reprovisionable from this transcript; if it records a describe rather than a create, say so in the file.
 - Create the application database: `CREATE DATABASE provenance;` and a second `CREATE DATABASE provenance_ci;` — the separate CI database is a `G-2` entry criterion, and creating it now costs nothing and prevents a destructive gate run from flattening demo data later.
 - Create the five SQL users and store their connection URLs in `provenance/db` as `migrator_url`, `app_url`, `kernel_url`, `agent_url`, `ops_reader_url`. Roles and grants come in `T2.6`; the users must exist first so the probes in `T0.6` can attempt them.
 - Download the CA to `%APPDATA%\postgresql\root.crt` and confirm `sslmode=verify-full` connects. Record both the Windows path and the Git Bash equivalent in `ops/decisions/CLUSTER.md`, because half the commands in this build run in each shell.
@@ -217,9 +217,9 @@ Sub-tasks:
 - **Parallel-safe:** no — this is the sequencing point of the phase. `T2.2` cannot start until `VARIANT` is written.
 
 Sub-tasks:
-- Run P1–P11 from `10_DATABASE_DDL.md` §1 verbatim **as the bootstrap SQL user `rayyan9477`**, appending each with its own `-- P<n>` header. It cannot be `pv_migrator`: that role does not exist until migration `0001`/`0008`, which is `T2.1`–`T2.6`, which depends on this task. Record in the transcript that PB-1 was therefore answered for the bootstrap user only — a bootstrap user holding `MODIFYCLUSTERSETTING` proves nothing about `pv_migrator` — and re-assert PB-1 as `pv_migrator` at Phase 2 via `$env:PV_PROBE_MIGRATOR_URL`. Write the cleanup step's header as `-- CLEANUP`, **not** `-- P12` — the runbook flags this explicitly and G0.6 asserts exactly 11 `-- P` lines.
+- Run P1–P11 from `10_DATABASE_DDL.md` §1 verbatim **as the bootstrap SQL user**, appending each with its own `-- P<n>` header. It cannot be `pv_migrator`: that role does not exist until migration `0001`/`0008`, which is `T2.1`–`T2.6`, which depends on this task. Record in the transcript that PB-1 was therefore answered for the bootstrap user only — a bootstrap user holding `MODIFYCLUSTERSETTING` proves nothing about `pv_migrator` — and re-assert PB-1 as `pv_migrator` at Phase 2 via `$env:PV_PROBE_MIGRATOR_URL`. Write the cleanup step's header as `-- CLEANUP`, **not** `-- P12` — the runbook flags this explicitly and G0.6 asserts exactly 11 `-- P` lines.
 - PB-1: `SET CLUSTER SETTING feature.vector_index.enabled = true;` then `SHOW CLUSTER SETTING feature.vector_index.enabled;`. On a managed BASIC cluster this is the likeliest probe to fail with `only users with the MODIFYCLUSTERSETTING ... privilege`. Record which of the two passing shapes was seen — setting turned on, or setting absent and PB-2 succeeds anyway. They are different facts.
-- PB-2: attempt the ordered cosine variants. Prefix syntax is `CREATE VECTOR INDEX name (prefix_col, embedding vector_cosine_ops) ON tbl;` and filter acceleration works **only** via prefix columns. Record the first variant that succeeds as A, B, or C in `ops/decisions/VECTOR_INDEX_VARIANT.md` with the probe output that selected it, and the fallback if none does: L2-normalised `vector_l2_ops`, then disclosed brute-force user-partition scan with the sponsor vector-index submission gate failed.
+- PB-2: attempt the ordered cosine variants. Prefix syntax is `CREATE VECTOR INDEX name (prefix_col, embedding vector_cosine_ops) ON tbl;` and filter acceleration works **only** via prefix columns. Record the first variant that succeeds as A, B, or C in `ops/decisions/VECTOR_INDEX_VARIANT.md` with the probe output that selected it, and the fallback if none does: L2-normalised `vector_l2_ops`, then disclosed brute-force user-partition scan with the vector-index gate failed.
 - PB-3: computed stored column support, for `is_retrieval_eligible = (retraction_status = 'ACTIVE')`. Fallback is a plain boolean plus a consistency check written only by the kernel.
 - PB-4: create a throwaway view and a throwaway role, grant `SELECT` on the view only, and confirm the role reads the view and is denied the base table. Transcript to `ops/grant-probe.txt`. If this fails, Phase 11 stops — the predetermined fallback is a controlled read API, and grants are never weakened to make it pass.
 - PB-5: invoke each of `anthropic.claude-haiku-4-5`, `anthropic.claude-opus-5`, and `amazon.titan-embed-text-v2:0` once through Bedrock in `us-east-1`; record the model id echoed back and the embedding dimension returned. Transcript to `ops/bedrock-probe.txt`. A returned dimension other than 1024 blocks Phase 6.
@@ -989,7 +989,7 @@ Sub-tasks:
 
 ## 9. Phase 6 — embeddings and retrieval
 
-**Gate `G-6`. 6 tasks. Depends on: G-2, G-3.** Degradable, not cuttable. The ANN index may be dropped and retrieval may fall back to a disclosed brute-force scan over the hero user's ~16,000-row partition, but the sponsor vector-index submission claim is then blocked and must not be made.
+**Gate `G-6`. 6 tasks. Depends on: G-2, G-3.** Degradable, not cuttable. The ANN index may be dropped and retrieval may fall back to a disclosed brute-force scan over the hero user's ~16,000-row partition, but the vector-index claim is then blocked and must not be made.
 
 ```text
 P6-L1  T6.1 ─► T6.2 ─► T6.3 ─► T6.4      the eight-stage pipeline, in order
@@ -1042,7 +1042,7 @@ Sub-tasks:
 - Route every ANN call through the single entry point `provenance_db.repositories.evidence.ann_search()`. One entry point is what makes `EXPLAIN`-by-name assertable.
 - Over-fetch from the user-prefixed partition, then filter. Filter acceleration works only via prefix columns, so a non-prefix predicate is applied after the scan and the over-fetch factor is what preserves recall.
 - Tune `vector_search_beam_size` per §16 and record the chosen value beside the recall measurement that justified it, in `ops/decisions/`.
-- If PB-2 selected no working variant, implement the disclosed brute-force user-partition scan behind the same entry point, mark `G6.2` FAIL in the ledger, and remove the vector-index claim from the submission. Degrading honestly is a supported path; claiming the index anyway is not.
+- If PB-2 selected no working variant, implement the disclosed brute-force user-partition scan behind the same entry point, mark `G6.2` FAIL in the ledger, and remove the vector-index claim from the release documentation. Degrading honestly is a supported path; claiming the index anyway is not.
 
 #### T6.4 — Stages E–H: relational validation, expansion, rerank, bounded context
 
@@ -1300,7 +1300,7 @@ Sub-tasks:
 - **Read first:** `specs/15_API_SPEC.md` §8.1–§8.17.
 - **Creates:** `services/control_plane/app/api/routes/{health.py,me.py,dashboard.py,contexts.py,relationships.py,cases.py,beliefs.py,commitments.py,triggers.py}` **(file names derived; `api/` is specified)**.
 - **Tests first:** the route members of `services/control_plane/tests/db/` covering each endpoint's happy path, its 404 shape, and its pagination.
-- **Acceptance:** `GET /v1/version` returns `fixture_mode`, `agent_mode`, `otlp_export`, `schema_revision`, `db_ok` and `git_sha` and is unauthenticated so a judge can `curl` it; the field is `git_sha` and `build_sha` is not a field name; `GET /v1/healthz` is a bare liveness probe carrying no `fixture_mode`; `GET /v1/me.feature_flags.fixture_mode` mirrors the version endpoint; the hero case's state-proof endpoint returns the `T5.3` shape.
+- **Acceptance:** `GET /v1/version` returns `fixture_mode`, `agent_mode`, `otlp_export`, `schema_revision`, `db_ok` and `git_sha` and is unauthenticated so a reviewer can `curl` it; the field is `git_sha` and `build_sha` is not a field name; `GET /v1/healthz` is a bare liveness probe carrying no `fixture_mode`; `GET /v1/me.feature_flags.fixture_mode` mirrors the version endpoint; the hero case's state-proof endpoint returns the `T5.3` shape.
 - **Feeds:** G8.1, G8.4, G13.2, S3.
 - **Depends on:** T8.4, T5.1, T5.2, T5.3.
 - **Parallel-safe:** yes — lane P8-L2.
@@ -1572,7 +1572,7 @@ Sub-tasks:
 
 ## 14. Phase 11 — MCP, SQL roles, agent views
 
-**Gate `G-11`. 5 tasks. Depends on: G-2, G-7.** Sponsor tool requirement; not cuttable. Full verification round. The SQL grants are the real permission boundary — the MCP server's read-only mode is a convenience on top of them.
+**Gate `G-11`. 5 tasks. Depends on: G-2, G-7.** Not cuttable. Full verification round. The SQL grants are the real permission boundary — the MCP server's read-only mode is a convenience on top of them.
 
 ```text
 P11-L1  T11.1 ─► T11.2 ─► T11.3 ─► T11.4
@@ -1599,14 +1599,14 @@ Sub-tasks:
 - **Read first:** `specs/13_RETRIEVAL_SPEC.md` §14; `ops/40_INFRA_IAC.md` §11; `frontend/32_JUDGE_MODE.md` §6.
 - **Creates:** `infra/agentcore/mcp.json` **(derived; `infra/agentcore/` is specified)**; the MCP client wiring in `agents/runtime/tools/`.
 - **Tests first:** `services/control_plane/tests/db/test_mcp_boundary.py::test_mcp_connects_as_agent_reader` **(derived)**.
-- **Acceptance:** the LangGraph runtime reaches the **Cloud Managed** MCP Server — the qualifying sponsor tool, distinct from the self-hosted `cockroachdb-mcp-server` — authenticated as `pv_agent_reader`; the server runs without `CRDB_MCP_ENABLE_WRITE_QUERIES`, forcing `default_transaction_read_only=true`; a write attempted through MCP is refused by the SQL grant, and the test asserts the grant's error rather than the server's.
+- **Acceptance:** the LangGraph runtime reaches the **Cloud Managed** MCP Server — distinct from the self-hosted `cockroachdb-mcp-server` — authenticated as `pv_agent_reader`; the server runs without `CRDB_MCP_ENABLE_WRITE_QUERIES`, forcing `default_transaction_read_only=true`; a write attempted through MCP is refused by the SQL grant, and the test asserts the grant's error rather than the server's.
 - **Feeds:** G11.2, S5 tool 2.
 - **Depends on:** T11.1, T7.7.
 - **Parallel-safe:** no — lane P11-L1.
 
 Sub-tasks:
 - Configure the connection to `pv_agent_reader` only. The agent runtime holds no other database credential, and `grep -rnE "pv_kernel_writer|pv_app_reader_writer" agents/` staying empty is the ongoing proof.
-- Leave `CRDB_MCP_ENABLE_WRITE_QUERIES` unset and record that in `ops/decisions/`. State plainly that read-only mode is defence in depth and the grants are the boundary — a judge who reads the MCP documentation will know the difference.
+- Leave `CRDB_MCP_ENABLE_WRITE_QUERIES` unset and record that in `ops/decisions/`. State plainly that read-only mode is defence in depth and the grants are the boundary — a reviewer who reads the MCP documentation will know the difference.
 - Store the MCP secret ARN in settings, never the secret.
 - Restrict the exposed surface to the five `agent_*_v1` views. Do not expose arbitrary SQL tools to agents.
 
@@ -1638,7 +1638,7 @@ Sub-tasks:
 Sub-tasks:
 - Render denied calls in the trace rather than swallowing them. A denied call that disappears makes the boundary invisible, which defeats the point of having one.
 - Keep the control-plane retrieval endpoint functional as a real dependency, because `G11.7` asserts the fallback works and the rollback position depends on it.
-- Write, for the submission, the exact sentence describing what breaks when MCP is removed: the Interpreter loses its governed case-context read and the Memory Trace shows the degradation. A "tool used" that breaks nothing when removed is decoration, and saying so is cheaper than being caught.
+- Write, for the release notes, the exact sentence describing what breaks when MCP is removed: the Interpreter loses its governed case-context read and the Memory Trace shows the degradation. A "tool used" that breaks nothing when removed is decoration, and saying so is cheaper than being caught.
 
 #### T11.5 — View-name equality and the `pv_ops_reader` consumer
 
@@ -1734,9 +1734,9 @@ Sub-tasks:
 - **Parallel-safe:** yes — lane P12-L2 head.
 
 Sub-tasks:
-- Drive login through Cognito hosted UI, and test from a clean profile — a login that only works with a warm session is not a login a judge can perform.
+- Drive login through Cognito hosted UI, and test from a clean profile — a login that only works with a warm session is not a login a reviewer can perform.
 - Show the forwarding alias from `GET /v1/ingest-alias` and offer rotation, with the rotation consequence stated plainly.
-- Upload through the pre-signed URL from `T8.6`, then call complete; show `DUPLICATE` as an informative outcome rather than an error, because uploading the same invoice twice is a thing a hostile judge will do.
+- Upload through the pre-signed URL from `T8.6`, then call complete; show `DUPLICATE` as an informative outcome rather than an error, because uploading the same invoice twice is a thing a hostile reviewer will do.
 
 #### T12.5 — S2 Dashboard, "The Move"
 
@@ -1794,7 +1794,7 @@ Sub-tasks:
 - **Parallel-safe:** yes — lane P12-L3.
 
 Sub-tasks:
-- Render `GroundedSentence` and `SupportReference` as the brief specifies, so a judge can click a sentence and see its evidence.
+- Render `GroundedSentence` and `SupportReference` as the brief specifies, so a reviewer can click a sentence and see its evidence.
 - Handle the stale path as a correctly working safety mechanism, not as an error. The copy must read that way.
 - Make approval keyboard-reachable with a visible focus state. Accessibility on the approval action specifically is called out as a product-readiness requirement.
 
@@ -1803,7 +1803,7 @@ Sub-tasks:
 - **Read first:** `frontend/32_JUDGE_MODE.md` §1 (access, gating, routes), §2 (Panel A), §3 (Panel B), §5 (Panel D), §10 (redaction), §11 (anti-requirements).
 - **Creates:** `apps/web/src/app/(judge)/judge/layout.tsx`, `.../page.tsx`, `.../[traceId]/page.tsx`, `apps/web/src/app/(judge)/_components/{PanelA_ConsumerState,PanelB_StateProof,PanelD_SystemsStatus,IdChip,FixtureBanner}.tsx`, `apps/web/src/app/(judge)/_lib/{api,trace,redact}.ts`.
 - **Tests first:** `tests/e2e/fixture_banner.spec.ts`.
-- **Acceptance:** Judge Mode is reachable only when `GET /v1/me` returns `judge_mode_enabled: true`, and a judge requesting another tenant's trace receives `404 TRACE_NOT_FOUND` rather than 403; `counterfactual_enabled` and `mcp_trace_visible` gate their sub-surfaces and an absent flag is treated as false; under `PV_AGENT_MODE=FIXTURE` a persistent, non-dismissible banner reads `DEMO FIXTURE MODE — model outputs are replayed`; there is no client-side store holding trace data between navigations, so a reload re-fetches.
+- **Acceptance:** Judge Mode is reachable only when `GET /v1/me` returns `judge_mode_enabled: true`, and a reviewer requesting another tenant's trace receives `404 TRACE_NOT_FOUND` rather than 403; `counterfactual_enabled` and `mcp_trace_visible` gate their sub-surfaces and an absent flag is treated as false; under `PV_AGENT_MODE=FIXTURE` a persistent, non-dismissible banner reads `DEMO FIXTURE MODE — model outputs are replayed`; there is no client-side store holding trace data between navigations, so a reload re-fetches.
 - **Feeds:** G12.7.
 - **Depends on:** T12.3, T8.7.
 - **Parallel-safe:** yes — lane P12-L4 head.
@@ -1811,8 +1811,8 @@ Sub-tasks:
 Sub-tasks:
 - Lay out panels A and B above C and D, with the counterfactual below all four — the product "aha" precedes the infrastructure reveal, per `05_RELIABILITY_EVAL_DEMO.md` §8.
 - Make every panel a server component fetching with the human access token; only the DAG canvas and the probe controls are client components.
-- Implement `IdChip` as the correlation primitive so a judge can carry an id between panels.
-- Implement the six live indicators of Panel D plus the sponsor-tool strip, all from `GET /v1/version` and the trace payload — never from constants.
+- Implement `IdChip` as the correlation primitive so a reviewer can carry an id between panels.
+- Implement the six live indicators of Panel D plus the third-party tool strip, all from `GET /v1/version` and the trace payload — never from constants.
 
 #### T12.10 — Panel C: the Memory Trace DAG
 
@@ -1829,7 +1829,7 @@ Sub-tasks:
 - `trace.ts` performs layout only. It synthesizes no data — no inferred node, no placeholder edge, no default label. If the payload lacks a node, the DAG lacks it too.
 - Render the seventeen node types by their canon names, including `CANONICAL_CHANGE` as a child of `DB_TRANSACTION`.
 - Render MCP calls as first-class nodes, with denied calls in red. MCP is load-bearing and visible, not hidden plumbing and not decoration.
-- Forbid scripted trace animation and hard-coded identifiers outright; the three detectors in §23.3 exist because this is the single thing a hostile judge is most likely to test.
+- Forbid scripted trace animation and hard-coded identifiers outright; the three detectors in §23.3 exist because this is the single thing a hostile reviewer is most likely to test.
 
 #### T12.11 — The counterfactual panel and the parity render gate
 
@@ -1932,7 +1932,7 @@ Sub-tasks:
 
 Sub-tasks:
 - Break the App Runner ↔ AgentCore cycle exactly as §2.2 prescribes: `PvApiStack` publishes `/provenance/api/base-url`; `PvAgentStack` reads it at deploy time; `AGENTCORE_RUNTIME_ARN` is injected into App Runner by a one-line `update-service` in the deploy script. Trying to express this as a CDK reference produces a deadly embrace no restructuring removes, because the two services genuinely call each other.
-- Test the URL from a network that is not the build network. A URL that only resolves on the build machine is not a functional demo URL, and finding that out on submission day is the classic failure.
+- Test the URL from a network that is not the build network. A URL that only resolves on the build machine is not a functional demo URL, and finding that out on release day is the classic failure.
 - Measure cold start with three consecutive `/v1/me` calls; if the cold value exceeds 10 seconds, the demo script must include a warm-up request and that must be written down rather than remembered.
 
 #### T13.5 — Observability stack, spans, dashboard, alarms
@@ -2055,7 +2055,7 @@ Sub-tasks:
 - Reconcile the count to exactly 18 and list each entry's symbol and its expected-failing selection in the gate report.
 - Add a lint rejecting test functions with no `assert` and no `pytest.raises`. Coverage percentage is **not** a detector and must never be cited as one.
 - Run the full suite from a fresh `git clone` into an empty directory. "Works on the build machine" is a different claim from "works", and the report must state which one it is making.
-- Record the total wall-clock time, because the pre-submission battery will need to run it twice under deadline pressure.
+- Record the total wall-clock time, because the pre-submission battery will need to run it twice under release pressure.
 
 ---
 
@@ -2070,7 +2070,7 @@ This phase is deliberately one lane. The battery is run twice, in order, and par
 
 #### T15.1 — `README.md`, including "what is seeded vs what is computed"
 
-- **Read first:** `submission/50_README_DRAFT.md`; `23_PHASE_GATES.md` §24 item S7; `CANONICAL_DECISIONS.md` → *Demo and disclosure*.
+- **Read first:** `23_PHASE_GATES.md` §24 item S7; `CANONICAL_DECISIONS.md` → *Demo and disclosure*.
 - **Creates:** `README.md`.
 - **Tests first:** `tools/tests/test_readme_sections.py` **(derived)** — asserts both required section headings exist with content beneath them.
 - **Acceptance:** `grep -n "## What is seeded vs what is computed" -A 30 README.md` returns an explicit table stating that the 18,000 decoy evidence rows are synthetic and seeded, the 32 hero evidence items are hand-curated and seeded, and the conflict, the reopen, the revision increment, the trigger evaluation and the draft are **computed at demo time**; the README also carries the architecture diagram, the four invariants, local setup, the demo URL and the judge credentials.
@@ -2079,17 +2079,19 @@ This phase is deliberately one lane. The battery is run twice, in order, and par
 - **Parallel-safe:** no — lane P15-L1 head.
 
 Sub-tasks:
-- State the seeded/computed split plainly. Stating it is worth more than hoping nobody asks, and a judge who finds it stated will trust the rest of the document more.
+- State the seeded/computed split plainly. Stating it is worth more than hoping nobody asks, and a reviewer who finds it stated will trust the rest of the document more.
 - Use the corpus figures correctly: 18,035 total, 16,035 in the hero user's partition. Never render the cross-tenant total as a user-scoped figure.
 - Include the local setup that `S9` times, and write the setup steps in the order someone who has never seen the repository would follow them.
 - Name the four invariants and point at `provenance_domain/INVARIANTS.md`, so the claim is checkable rather than decorative.
 
-#### T15.2 — `SUBMISSION.md` and the tool-usage disclosure
+#### T15.2 — the disclosure sections — **WITHDRAWN**
+
+*Withdrawn. The separate disclosure document this task created was retired; the
+disclosures it carried now live in `README.md`, which `S7` greps for. The
+degradation statements it specified survive in `23_PHASE_GATES.md` §24 item S5
+as the genuineness test.*
 
 - **Read first:** `23_PHASE_GATES.md` §24 items S5, S6, S7; `CANONICAL_DECISIONS.md` → *Demo and disclosure*.
-- **Creates:** `SUBMISSION.md`.
-- **Tests first:** `tools/tests/test_submission_sections.py` **(derived)**.
-- **Acceptance:** `grep -n "## Tool usage disclosure" -A 40 SUBMISSION.md` names every AI tool used to build Provenance including Claude Code and the build-time models, every third-party service, and — **separately** — the runtime models `anthropic.claude-opus-5`, `anthropic.claude-haiku-4-5` and `amazon.titan-embed-text-v2:0`; the CockroachDB tools section names Distributed Vector Indexing, the CockroachDB Cloud Managed MCP Server, and the `ccloud` CLI, each with the stated degradation if removed.
 - **Feeds:** S5, S6, S7.
 - **Depends on:** T15.1.
 - **Parallel-safe:** no — lane P15-L1.
@@ -2102,7 +2104,7 @@ Sub-tasks:
 
 #### T15.3 — The demo video
 
-- **Read first:** `submission/51_VIDEO_SCRIPT.md`; `23_PHASE_GATES.md` §24 item S4.
+- **Read first:** `23_PHASE_GATES.md` §24 item S4.
 - **Creates:** `demo/provenance-demo.mp4`; the public video URL.
 - **Tests first:** none — the duration check is the assertion.
 - **Acceptance:** `ffprobe -v error -show_entries format=duration -of csv=p=0 demo/provenance-demo.mp4` returns a number strictly below `180.0`, recorded exactly (179.4 is fine, 180.2 is a FAIL); the public URL returns 200; someone who did not edit it has watched it end to end in a private window.
@@ -2111,15 +2113,15 @@ Sub-tasks:
 - **Parallel-safe:** no — lane P15-L1.
 
 Sub-tasks:
-- Record against the deployed stack in live mode with `fixture_mode: false`. A recorded demo in fixture mode invalidates the submission.
+- Record against the deployed stack in live mode with `fixture_mode: false`. A recorded demo in fixture mode invalidates the recording.
 - Follow the shot order in the video script; the counterfactual is the centrepiece and the trace is the proof, in that order.
 - Keep the request-payload diff out of the video and available for live Q&A.
-- Record the exact duration in `ops/gates/SUBMISSION.md` rather than "about three minutes".
+- Record the exact duration in `ops/gates/PHASE_15.md` rather than "about three minutes".
 
 #### T15.4 — Pre-submission battery, run one (T-24 hours)
 
 - **Read first:** `23_PHASE_GATES.md` §24 in full.
-- **Creates:** `ops/gates/SUBMISSION.md` first-run section.
+- **Creates:** the first-run section of `ops/gates/PHASE_15.md`.
 - **Tests first:** the battery is the test.
 - **Acceptance:** every item S1–S10 recorded PASS or FAIL with pasted output; `gh api "repos/<org>/provenance/license" -q .license.spdx_id` returns `Apache-2.0`; an **anonymous** `curl` to the repository URL returns 200; `GET /v1/version` shows `fixture_mode: false`; `gitleaks detect` passes on both the repository and `ops/gates`. The purpose of this run is to find the problems.
 - **Feeds:** S1–S9.
@@ -2135,7 +2137,7 @@ Sub-tasks:
 #### T15.5 — Full reset, reseed, re-verify, re-run (S10)
 
 - **Read first:** `23_PHASE_GATES.md` §24 item S10; `ops/41_RUNBOOK.md` §8 (demo operations).
-- **Creates:** the S10 section of `ops/gates/SUBMISSION.md`.
+- **Creates:** the S10 section of `ops/gates/PHASE_15.md`.
 - **Tests first:** the reset battery is the test.
 - **Acceptance:** `make demo-reset && make seed && make db-verify` prints `V1 0 … V10 0  V11 3`; the `S3` hero flow then re-runs green on the public URL. If the demo only works on a database that has already been demoed on, it does not work.
 - **Feeds:** S10, and re-validates S3.
@@ -2150,7 +2152,7 @@ Sub-tasks:
 #### T15.6 — Battery run two and the final signature (T-2 hours)
 
 - **Read first:** `23_PHASE_GATES.md` §24, §24.1, §22.
-- **Creates:** the completed and signed `ops/gates/SUBMISSION.md`.
+- **Creates:** the completed and signed `ops/gates/PHASE_15.md`.
 - **Tests first:** the battery is the test.
 - **Acceptance:** every item in the §24.1 condensed checklist is ticked with pasted output from **this** run, not the T-24 run; the reviewer signing is not the person who ran it; the verdict is SIGNED or SIGNED WITH CARRIED DEBT with the debt enumerated. The purpose of this run is to prove nothing rotted.
 - **Feeds:** S1–S10, and `G-15`.
@@ -2261,7 +2263,7 @@ G-0 ─► G-1 ─► G-2 ─► G-3 ─► G-4 ─► G-5 ─────► G-
 
 ## 21. The critical path, through tasks
 
-Phase-level critical paths hide the fact that most of a phase is parallel and one or two tasks are not. This is the task-level chain. Every task on it blocks the submission; everything else has slack.
+Phase-level critical paths hide the fact that most of a phase is parallel and one or two tasks are not. This is the task-level chain. Every task on it blocks the release; everything else has slack.
 
 ```text
 T0.5  cluster + provenance database + provenance/db secret
@@ -2320,7 +2322,7 @@ Six observations that change how the schedule should be run:
 
 **Why it blocks.** §7 of the prompt makes the token table the contract between design and implementation, and instructs that token names stay stable across revisions — every rename costs a repository-wide search and replace. `T12.2` transcribes that table into `apps/web/src/styles/tokens.css` as the single source of truth, and `T12.3` through `T12.12` all consume it. There is no version of Phase 12 that starts before the tokens exist.
 
-**The scheduling consequence.** Phase 12 sits between `G-11` and `G-13` on the critical path and has no slack: `G-13` (deploy), `G-14` (evals) and `G-15` (submission) all follow it, and `G-13` owns the demo URL that is a Stage One pass/fail item. Therefore:
+**The scheduling consequence.** Phase 12 sits between `G-11` and `G-13` on the critical path and has no slack: `G-13` (deploy), `G-14` (evals) and `G-15` (submission) all follow it, and `G-13` owns the demo URL, which is a pre-submission pass/fail item. Therefore:
 
 - **The commission is issued at the start of Phase 8, not at the start of Phase 12.** It has no technical dependency — it needs only the brief and someone to paste it — and it runs concurrently with Phases 8, 9, 10 and 11.
 - **Everything else must be complete before Phase 12 opens.** `G-8`, `G-9` and `G-11` are hard entry criteria; Phases 6, 7, 10 and the off-path infrastructure authoring in `T13.1`–`T13.5` should also be finished, because Phase 12's twelve tasks are the last place the schedule can absorb a surprise and the design's return time is not controllable.
@@ -2359,9 +2361,9 @@ This is restated as its own section because it is the one ordering in the build 
 
 **Three failure modes this ordering prevents, each of which has a distinct symptom:**
 
-- **Index left dropped.** The demo works — brute-force scan over 16,035 rows is survivable — and `G6.2`'s `EXPLAIN` finds no index, failing the sponsor vector-index claim. Step 8's `SHOW JOBS WHEN COMPLETE` plus the explicit `SHOW INDEXES` re-check exist to catch exactly this.
+- **Index left dropped.** The demo works — brute-force scan over 16,035 rows is survivable — and `G6.2`'s `EXPLAIN` finds no index, failing the vector-index claim. Step 8's `SHOW JOBS WHEN COMPLETE` plus the explicit `SHOW INDEXES` re-check exist to catch exactly this.
 - **Index live during the load.** The seed appears to hang. It has not hung; it is doing 18,000 partition maintenance operations.
-- **Embeddings recomputed on every reseed.** `db/seeds/vectors.parquet` must be populated at **first** generation. Populating it later means every `make demo-reset && make seed` — including the one `S10` mandates within hours of the deadline — repeats the full Bedrock spend and its wall-clock cost.
+- **Embeddings recomputed on every reseed.** `db/seeds/vectors.parquet` must be populated at **first** generation. Populating it later means every `make demo-reset && make seed` — including the one `S10` mandates within hours of the release — repeats the full Bedrock spend and its wall-clock cost.
 
 **One ordering caveat inside the seed itself.** Step 9 replays curated proposals through `MemoryKernel.commit()`, which does not exist until Phase 4. Until then, `T2.8` runs with `--profile schema-only` and step 9 is recorded as deferred in `ops/gates/PHASE_02.md`. Seeding canonical rows with raw `INSERT`s to unblock Phase 2 would create a second canonical writer and is forbidden.
 

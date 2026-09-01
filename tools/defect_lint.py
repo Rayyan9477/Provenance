@@ -759,7 +759,7 @@ def check_debt(rows: Sequence[dict[str, str]], *, check_escalation: bool) -> lis
                     "DB02",
                     where,
                     f"Closes by is {closes_by or '<empty>'!r}. Section 9.2: a gate id, not "
-                    "'later' and not 'post-hackathon'.",
+                    "'later' and not 'someday'.",
                 )
             )
         if check_escalation:
@@ -1141,8 +1141,8 @@ def main(argv: list[str] | None = None) -> int:
                     "CARRIED_DEBT.md",
                     f"{len(open_rows)} item(s) still open. Section 9.4: nothing carries past "
                     "G-14. Each remaining item either closes before G-15 opens, or is "
-                    "converted to a disclosed limitation in README.md or SUBMISSION.md, "
-                    "both of which S7 greps for.",
+                    "converted to a disclosed limitation in README.md, "
+                    "which S7 greps for.",
                 )
             )
         return _finish(debt_violations, out)

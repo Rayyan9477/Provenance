@@ -3,7 +3,7 @@
 Purpose: take an engineer from an empty machine to a running Provenance stack, run the Phase 0 capability probes that gate every later phase, and give a symptom-first playbook for every failure this build is known to be able to produce.
 
 Status: planning complete v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 Audience: the engineer or coding agent standing up the stack for the first time; the on-call operator during a gate battery or a demo; the reviewer checking that a reported failure was diagnosed rather than guessed at. Read `00_PRODUCT.md`, `CANONICAL_DECISIONS.md`, `specs/10_DATABASE_DDL.md` §1, and `quality/23_PHASE_GATES.md` §6 before acting on anything here.
 
@@ -37,7 +37,7 @@ make run-sink         # local mail sink on :1025 / UI :8025
 make embeddings-warm  # populates the embedding cache without touching the database
 make demo-reset       # destructive: reset to clean demo state (§8.2)
 make demo-rehearse    # scripted dress rehearsal (§8.1)
-make test-submission  # the quality/20_TDD_STRATEGY.md §14.4 pre-submission lane
+make test-release  # the quality/20_TDD_STRATEGY.md §14.4 release lane
 ```
 
 ---
@@ -53,7 +53,7 @@ Pin these. Version drift in the toolchain is the cheapest possible source of a l
 | npm | 10.x (ships with Node 20) | Lockfile format v3. | `npm --version` |
 | Docker | 24.0+ | Runs `cockroachdb/cockroach:latest-v25.3` for the CI-parity local database and the mail sink. | `docker --version` |
 | AWS CLI | **v2.x** | v1 lacks `--cli-binary-format`, which the Titan probe in §3.6 depends on. | `aws --version` |
-| `ccloud` CLI | latest | Cluster provisioning and SQL shell. Counts as the third qualifying CockroachDB tool (`quality/23_PHASE_GATES.md` §24 S5). | `ccloud version` |
+| `ccloud` CLI | latest | Cluster provisioning and SQL shell. The third of the three CockroachDB tools in use (`quality/23_PHASE_GATES.md` §24 S5). | `ccloud version` |
 | `cockroach` CLI | v25.3.x | `cockroach sql` is what every gate command in the phase gates uses. | `cockroach version` |
 | `jq` | 1.6+ | Every probe and gate assertion parses JSON with it. | `jq --version` |
 | `gh` | 2.x | Repository visibility and licence assertions (`G0.2`, `S1`, `S2`). | `gh --version` |
@@ -146,7 +146,7 @@ The resolved value exists only in the child process environment. It does not ent
 ```bash
 ccloud auth login
 
-# Provision. The transcript is a Phase 0 deliverable and a submission artifact (S5, tool 3).
+# Provision. The transcript is a Phase 0 deliverable and a release artifact (S5, tool 3).
 ccloud cluster create basic provenance-dev \
   --cloud aws --region us-east-1 \
   2>&1 | tee ops/cluster-provision.txt
@@ -307,7 +307,7 @@ with PB-2 also failing.
 
 1. Re-run PB-2. On several builds the setting is absent because the feature is unconditional. A successful `CREATE VECTOR INDEX` makes PB-1 moot.
 2. If PB-2 also fails, open a CockroachDB Cloud support request to enable the feature on the cluster and record the ticket id in `ops/cluster-probe.txt`. Continue Phase 1 and 2 work in the meantime; nothing before Phase 6 needs the index.
-3. If it cannot be enabled: `CANONICAL_DECISIONS.md` — *"L2-normalized vector index; if no vector index works, disclose brute-force user-partition scan and fail the sponsor vector-index submission gate."* Set `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION`, which scans within `user_id = $1` over roughly 16,035 hero rows. It is survivable for a demo and it is **not** vector indexing. It must be disclosed in Judge Mode and in `SUBMISSION.md`, and `G6.2` and submission item `S5` tool 1 stay blocked.
+3. If it cannot be enabled: `CANONICAL_DECISIONS.md` — *"L2-normalized vector index; if no vector index works, disclose brute-force user-partition scan and fail the vector-index gate."* Set `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION`, which scans within `user_id = $1` over roughly 16,035 hero rows. It is survivable for a demo and it is **not** vector indexing. It must be disclosed in Judge Mode and in the README, and `G6.2` and `S5` tool 1 stay blocked.
 
 ---
 
@@ -383,7 +383,7 @@ in `ops/decisions/VECTOR_INDEX_VARIANT.md`, with the probe output that selected 
 |---|---|---|
 | Variant A errors, B succeeds | Access-method syntax only | `VARIANT: B`, use `specs/10_DATABASE_DDL.md` §5.2. Semantics identical. |
 | `<=>` errors at P5, or A and B both reject `vector_cosine_ops` | Cosine opclass unavailable | `VARIANT: C`, use §5.3. Set `EMBEDDING_NORMALIZATION=L2_UNIT` and request Titan v2 embeddings with `"normalize": true`. On unit vectors, `l2(a,b)^2 = 2 - 2*cos(a,b)`, so L2 ordering **is** cosine ordering and ranking is unchanged. |
-| All three error, or `EXPLAIN` shows a full scan | No usable vector index | Fall to PB-1's step 3: `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION`, disclosed, sponsor gate blocked. |
+| All three error, or `EXPLAIN` shows a full scan | No usable vector index | Fall to PB-1's step 3: `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION`, disclosed, vector-index gate blocked. |
 
 A `full scan` node in `EXPLAIN` while the index exists is a **failure even if the results are correct** (`G6.2`). It means the prefix or the opclass does not match the query shape. Check that `k = $1` sits inside the ranked block and that no non-prefix predicate was added to it (`specs/10_DATABASE_DDL.md` §5.5).
 
@@ -590,7 +590,7 @@ tier=R model=anthropic.claude-opus-5 ok text='ok' in=14 out=2
 | `ThrottlingException` on the first call | Account-level quota at zero | See §7.5. This is not the same as access denied and must not be reported as such. |
 | `dims` is 512 or 256 | The request omitted or mis-set `dimensions` | Titan v2 supports several output sizes. 1024 is frozen for the life of the index. |
 
-**Predetermined fallback.** `CANONICAL_DECISIONS.md`: *"Fixture mode for development only; live submission remains blocked until model access works."* Set `PV_AGENT_MODE=FIXTURE`. The real Kernel, the real database, and the real event path still execute; only model outputs are replayed. A non-dismissible banner appears (`G12.7`) and `GET /v1/version` reports `fixture_mode: true` and `agent_mode: "FIXTURE"`, which invalidates the recorded submission (`S3`). Fixture mode is a development unblocker and an emergency demo fallback, never a submission state.
+**Predetermined fallback.** `CANONICAL_DECISIONS.md`: *"Fixture mode for development only; live release remains blocked until model access works."* Set `PV_AGENT_MODE=FIXTURE`. The real Kernel, the real database, and the real event path still execute; only model outputs are replayed. A non-dismissible banner appears (`G12.7`) and `GET /v1/version` reports `fixture_mode: true` and `agent_mode: "FIXTURE"`, which invalidates the recorded demonstration (`S3`). Fixture mode is a development unblocker and an emergency demo fallback, never a release state.
 
 ---
 
@@ -1009,7 +1009,7 @@ Local mode substitutes **infrastructure**. It never substitutes **semantics**. T
 | **Local artifact storage** replaces S3 | `PV_ARTIFACT_STORE=file:///…` or MinIO | `content_sha256` identity, the immutable-bytes contract, the `source_artifacts` row. | Before the demo. S3 integration must be exercised at least once (`06_CODING_AGENT_HANDOFF.md` §18). |
 | **Local mail sink** replaces SES | `SES_TRANSPORT=smtp://localhost:1025` | Recipient allowlist, idempotency key, `action_executions` rows with `attempt_no`, provider correlation id. | Phase 9; the demo send targets a controlled mailbox in every case. |
 | **Compressed clock** in trigger tests | `--frozen-clock=<iso8601>` | Predicate evaluation against real canonical state. | Never closes; it is a test facility and `G10.6` requires identical results at two frozen instants. |
-| **Single-node CockroachDB in Docker** for the commit lane | `make run-crdb` | `SERIALIZABLE`, `40001`, the retry wrapper, the full schema. | Nightly and pre-submission lanes run against the real Cloud cluster, where index behaviour, `EXPLAIN` shape, and grants are the ones that ship. |
+| **Single-node CockroachDB in Docker** for the commit lane | `make run-crdb` | `SERIALIZABLE`, `40001`, the retry wrapper, the full schema. | Nightly and release lanes run against the real Cloud cluster, where index behaviour, `EXPLAIN` shape, and grants are the ones that ship. |
 
 ### 6.2 What may never be substituted
 
@@ -1030,7 +1030,7 @@ Fixture mode is legitimate and disclosed, or it is fraud. There is no third stat
 - `fixture_mode: true` in `GET /v1/version` and in every trace payload.
 - `agent_runs.model_route.mode = "FIXTURE_REPLAY"`, and the trace node `agent.interpreter.run` summary begins `FIXTURE REPLAY`.
 - The Kernel, the database, and the event path still execute for real.
-- `S3` requires `fixture_mode == false` in the recorded submission. A `true` there invalidates it.
+- `S3` requires `fixture_mode == false` in the recorded demonstration. A `true` there invalidates it.
 
 ---
 
@@ -1161,7 +1161,7 @@ CREATE VECTOR INDEX evidence_embedding_ann_idx
     ON evidence_items (user_id, embedding vector_cosine_ops);   -- or the recorded variant
 ```
 
-**Degradation, if it cannot be rebuilt.** `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION`. Roughly 16,035 hero rows scanned within the user partition; survivable for a demo, disclosed in Judge Mode and in `SUBMISSION.md`, sponsor vector-index claim blocked. Never present it as vector indexing.
+**Degradation, if it cannot be rebuilt.** `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION`. Roughly 16,035 hero rows scanned within the user partition; survivable for a demo, disclosed in Judge Mode and in the README, vector-index claim blocked. Never present it as vector indexing.
 
 **Do not** "fix" retrieval by deleting the embeddings of retracted rows. `specs/10_DATABASE_DDL.md` §5.4 gives four independent reasons that is wrong; retracted vectors stay indexed and the query filters them.
 
@@ -1653,10 +1653,10 @@ If a live component fails mid-demo, walk **down** this ladder one rung at a time
 | Rung | Trigger | Degrade to | Disclose on screen | Cost |
 |---|---|---|---|---|
 | **L0** | Nominal | Nothing | Nothing | — |
-| **L1** | Managed MCP Server unreachable or slow | `PV_MCP_ENABLED=false`; the Interpreter falls back to the control-plane retrieval endpoint | Memory Trace renders **"MCP UNAVAILABLE — degraded read path"**. Say it: "the governed MCP read is down; this is the fallback, and the trace shows the degradation." | One of the two required CockroachDB tools is not live. If it stays down through submission, `S5` tool 2 is blocked. |
-| **L2** | Vector index missing or `EXPLAIN` shows a full scan | `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION` | Judge Mode shows **"BRUTE-FORCE PARTITION SCAN — vector index unavailable"**. Say it: "this is a scan within the user partition, not vector indexing." | Sponsor vector-index claim blocked; `G6.2` and `S5` tool 1 fail. Retrieval results are still correct. |
+| **L1** | Managed MCP Server unreachable or slow | `PV_MCP_ENABLED=false`; the Interpreter falls back to the control-plane retrieval endpoint | Memory Trace renders **"MCP UNAVAILABLE — degraded read path"**. Say it: "the governed MCP read is down; this is the fallback, and the trace shows the degradation." | One of the two required CockroachDB tools is not live. If it stays down through release, `S5` tool 2 is blocked. |
+| **L2** | Vector index missing or `EXPLAIN` shows a full scan | `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION` | Judge Mode shows **"BRUTE-FORCE PARTITION SCAN — vector index unavailable"**. Say it: "this is a scan within the user partition, not vector indexing." | Vector-index claim blocked; `G6.2` and `S5` tool 1 fail. Retrieval results are still correct. |
 | **L3** | Bedrock throttled or a model call fails mid-run | Retry once within the canonical budget; if Tier E fails, one schema repair then one Opus 5 fallback at low effort; **Tier R never downgrades** and persists a pending-human-review result | The UI shows the pending-review state, which is a designed outcome, not an error screen. Say it: "the reasoning model is unavailable; the evidence is committed and the conclusion is queued for a human." | Reasoning delayed. Evidence and canonical state are unaffected, which is the point worth making. |
-| **L4** | AgentCore cold, unavailable, or the graph run times out | `PV_AGENT_MODE=FIXTURE` | The non-dismissible banner **"DEMO FIXTURE MODE — model outputs are replayed"**, plus `fixture_mode: true` in `GET /v1/version`. Say it: "model outputs are replayed; the Kernel, the database, the transaction, and the outbox are all live." | The recorded submission is invalidated (`S3`). Acceptable live; never acceptable on tape. |
+| **L4** | AgentCore cold, unavailable, or the graph run times out | `PV_AGENT_MODE=FIXTURE` | The non-dismissible banner **"DEMO FIXTURE MODE — model outputs are replayed"**, plus `fixture_mode: true` in `GET /v1/version`. Say it: "model outputs are replayed; the Kernel, the database, the transaction, and the outbox are all live." | The recorded demonstration is invalidated (`S3`). Acceptable live; never acceptable on tape. |
 | **L5** | SES rejects or is throttled | `SES_TRANSPORT=smtp://localhost:1025`, the local sink | Show the sink's inbox and say it is a local sink, not a delivered email. | Nothing about the safety property is lost: revalidation of revision and draft hash happens before the sink call, and that is what the segment demonstrates. |
 | **L6** | The deployed stack is unreachable | Run the local stack against the **same real CockroachDB Cloud cluster** | Say it: "the deployed URL is down; this is the same build running locally against the same production database." | `S3`'s functional-demo-URL requirement is at risk. The memory system itself is unaffected. |
 | **L7** | The database is unreachable | **Stop the demo.** | Say so, and take questions on architecture from the specification documents. | Everything. There is no rung below this one, because everything below it would be theatre. |
@@ -1679,7 +1679,7 @@ Whatever rung you are on, one sentence covers it, and it is better said early th
 
 > "One component is degraded right now: **\<name\>**. Here is what that changes: **\<the specific capability\>**. Everything you are about to see below that line is live."
 
-An honest degradation demonstrated well scores better than a perfect demo a judge suspects. The five criteria are equally weighted, and Product Readiness explicitly covers resilience.
+An honest degradation demonstrated well reads better than a perfect demo a viewer suspects. The five dimensions carry equal weight, and product readiness explicitly covers resilience.
 
 ---
 

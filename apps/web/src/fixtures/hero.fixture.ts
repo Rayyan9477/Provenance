@@ -117,11 +117,11 @@ const NOW = "2026-09-18T14:05:00.000Z";
 /*
  * Gemini model id canon, frozen 2026-08-24 (`docs/CANONICAL_DECISIONS.md`), superseding
  * the Bedrock canon these constants previously carried. Judge Mode renders `model_id`
- * verbatim, so leaving `us.anthropic.claude-opus-4-6-v1` here would have put Anthropic
- * model ids on the most judge-facing screen of a Google-sponsored submission.
+ * verbatim, so leaving `us.anthropic.claude-opus-4-6-v1` here would have printed a model
+ * id this build never calls on the one screen whose whole purpose is showing what ran.
  *
  * There is deliberately no Pro tier: `gemini-3.1-pro-preview` is version 3.1, BELOW the
- * hackathon's "Gemini 3.5 or newer" floor, so both tiers are Flash-class.
+ * "Gemini 3.5 or newer" floor, so both tiers are Flash-class.
  *
  * UNPROBED. None of these ids has been invoked -- `ops/gemini-probe.txt` currently reads
  * `CANNOT RUN`. The previous canon was disproved by live invocation after being frozen

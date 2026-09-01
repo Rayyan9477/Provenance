@@ -3,7 +3,7 @@
 Purpose: the literal, byte-exact prompt text, output schemas, versioning rules, and adversarial containment corpus for every LLM node in the Provenance agent runtime.
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 Audience: agent-runtime engineers, prompt/eval engineers, security reviewers, and coding agents generating `agents/runtime/prompts/`. This document is authoritative for prompt text. If code and this document disagree about prompt content, this document wins. If this document and `02_DATA_MEMORY_TRANSACTIONS.md` disagree about the memory model, the memory model wins.
 
@@ -512,7 +512,7 @@ The registry stores `schema_bytes` and `schema_sha256` beside `pv-extract-1.1.0`
 | `pv-extract-0.7.0` | 2026-08-02 | `anthropic.claude-haiku-4-5` | Switched from prose-JSON to `output_config.format` with the full JSON Schema; replaced free-form `object_json` with the typed `ObjectValue` envelope. | Structured outputs require `additionalProperties: false` on every object, so arbitrary JSON is not expressible. |
 | `pv-extract-0.8.0` | 2026-08-06 | `anthropic.claude-haiku-4-5` | Added `injection_observations` and the §1 three-step containment rule. | Adversarial corpus rows A1-A5 were silently ignored, producing no forensic record. |
 | `pv-extract-0.9.0` | 2026-08-10 | `anthropic.claude-haiku-4-5` | Added the recall instruction ("emit every candidate, including low confidence"). | Selectivity language in the TASK section depressed claim recall to 0.86 against a 0.90 gate. |
-| `pv-extract-1.0.0` | 2026-08-14 | `anthropic.claude-haiku-4-5` | Froze wording; added §7 blocking-uncertainty semantics and the `local_id` numbering convention; removed the "double-check your extraction" line. | Baseline for submission. Self-check language added redundant passes without measurable accuracy gain. |
+| `pv-extract-1.0.0` | 2026-08-14 | `anthropic.claude-haiku-4-5` | Froze wording; added §7 blocking-uncertainty semantics and the `local_id` numbering convention; removed the "double-check your extraction" line. | Baseline for release. Self-check language added redundant passes without measurable accuracy gain. |
 | `pv-extract-1.1.0` | 2026-08-17 | `anthropic.claude-haiku-4-5` | Bound the structured-output schema directly to `ExtractionResult`; normalized modality and local-id vocabulary; added typed injection observations and quoted-candidate fields. | Eliminates schema drift between prompt output, contracts, DDL, and evaluation fixtures. |
 
 ---

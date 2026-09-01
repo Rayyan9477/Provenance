@@ -12,10 +12,9 @@ action: importing that module in an environment built from `pyproject.toml`
 alone. Every test run, every lint pass and every mypy pass used an environment
 that happened to have it.
 
-That is the exact shape of the hackathon's spin-up requirement -- "a
-step-by-step guide in your README.md" that a judge follows on a machine that is
-not ours. A missing declaration is invisible here and fatal there, which is the
-worst combination available.
+That is the exact shape of the README's spin-up promise -- a step-by-step
+guide someone follows on a machine that is not ours. A missing declaration is
+invisible here and fatal there, which is the worst combination available.
 
 Why an import scan rather than a build
 ---------------------------------------

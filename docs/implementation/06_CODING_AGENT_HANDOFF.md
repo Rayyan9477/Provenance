@@ -1,13 +1,13 @@
 # Provenance — Coding Agent Handoff
 
 Status: planning-complete execution contract v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 This file is designed to be pasted into or referenced by a coding agent. It intentionally translates the architecture into bounded implementation work packages without changing the architecture.
 
 ## 1. Mission
 
-Build Provenance as a production-minded hackathon system where:
+Build Provenance as a production-minded system where:
 
 - CockroachDB is the only canonical memory system;
 - LangGraph agents interpret evidence but cannot directly commit truth;
@@ -211,7 +211,7 @@ Acceptance:
 
 ## 12. Work package J — action executor
 
-Hackathon implementation:
+v1 implementation:
 
 - SES/safe sink email adapter;
 - deterministic recipient allowlist;

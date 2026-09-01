@@ -5,10 +5,10 @@ The problem this solves
 Before the pivot, ``Settings`` had **27 required environment variables and 15 of
 them were AWS-specific** -- eight Cognito, two SES, two EventBridge, one SQS,
 one S3, plus ``AWS_REGION``. None of those exist in a Google deployment, and
-none can be given a plausible value by someone who is not us. A judge following
+none can be given a plausible value by someone who is not us. Anyone following
 the README could therefore not construct settings at all, which makes the
-hackathon's mandatory "spin-up instructions" unsatisfiable no matter how well
-the README is written.
+README's spin-up instructions unsatisfiable no matter how well they are
+written.
 
 Why this is not a weakening of the fail-fast contract
 ------------------------------------------------------
@@ -76,7 +76,7 @@ def _env(monkeypatch: pytest.MonkeyPatch, values: dict[str, str]) -> None:
 
 
 class TestAGoogleDeploymentNeedsNoAwsVariables:
-    """The whole point. This is the configuration a judge will actually use."""
+    """The whole point. This is the configuration a new operator will use."""
 
     def test_settings_construct_with_core_plus_google_only(
         self, monkeypatch: pytest.MonkeyPatch

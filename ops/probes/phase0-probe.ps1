@@ -34,10 +34,10 @@
     # sensitive-line filter matches only password/secret/token/apikey/asplaintext -- none of
     # which appear in a postgresql://user:pw@host literal. Prompt for it instead:
     $pw = Read-Host 'CockroachDB SQL password' -AsSecureString
-    $env:PV_PROBE_DB_URL = 'postgresql://rayyan9477:' +
+    $env:PV_PROBE_DB_URL = 'postgresql://<user>:' +
         [Runtime.InteropServices.Marshal]::PtrToStringAuto(
             [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pw)) +
-        '@rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full'
+        '@<cluster-host>.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full'
     .\ops\probes\phase0-probe.ps1
     Remove-Item Env:\PV_PROBE_DB_URL
 
@@ -422,7 +422,7 @@ if ([string]::IsNullOrWhiteSpace($RawUrl)) {
     Write-Host 'console line to ConsoleHost_history.txt, and its sensitive-line filter does not match' -ForegroundColor Yellow
     Write-Host 'a postgresql://user:pw@host literal. Prompt for it instead:' -ForegroundColor Yellow
     Write-Host "  `$pw = Read-Host 'CockroachDB SQL password' -AsSecureString" -ForegroundColor Yellow
-    Write-Host "  `$env:$DbUrlEnvVar = 'postgresql://rayyan9477:' + [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR(`$pw)) + '@rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full'" -ForegroundColor Yellow
+    Write-Host "  `$env:$DbUrlEnvVar = 'postgresql://<user>:' + [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR(`$pw)) + '@<cluster-host>.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full'" -ForegroundColor Yellow
     Write-Host "  # when you are done:  Remove-Item Env:\$DbUrlEnvVar" -ForegroundColor Yellow
     Write-Host ''
 } else {
@@ -761,7 +761,7 @@ if ($SqlReady) {
           Command:  .\ops\probes\phase0-probe.ps1 -SkipAws
 
   STEP 2  If PB-2 also fails, open a CockroachDB Cloud support request to
-          enable vector indexing on cluster $ClusterId (rayyandb, BASIC,
+          enable vector indexing on cluster $ClusterId (BASIC,
           AWS us-east-1) and record the ticket id in ops/cluster-probe.txt.
           Continue Phase 1 and Phase 2 work meanwhile: nothing before
           Phase 6 needs the index.
@@ -773,7 +773,7 @@ if ($SqlReady) {
             - set PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION
             - it scans within user_id = `$1 over ~16,035 hero-partition rows
             - it is survivable for a demo and it is NOT vector indexing
-            - it MUST be disclosed in Judge Mode and in SUBMISSION.md
+            - it MUST be disclosed in Judge Mode and in README.md
             - G6.2 and submission item S5 tool 1 stay BLOCKED
 "@
         Write-Probe -Text $ladder -Path $ClusterProbe -Color 'Red'
@@ -1391,7 +1391,7 @@ if ($selectedVariant) {
     $variantBody = @"
 # Vector index variant decision
 
-Decided by the Phase 0 probe PB-2 on $RunStamp against cluster ``$ClusterId`` (rayyandb, BASIC, AWS us-east-1).
+Decided by the Phase 0 probe PB-2 on $RunStamp against cluster ``$ClusterId`` (BASIC, AWS us-east-1).
 Authority for the three variants: ``docs/specs/10_DATABASE_DDL.md`` S5.1 / S5.2 / S5.3.
 
 VARIANT: $selectedVariant
@@ -1427,7 +1427,7 @@ $explainText
     $variantBody = @"
 # Vector index variant decision
 
-Decided by the Phase 0 probe PB-2 on $RunStamp against cluster ``$ClusterId`` (rayyandb, BASIC, AWS us-east-1).
+Decided by the Phase 0 probe PB-2 on $RunStamp against cluster ``$ClusterId`` (BASIC, AWS us-east-1).
 
 ## NO VARIANT SELECTED
 
@@ -1440,7 +1440,7 @@ Frozen fallback in force (``CANONICAL_DECISIONS.md``): brute-force user-partitio
 - ``PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION``
 - scans within ``user_id = `$1`` over roughly 16,035 hero-partition rows
 - survivable for a demo, and it is **not** vector indexing
-- must be disclosed in Judge Mode and in ``SUBMISSION.md``
+- must be disclosed in Judge Mode and in ``README.md``
 - ``G6.2`` and submission item ``S5`` tool 1 stay **blocked**
 
 ## Probe output
@@ -1491,7 +1491,7 @@ $pb2Cell = if ($selectedVariant) { "VARIANT: $selectedVariant" } else { 'VARIANT
 $ledger = @"
 # Provenance -- Phase 0 probe result ledger
 
-Run: $RunStamp   Cluster: rayyandb (``$ClusterId``), BASIC, AWS ``$Region``
+Run: $RunStamp   Cluster: ``$ClusterId``, BASIC, AWS ``$Region``
 Checkout SHA: fill in from ``git rev-parse HEAD``
 Filled by: fill in
 

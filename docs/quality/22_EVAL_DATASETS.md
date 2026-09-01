@@ -3,9 +3,9 @@
 Purpose: define the version-controlled evaluation corpus, its record schema, its 51 labelled scenarios, its metrics and thresholds, its runner, and the synthetic decoy generator — precisely enough that a competent engineer can build `evals/` and run it in CI with no further questions.
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
-Audience: engineers building `evals/`, coding agents generating the runner and fixtures, reviewers gating a release on these numbers, and judges checking whether "we tested it" means anything.
+Audience: engineers building `evals/`, coding agents generating the runner and fixtures, reviewers gating a release on these numbers, and anyone checking whether "we tested it" means anything.
 
 ---
 
@@ -31,7 +31,7 @@ Architectural north star, restated because every expected value below is derived
 
 ### 1.1 The claim this corpus exists to falsify
 
-A demo proves that one path works once. It cannot distinguish a memory system from a prompt that happened to produce the right sentence. The distinction that matters to a judge — and to anyone who would trust this with their own institutional record — is whether **memory evolution is asserted or eyeballed**.
+A demo proves that one path works once. It cannot distinguish a memory system from a prompt that happened to produce the right sentence. The distinction that matters to a reviewer — and to anyone who would trust this with their own institutional record — is whether **memory evolution is asserted or eyeballed**.
 
 So the unit of evaluation is not a question-answer pair. It is an **ordered event sequence with the expected canonical state after each event**.
 
@@ -557,7 +557,7 @@ The hero scenario, `CX-01`, as it appears in `memory_cases.jsonl` (pretty-printe
     {
       "seq": 2,
       "kind": "USER_ACTION",
-      "label": "Judge approves the drafted dispute",
+      "label": "User approves the drafted dispute",
       "clock": "2026-09-18T13:14:30Z",
       "user": {"kind": "APPROVE_ACTION", "payload": {"action_intent_ref": "intent:isp-dispute"}},
       "expect": {
@@ -1639,7 +1639,7 @@ The corpus schema is regenerated from the Pydantic model on every push and diffe
 
 ### 7.1 The problem it solves
 
-Vector retrieval over 32 hand-curated evidence rows is not retrieval; it is a lookup with extra steps. A judge is right to be unimpressed by a top-1 hit in a corpus of thirty. But the opposite mistake is worse: 18,000 hand-curated business facts would make the canonical state unexplainable, and the dashboard would stop being a product.
+Vector retrieval over 32 hand-curated evidence rows is not retrieval; it is a lookup with extra steps. A reviewer is right to be unimpressed by a top-1 hit in a corpus of thirty. But the opposite mistake is worse: 18,000 hand-curated business facts would make the canonical state unexplainable, and the dashboard would stop being a product.
 
 The resolution is a hard separation:
 
@@ -1759,4 +1759,4 @@ If `decoy_share_of_top20` is near zero, the decoys are semantically too far away
 
 **R10 — Scenario database isolation depends on a dump-restore path that does not exist yet.** §6.5 assumes a template dump keyed by the decoy manifest hash, restorable in seconds. On CockroachDB Cloud serverless, backup/restore of a 18,000-row database is fast but not free, and the API surface for programmatic restore into a per-scenario database has not been probed. *Mitigation:* the fallback is to run all 51 scenarios against one database sequentially with a transactional rollback between them, which works for `KERNEL_REPLAY` and is slower and more fragile for `PIPELINE_LIVE` because embeddings are written outside the kernel transaction. *This must be probed on day one of building the harness,* alongside the vector-index syntax probe, because both have the same shape: an assumption about a managed service that no local test can validate.
 
-**R11 — The corpus asserts what the system does, not what a user would want.** Every expectation here is an engineering judgement about correct memory behaviour. None of them was validated against a person who actually had a post-cancellation billing dispute. `CX-05`'s escalation of a $200 payment denial to human review may be correct policy or may be an annoying interruption; the corpus cannot tell the difference, and neither can the metrics. *Mitigation:* none available inside the hackathon. *Stated plainly for the judges:* this corpus proves the system behaves as specified. It does not prove the specification is the right one for a human being, and no amount of green in §5.8 should be read as if it did.
+**R11 — The corpus asserts what the system does, not what a user would want.** Every expectation here is an engineering judgement about correct memory behaviour. None of them was validated against a person who actually had a post-cancellation billing dispute. `CX-05`'s escalation of a $200 payment denial to human review may be correct policy or may be an annoying interruption; the corpus cannot tell the difference, and neither can the metrics. *Mitigation:* none available without user research this project has not done. *Stated plainly:* this corpus proves the system behaves as specified. It does not prove the specification is the right one for a human being, and no amount of green in §5.8 should be read as if it did.

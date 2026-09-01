@@ -1,7 +1,7 @@
 # Provenance — API, Events, Identity, Security, and Tool Boundaries
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 ## 1. API principles
 
@@ -33,7 +33,7 @@ Resolve `cognito_sub -> users.id -> tenant_id`.
 
 Create one request-scoped `Principal`; never continue passing raw JWT around business modules.
 
-### 2.2 Workload authentication — exact hackathon design
+### 2.2 Workload authentication — exact design
 
 Use the **same Cognito user pool as OAuth issuer, but separate app clients and custom resource-server scopes**. Cognito supports OAuth client-credentials grants for machine-to-machine access.
 
@@ -620,7 +620,7 @@ For external side effects, combine consumer dedupe with provider idempotency/cor
 
 ### Attachment limits
 
-Set conservative hackathon limits, e.g.:
+Set conservative limits, e.g.:
 
 - total message/artifact size <= 20 MB even if SES supports larger;
 - accepted: PDF, PNG, JPEG, plain text, RFC822 email;
@@ -641,7 +641,7 @@ Bucket settings:
 
 - block public access;
 - default encryption;
-- versioning optional for hackathon;
+- versioning optional in v1;
 - lifecycle for temporary normalized/parser output;
 - raw artifact access through short-lived signed URLs only.
 
@@ -665,7 +665,7 @@ Read-only views/tables safe for MCP/agents.
 
 DDL/migrations only; never used by runtime.
 
-Even if hackathon uses fewer physical credentials initially, preserve these logical permission boundaries in code/config.
+Even if v1 uses fewer physical credentials initially, preserve these logical permission boundaries in code/config.
 
 ## 21. MCP deployment policy
 
@@ -738,7 +738,7 @@ Use hashed/redacted identifiers in shared dashboards where possible.
 
 ## 24. Rate/abuse controls
 
-Hackathon defaults:
+Defaults:
 
 - per-user upload count/size limits;
 - per-user concurrent agent-run limit;

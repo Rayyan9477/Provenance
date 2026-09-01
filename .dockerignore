@@ -1,0 +1,87 @@
+# What must never enter a build context.
+#
+# Two jobs, and the first one matters more.
+#
+# 1. SECRECY. The build context is uploaded wholesale to the daemon, and
+#    anything in it can be COPYed into a layer by a careless later edit. `.env`
+#    holds a live CockroachDB password and a live Google AI Studio key. A layer
+#    is not deleted by a later `rm` — it stays in the image history and is
+#    pushed to Artifact Registry with everything else. The `.env` rules below
+#    are the load-bearing lines in this file.
+#
+# 2. SIZE AND CACHE. db/seeds/vectors.parquet alone is 69.9 MB, and node_modules
+#    plus the caches run to hundreds. Everything excluded here is something the
+#    build would upload on every single invocation and never read.
+#
+# Written as an allowlist would be safer still, but Docker's ignore syntax makes
+# re-inclusion (`!pattern`) order-dependent and easy to get subtly wrong; a
+# denylist that is reviewed is better than an allowlist that is misread.
+
+# --- secrets: never, under any pattern ---------------------------------------
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+**/.env.local
+*.pem
+*.key
+*.p12
+.aws/
+.gcloud/
+gha-creds-*.json
+service-account*.json
+
+# --- version control and CI ---------------------------------------------------
+.git/
+.github/
+.gitleaks.toml
+.gitleaksignore
+
+# --- the discarded AWS estate -------------------------------------------------
+# PIVOT.md: infra/cdk is 10 stacks and 7,861 lines of AWS CDK, retained only as
+# a record of a rejected alternative. It has no business in a Cloud Run image.
+infra/
+
+# --- large data the serving path never reads ----------------------------------
+# The seed corpus and its vector cache are seed-time artifacts, loaded by
+# scripts/seed running as pv_migrator from an operator machine.
+db/seeds/vectors.parquet
+.pv-objects/
+demo/artifacts/
+
+# --- caches and build output --------------------------------------------------
+**/node_modules/
+**/.next/
+**/__pycache__/
+**/*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.import_linter_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+infra/cdk/cdk.out/
+
+# --- scratch ------------------------------------------------------------------
+tmp/
+.scratch/
+.playwright-mcp/
+*-report.json
+
+# --- tests and tooling --------------------------------------------------------
+# The serving image runs neither. Excluded from the context rather than merely
+# not COPYed, so a future `COPY . .` cannot pull them in.
+**/tests/
+tests/
+tools/
+evals/
+ops/
+docs/
+*.md
+!README.md
+Design.pdf

@@ -2,9 +2,9 @@
 
 The agent package. Rewritten 2026-08-24 for the pivot: this was specified for
 LangGraph on Bedrock AgentCore and is built on the **`google-genai` SDK**,
-which the All Things Agentic Hackathon names as one of four accepted agent
-frameworks. Phase 7 was never started, which turned out to be an advantage --
-there was no graph code to port, so the layer is written once, natively.
+which is the agent framework this build standardises on. Phase 7 was never
+started, which turned out to be an advantage -- there was no graph code to
+port, so the layer is written once, natively.
 
 It holds no canonical write credential. Its database identity is
 `pv_agent_reader`, which reads the five `agent_*_v1` views and is refused the

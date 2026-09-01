@@ -29,7 +29,8 @@ consequences are structural here rather than advisory:
 
 The August 2026 model floor
 ---------------------------
-The hackathon requires "Gemini 3.5 or newer" and **no Pro model satisfies it**:
+The floor this build holds itself to is "Gemini 3.5 or newer", and **no Pro
+model satisfies it**:
 ``gemini-3.1-pro-preview`` is version 3.1, below the floor. Both tiers are
 therefore Flash-class. That is a capability constraint recorded here, not a
 preference — see ``ALLOWED_MODEL_IDS``.
@@ -122,7 +123,7 @@ PROBE_EVIDENCE_PATH: Final[str] = "ops/gemini-probe.txt"
 # which is exactly the condition the declared fallback exists for, and this is
 # the "one-line environment change under time pressure" it was declared to
 # make possible. Both ids are ≥ 3.5 and both are PROBED in the same transcript,
-# so the mandatory floor is unaffected by which one is Tier R.
+# so the model floor is unaffected by which one is Tier R.
 #
 # The two constants are therefore swapped rather than one edited: 3.7 stays
 # declared, probed and reachable by setting GEMINI_REASONING_MODEL_ID, so if

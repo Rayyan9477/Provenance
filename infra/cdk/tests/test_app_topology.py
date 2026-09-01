@@ -127,7 +127,7 @@ def test_mandatory_tags_reach_every_taggable_resource(
                 continue
             checked += 1
             assert keys["Project"] == "Provenance", f"{stack_name}/{logical}"
-            assert keys.get("CostCenter") == "crdb-aws-agentic-memory-hackathon"
+            assert keys.get("CostCenter") == "provenance-platform"
             assert keys.get("DeleteAfter") == "2026-10-15"
     assert checked > 20, "the tag aspect reached suspiciously few resources"
 

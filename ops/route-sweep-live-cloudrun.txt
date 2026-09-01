@@ -1,0 +1,4 @@
+discovered 50 routes (artifact detail capped at 10)
+warming...
+
+swept 50  broken 0

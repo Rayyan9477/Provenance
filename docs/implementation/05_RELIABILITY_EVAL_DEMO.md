@@ -1,11 +1,11 @@
-# Provenance — Reliability, Observability, Evaluation, and Winning Demo
+# Provenance — Reliability, Observability, Evaluation, and Demo
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 ## 1. Why this document exists
 
-A hackathon demo can appear correct while the system underneath is brittle. Provenance should make its reliability properties visible and testable because production readiness is part of the judging rubric.
+A demo can appear correct while the system underneath is brittle. Provenance should make its reliability properties visible and testable, so that production readiness is a property of the system rather than of the walkthrough.
 
 ## 2. Reliability philosophy
 
@@ -70,7 +70,7 @@ Example retry schedule:
 - 1s, 5s, 30s, 2m, 10m;
 - then DEAD + alert/manual replay.
 
-For hackathon traffic, exact values matter less than bounded behavior and visibility.
+At current traffic levels, exact values matter less than bounded behavior and visibility.
 
 ## 5. Observability data model
 
@@ -322,9 +322,9 @@ Expected:
 - canonical commitment derived from admitted fulfillment + conflict rules;
 - final case revision reflects serialized commits.
 
-Display this test result or a miniature concurrency visualization in technical appendix/judge discussion if useful.
+Display this test result or a miniature concurrency visualization in a technical appendix or review discussion if useful.
 
-## 14. Winning hero demo — exact narrative
+## 14. Hero demo — exact narrative
 
 ### Setup visible before demo
 
@@ -393,7 +393,7 @@ UI shows:
 - basis case revision;
 - `Approve & Send`.
 
-Judge approves.
+The user approves.
 
 Executor revalidates revision and sends to safe demo inbox.
 
@@ -448,7 +448,7 @@ Do not create 18,000 manually curated facts. Generate synthetic decoy evidence a
 
 ## 16. Failure demonstration option
 
-If judges want technical depth, have a safe toggle:
+For reviewers who want technical depth, have a safe toggle:
 
 ### “Inject duplicate event”
 
@@ -471,7 +471,7 @@ Do not make the primary 30-second demo depend on failure injection.
 
 ## 17. Demo reliability requirements
 
-Before submission:
+Before any live walkthrough:
 
 - all hero artifacts preloaded locally/in S3;
 - demo can run via uploaded `.eml` even if SES inbound DNS misbehaves;
@@ -480,7 +480,7 @@ Before submission:
 - maintain a “demo fixture mode” for emergency fallback that still executes the real Kernel/database/event path using stored extraction fixture, clearly disclosed if used;
 - do not fake DB commits/trace data.
 
-## 18. Production-readiness story for judges
+## 18. Production-readiness story
 
 When asked “what makes this more than a demo?” answer with concrete guarantees:
 
@@ -497,7 +497,7 @@ When asked “what makes this more than a demo?” answer with concrete guarante
 
 ## 19. Definition of Done
 
-The architecture is implemented enough for submission when all are true:
+The architecture is implemented enough to ship when all are true:
 
 ### Memory
 
@@ -524,7 +524,7 @@ The architecture is implemented enough for submission when all are true:
 - CloudWatch/OTEL traces;
 - approved outbound demo action.
 
-### Hackathon sponsor
+### CockroachDB integration
 
 - Distributed Vector Indexing used in actual retrieval;
 - CockroachDB MCP used in a meaningful read path/agent inspection path;

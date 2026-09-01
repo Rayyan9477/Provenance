@@ -5,8 +5,7 @@ This product is licensed under the Apache License, Version 2.0. The complete
 licence text is in the file LICENSE at the root of this repository.
 
 Provenance is a personal system of record for a user's relationships with
-institutions. It was built for the CockroachDB x AWS hackathon, "Build with
-Agentic Memory".
+institutions.
 
 
 --------------------------------------------------------------------------------
@@ -19,11 +18,22 @@ published package or as a network service through its public interface. Each
 component is distributed by its own authors under its own licence terms, which
 are NOT restated here - a paraphrased licence is a wrong licence. Consult the
 LICENSE file shipped inside each distribution. The package manifests resolve to
-exact, pinned artifacts at build time: pyproject.toml today, and the apps/web
-manifest once the web application lands.
+exact, pinned artifacts at build time: requirements-runtime.txt and
+pyproject.toml for Python, apps/web/package.json and its lockfile for the web
+application.
 
 Versions are deliberately not pinned in this file. The manifests are the single
 place a version is recorded, and a version duplicated here would drift from them.
+
+This list was rewritten on 2026-08-31 to match what the build actually installs.
+Until then it described the AWS build this project began as - LangGraph, boto3,
+the AWS CDK, Bedrock, S3, SES, EventBridge, Textract and Bedrock AgentCore - and
+named no Google component at all, a week after the pivot recorded in PIVOT.md
+moved the models to Gemini and the hosting to Cloud Run. An attribution file
+that credits software the product does not use, and omits the software it does,
+is wrong in the direction that matters most: it fails to credit. The AWS entries
+that remain below are here because that code is still committed in this
+repository, and each one says what it is.
 
 Database access
   psycopg (PostgreSQL wire-protocol driver for Python; the CockroachDB client
@@ -33,17 +43,26 @@ Database access
     Note: psycopg 3 is distributed under the GNU Lesser General Public License.
     Provenance links against it as an unmodified library and does not
     redistribute it; consult its own COPYING/LICENSE file before vendoring it.
-  Alembic (schema migrations)
+  Alembic (schema migrations, operator-side only - no serving container installs
+    it, because a container that can migrate is a container that can drop a
+    column)
     Copyright (c) Michael Bayer and contributors
     https://alembic.sqlalchemy.org/
 
-Agent runtime
-  LangGraph (graph orchestration for the ingestion and advocate graphs)
-    Copyright (c) LangChain, Inc.
-    https://github.com/langchain-ai/langgraph
-  Anthropic SDK for Python (Claude model client)
+Models and agent runtime
+  Google Gen AI SDK for Python (google-genai; the client for the Gemini
+    Developer API, and the Google agent framework this project is built on.
+    imported by two shipped modules: agents/runtime/model_router/gemini.py at
+    module level, and wire_schema.py lazily. That pair is the evidence the
+    repository's own dependency check reads, so understating it here
+    understated the project's own proof)
+    Copyright (c) Google LLC
+    https://github.com/googleapis/python-genai
+  Model Context Protocol Python SDK (mcp; app/mcp/server.py subclasses FastMCP.
+    The tool registry, the statement composer and the scope binding are all
+    SDK-free, so the boundary they enforce does not depend on the SDK)
     Copyright (c) Anthropic, PBC
-    https://github.com/anthropics/anthropic-sdk-python
+    https://github.com/modelcontextprotocol/python-sdk
 
 Control plane
   FastAPI (HTTP API framework)
@@ -52,9 +71,18 @@ Control plane
   Starlette and Uvicorn (ASGI toolkit and server underneath FastAPI)
     Copyright (c) Encode OSS Ltd.
     https://www.starlette.io/  https://www.uvicorn.org/
-  Pydantic (typed contracts and settings validation)
+  Pydantic and pydantic-settings (typed contracts and settings validation)
     Copyright (c) Pydantic Services Inc. and individual contributors
     https://docs.pydantic.dev/
+  python-multipart (the multipart form parser FastAPI requires; without it the
+    artifact-upload route fails at import rather than at the first upload)
+    Copyright (c) Andrew Dunham and contributors
+    https://github.com/Kludex/python-multipart
+  uuid6 (UUID version 7 identifiers, declared rather than left to the uuid4
+    fallback, because CockroachDB splits ranges lexicographically on the primary
+    key and scattered ids scatter an append-heavy table)
+    Copyright (c) oittaa and contributors
+    https://github.com/oittaa/uuid6-python
 
 Web application
   Next.js (React application framework for apps/web)
@@ -64,19 +92,47 @@ Web application
     Copyright (c) Meta Platforms, Inc. and affiliates
     https://react.dev/
 
-AWS SDKs
-  AWS SDK for Python (boto3 and botocore) - Amazon Bedrock, S3, SES,
-    EventBridge, Secrets Manager, SQS and Cognito clients
+The AWS lane, discarded but still committed here
+  The platform migration recorded in PIVOT.md discarded the AWS deployment on
+  2026-08-24. No serving container installs any of the following, and none of it
+  runs in the deployed system. All of it is still in the tree, and infra/cdk's
+  304 tests still run, so it is attributed rather than quietly dropped.
+  AWS SDK for Python (boto3 and botocore) - reachable only through one lazy
+    import in app/retrieval/embeddings.py, kept because the 18,035 committed
+    corpus vectors are Amazon Titan output and stay uninterpretable without it.
+    Migration 0009, which would replace them with Gemini embeddings, is
+    deliberately unapplied.
     Copyright Amazon.com, Inc. or its affiliates
     https://github.com/boto/boto3
-  AWS Cloud Development Kit (infrastructure definitions under infra/cdk)
+  AWS Cloud Development Kit (aws-cdk-lib and constructs; the ten stacks under
+    infra/cdk, which are deployed nowhere)
     Copyright Amazon.com, Inc. or its affiliates
     https://github.com/aws/aws-cdk
+  Anthropic SDK for Python (declared in the dev extra and imported by no
+    module in this tree - grep finds no import site. Attributed because it is
+    still a declared dependency, and described accurately for the same reason
+    Playwright is not attributed above: the manifest is the fact, and a lane
+    asserted for it would be one nothing runs)
+    Copyright (c) Anthropic, PBC
+    https://github.com/anthropics/anthropic-sdk-python
 
 Development and verification toolchain (not shipped in any deployment unit)
-  pytest, Hypothesis, coverage.py, mutmut, ruff, mypy, import-linter,
-  pre-commit, Playwright, PyYAML, gitleaks.
+  Python: pytest and its plugins (pytest-asyncio, pytest-cov, pytest-xdist),
+    Hypothesis, coverage.py, mutmut, ruff, mypy, import-linter, pre-commit,
+    PyYAML, sqlalchemy-cockroachdb.
+  pyarrow is declared at pyproject.toml:124, under the control-plane runtime
+    extra rather than the dev extra, and is listed here only because no
+    serving image installs it: the Dockerfiles install requirements-runtime.txt,
+    which names it in a comment and does not require it. It reads the parquet
+    vector cache during seeding.
+  Web: TypeScript, Vitest, Testing Library, jsdom, ESLint, Prettier.
+  Standalone binary: gitleaks, the secret scanner behind gate assertion G0.3 and
+    checklist item S8.
   Each is copyright its respective authors and licensed under its own terms.
+
+  Playwright is named as the end-to-end runner throughout docs/, and it is NOT
+  attributed here, because it is in no manifest and tests/e2e/ holds nothing but
+  a .gitkeep. If that suite is written, this list gains an entry.
 
 
 --------------------------------------------------------------------------------
@@ -87,19 +143,38 @@ The following are used as hosted services over their public interfaces. No code
 belonging to them is present in this repository, and nothing here is a derivative
 work of them.
 
-  CockroachDB Cloud, the CockroachDB Cloud Managed MCP Server, the ccloud CLI
-    and the cockroach SQL CLI
+  Google Cloud - Cloud Run (the two deployed services in project
+    provenance-agentic-2026, region us-east4), Cloud Build and Artifact Registry
+    (image build and image storage), and Secret Manager, which holds every
+    credential the two services read and mounts each one by reference rather
+    than passing it on a command line
+    Copyright Google LLC
+  The Gemini Developer API, reached with a Google AI Studio key -
+    gemini-3.7-flash and gemini-3.5-flash-lite for reasoning and extraction,
+    gemini-3.6-flash as the capacity fallback. gemini-embedding-2 is probed
+    and canonical but NOT in use: the 18,035 corpus vectors are Titan at
+    VECTOR(1024) and migration 0009, which widens the column for it, is
+    deliberately unapplied. No Vertex AI, no service account, no IAM.
+    Copyright Google LLC
+  CockroachDB Cloud, the ccloud CLI and the cockroach SQL CLI
     Copyright Cockroach Labs, Inc.
-  Amazon Web Services - Amazon Bedrock (Anthropic Claude and Amazon Titan
-    Embeddings text models), Amazon Cognito, Amazon S3, Amazon SES,
-    Amazon EventBridge, AWS Secrets Manager, Amazon SQS, Amazon Textract,
-    Amazon CloudWatch and AWS Bedrock AgentCore
+  Amazon Web Services - Amazon Bedrock, whose amazon.titan-embed-text-v2:0
+    produced the 18,035 corpus vectors committed to this repository before the
+    pivot. Nothing here calls Bedrock while serving a request, and the deployed
+    system holds no AWS credentials.
     Copyright Amazon.com, Inc. or its affiliates
 
-CockroachDB, Amazon Web Services, AWS, Amazon Bedrock, Anthropic, Claude and
-Next.js are trademarks of their respective owners. Their use here is nominative:
-it identifies the services and models this project runs against, and it does not
-imply endorsement or affiliation. Section 6 of the Apache License does not grant
+The CockroachDB Cloud Managed MCP Server is NOT used, and the earlier version of
+this file listing it was wrong. The MCP server in this repository is the
+project's own, built on the Model Context Protocol Python SDK listed above and
+serving the five agent_*_v1 views to pv_agent_reader; ops/probes/README.md
+records the Managed MCP Server claim as blocked.
+
+Google, Google Cloud, Cloud Run, Gemini, CockroachDB, Amazon Web Services, AWS,
+Amazon Bedrock, Anthropic, Claude, Next.js and React are trademarks of their
+respective owners. Their use here is nominative: it identifies the services,
+models and libraries this project runs against, and it does not imply
+endorsement or affiliation. Section 6 of the Apache License does not grant
 permission to use those marks.
 
 

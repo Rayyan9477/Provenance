@@ -1,11 +1,11 @@
 # Provenance — Infrastructure and Deployment Specification
 
-Purpose: the complete, buildable definition of every AWS resource, every CockroachDB Cloud provisioning command, every SQL grant, every environment variable, and every teardown step that the Provenance hackathon deployment requires.
+Purpose: the complete, buildable definition of every AWS resource, every CockroachDB Cloud provisioning command, every SQL grant, every environment variable, and every teardown step that the Provenance deployment requires.
 
 Status: planning complete v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
-Audience: whoever runs `cdk deploy` and `ccloud cluster create` for the first time; backend engineers wiring `services/control_plane` and `workers/` to real resources; agent engineers configuring Bedrock AgentCore Runtime and the CockroachDB Cloud Managed MCP Server; reviewers auditing the Product Readiness criterion; whoever tears the account down after the submission deadline.
+Audience: whoever runs `cdk deploy` and `ccloud cluster create` for the first time; backend engineers wiring `services/control_plane` and `workers/` to real resources; agent engineers configuring Bedrock AgentCore Runtime and the CockroachDB Cloud Managed MCP Server; reviewers auditing production readiness; whoever tears the account down when the deployment is retired.
 
 Authority: `CANONICAL_DECISIONS.md` and `00_PRODUCT.md` bind every name below. Within technical concerns, `specs/10_DATABASE_DDL.md` owns roles, grants, views, and the vector index; `specs/15_API_SPEC.md` owns endpoints, Cognito clients, scopes, event routing, and the outbox state machine; `quality/23_PHASE_GATES.md` owns the exit assertions this document must satisfy. This document owns only the *deployment shape* of those decisions, and it renegotiates none of them.
 
@@ -70,9 +70,9 @@ const env: Environment = { account: process.env.CDK_DEFAULT_ACCOUNT, region: 'us
 const app = new App();
 
 Tags.of(app).add('Project', 'Provenance');
-Tags.of(app).add('Component', 'hackathon');
+Tags.of(app).add('Component', 'provenance-app');
 Tags.of(app).add('Owner', process.env.PV_OWNER ?? 'unset');
-Tags.of(app).add('CostCenter', 'crdb-aws-agentic-memory-hackathon');
+Tags.of(app).add('CostCenter', 'provenance-agentic-memory');
 Tags.of(app).add('DeleteAfter', '2026-10-15');
 ```
 
@@ -87,7 +87,7 @@ npx cdk bootstrap aws://$(aws sts get-caller-identity --query Account --output t
 
 # Verify the four model ids this build depends on are actually invokable in this account.
 # CANONICAL_DECISIONS.md "Bedrock model access" probe. Fixture mode is dev-only; live
-# submission stays blocked until this returns all three.
+# release stays blocked until this returns all three.
 for m in anthropic.claude-haiku-4-5 anthropic.claude-opus-5 amazon.titan-embed-text-v2:0; do
   aws bedrock get-foundation-model --model-identifier "$m" --region us-east-1 \
     --query 'modelDetails.[modelId,modelLifecycle.status]' --output text || echo "MISSING $m"
@@ -102,7 +102,7 @@ Record the output in `ops/cluster-probe.txt` alongside the CockroachDB probes fr
 - **No API Gateway.** App Runner terminates TLS and serves `/v1` and `/internal/v1` on one listener (`specs/15_API_SPEC.md` §1.1). `/internal/v1` is auth-isolated, not network-isolated, and the specification says so out loud.
 - **No WAF.** Rate limiting is in-process and acknowledged as a gap in `specs/15_API_SPEC.md` §17.1.
 - **No DynamoDB, no ElastiCache, no OpenSearch.** A second copy of canonical state is a listed anti-pattern (`implementation/01_SYSTEM_ARCHITECTURE_DETAILED.md` §16).
-- **No CI/CD pipeline resources.** Deploys are run from a workstation or GitHub Actions using short-lived credentials. A CodePipeline would be a fifth thing to tear down for zero rubric value.
+- **No CI/CD pipeline resources.** Deploys are run from a workstation or GitHub Actions using short-lived credentials. A CodePipeline would be a fifth thing to tear down for zero v1 value.
 
 ---
 
@@ -712,7 +712,7 @@ artifacts.addToResourcePolicy(new PolicyStatement({
 
 The delete-deny is scoped to `raw/*` and `ses/*` only. `normalized/*` must remain deletable, because the lifecycle rule in §4.3 deletes it and a lifecycle expiration is evaluated against the bucket policy.
 
-S3 Object Lock would express append-only more strongly than a policy statement, and it is deliberately not enabled: Object Lock cannot be turned on after bucket creation, cannot be turned off, and makes teardown require waiting out the retention period. A policy statement plus versioning gets the same practical guarantee for a hackathon and can be removed on 15 October. Recorded in §15.4.
+S3 Object Lock would express append-only more strongly than a policy statement, and it is deliberately not enabled: Object Lock cannot be turned on after bucket creation, cannot be turned off, and makes teardown require waiting out the retention period. A policy statement plus versioning gets the same practical guarantee for v1 and can be removed on 15 October. Recorded in §15.4.
 
 ### 4.5 Inbound bucket policy
 
@@ -1106,7 +1106,7 @@ Open and click tracking is off. Rewriting links inside a dispute letter would al
 
 ### 5.5 Demo recipient allow-list
 
-`specs/15_API_SPEC.md` §14.4: the hackathon allowlist is the counterparty's `canonical_domain` plus `demo-sink.provenance.app`. Enforced in `action_policy` before an intent may reach `APPROVED`, and again in the executor.
+`specs/15_API_SPEC.md` §14.4: the v1 allowlist is the counterparty's `canonical_domain` plus `demo-sink.provenance.app`. Enforced in `action_policy` before an intent may reach `APPROVED`, and again in the executor.
 
 ```python
 # services/control_plane/app/actions/recipients.py
@@ -2761,9 +2761,9 @@ Token handling in the browser: authorization code + PKCE against the hosted UI, 
 
 ## 11. CockroachDB Cloud
 
-### 11.1 ccloud is the third qualifying CockroachDB tool
+### 11.1 The three CockroachDB tools in use
 
-**Stated explicitly for the submission's tool-usage disclosure:** this build uses three distinct CockroachDB tools, and the hackathon requires at least two.
+**Stated explicitly for the tool-usage disclosure:** this build uses three distinct CockroachDB tools, and each earns its place.
 
 | # | Tool | Where it is used | What it does that the others do not |
 |---|---|---|---|
@@ -2771,7 +2771,7 @@ Token handling in the browser: authorization code + PKCE against the hosted UI, 
 | 2 | **CockroachDB Cloud Managed MCP Server** | LangGraph agents read five `_v1` views as `pv_agent_reader` | the agent's visible, grant-bounded memory read path |
 | 3 | **ccloud CLI** | provisioning, inspection, SQL role creation, connection-string issuance, probe execution, teardown | the entire lifecycle of the cluster, and every command in §11.2 through §11.4 |
 
-`ccloud` counts as a qualifying tool because it is the official CockroachDB Cloud command-line interface and it is doing real, load-bearing work here: it creates the cluster, mints the four SQL role credentials that constitute the security boundary, prints the connection URLs that go into Secrets Manager, opens the SQL shell that runs the Phase 0 probes, and deletes the cluster at teardown. It is not decorative usage added to reach a count.
+`ccloud` counts because it is the official CockroachDB Cloud command-line interface and it is doing real, load-bearing work here: it creates the cluster, mints the four SQL role credentials that constitute the security boundary, prints the connection URLs that go into Secrets Manager, opens the SQL shell that runs the Phase 0 probes, and deletes the cluster at teardown. It is not decorative usage added to pad a list.
 
 ### 11.2 Provisioning
 
@@ -2881,7 +2881,7 @@ Outcomes and the predetermined response. There is no branch here that requires a
 | **`SET CLUSTER SETTING` is refused on Basic** (insufficient privilege on a managed plan) | Open a CockroachDB Cloud support request to enable it, and in parallel evaluate an upgrade to Standard. Until it is enabled, the vector index cannot be created and Phase 6 cannot exit. This is a **stop condition**, not a workaround. | `quality/23_PHASE_GATES.md` G-6 as NOT RUN, with the refusal text pasted |
 | Setting enabled but `vector_cosine_ops` is rejected in step 6 | Fall back to §5.3 Variant C: default (L2) opclass, set `EMBEDDING_NORMALIZATION=L2_UNIT`, and request Titan v2 embeddings with `normalize: true`. On unit vectors L2 ordering equals cosine ordering, so ranking is unchanged and the frozen embedding contract holds. | `EMBEDDING_NORMALIZATION` env var, probe file |
 | `CREATE VECTOR INDEX` syntax rejected but `USING cspann` accepted | Use §5.2 Variant B. Semantics identical. | probe file |
-| No vector index works at all, in any variant | Disclose a brute-force scan over the user's partition, and accept that the sponsor vector-index submission gate fails. Do **not** silently ship a scan and describe it as a vector index. | `CANONICAL_DECISIONS.md` Phase 0 table, submission disclosure |
+| No vector index works at all, in any variant | Disclose a brute-force scan over the user's partition, and accept that the vector-index gate fails. Do **not** silently ship a scan and describe it as a vector index. | `CANONICAL_DECISIONS.md` Phase 0 table, release disclosure |
 
 The seeding order is a consequence of this section and is not optional: **`IMPORT INTO` is unsupported on a table that carries a vector index, and large batch inserts against a live vector index degrade badly.** The seed therefore bulk-loads `evidence_items` first and creates `evidence_embedding_ann_idx` afterwards.
 
@@ -3000,7 +3000,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE pv_migrator IN SCHEMA public
 
 #### `pv_ops_reader` — created, because a real consumer exists
 
-`CANONICAL_DECISIONS.md` permits an optional fifth role, `pv_ops_reader`. An earlier version of this section declined to create it on the grounds that nobody would use it. That is no longer true: `quality/21_OBSERVABILITY_ANALYTICS.md` §7.3 and §9 run `tools/trace_verify.py` and both analytics queries as `pv_ops_reader`, and `trace_verify` is the mechanism `submission/50_README_DRAFT.md` hands a sceptical judge to falsify "the Memory Trace is a hand-authored fixture." A verifier that runs as `pv_app_reader_writer` proves less, because that role can write the rows it is claiming to verify. So the role is created, strictly read-only, in migration `0008`.
+`CANONICAL_DECISIONS.md` permits an optional fifth role, `pv_ops_reader`. An earlier version of this section declined to create it on the grounds that nobody would use it. That is no longer true: `quality/21_OBSERVABILITY_ANALYTICS.md` §7.3 and §9 run `tools/trace_verify.py` and both analytics queries as `pv_ops_reader`, and `trace_verify` is the mechanism the repository's public `README.md` hands a sceptical reader to falsify "the Memory Trace is a hand-authored fixture." A verifier that runs as `pv_app_reader_writer` proves less, because that role can write the rows it is claiming to verify. So the role is created, strictly read-only, in migration `0008`.
 
 ```sql
 -- ---- pv_ops_reader --------------------------------------------------------
@@ -3084,7 +3084,7 @@ Deliberately absent from every view: `users.cognito_sub`, `ingest_aliases`, `act
 
 ### 11.7 CockroachDB Cloud Managed MCP Server
 
-The hackathon's qualifying tool is the **CockroachDB Cloud Managed MCP Server**, which is a distinct product from the self-hosted `cockroachdb-mcp-server`. It is enabled per cluster in the CockroachDB Cloud console and reached over TLS.
+The tool in use is the **CockroachDB Cloud Managed MCP Server**, which is a distinct product from the self-hosted `cockroachdb-mcp-server`. It is enabled per cluster in the CockroachDB Cloud console and reached over TLS.
 
 Configuration, wired to `pv_agent_reader` **only**:
 
@@ -3188,10 +3188,10 @@ Everything is loaded through one typed settings object (`provenance_contracts.se
 
 | Name | Purpose | Example | Consumed by |
 |---|---|---|---|
-| `COCKROACH_DATABASE_URL` | `pv_app_reader_writer` DSN; the app and read pools | `postgresql://pv_app_reader_writer:***@cluster-host:26257/provenance?sslmode=verify-full` | CP, `cognito_post_confirmation` |
-| `COCKROACH_KERNEL_URL` | `pv_kernel_writer` DSN; the only canonical write pool | `postgresql://pv_kernel_writer:***@cluster-host:26257/provenance?sslmode=verify-full` | CP |
-| `COCKROACH_MIGRATOR_URL` | `pv_migrator` DSN; DDL only | `postgresql://pv_migrator:***@cluster-host:26257/provenance?sslmode=verify-full` | CI |
-| `PROVENANCE_TEST_DB_URL` | integration-test cluster | `postgresql://pv_migrator:***@test-host:26257/provenance_test?sslmode=verify-full` | CI |
+| `COCKROACH_DATABASE_URL` | `pv_app_reader_writer` DSN; the app and read pools | `postgresql://pv_app_reader_writer:***@<cluster-host>:26257/provenance?sslmode=verify-full` | CP, `cognito_post_confirmation` |
+| `COCKROACH_KERNEL_URL` | `pv_kernel_writer` DSN; the only canonical write pool | `postgresql://pv_kernel_writer:***@<cluster-host>:26257/provenance?sslmode=verify-full` | CP |
+| `COCKROACH_MIGRATOR_URL` | `pv_migrator` DSN; DDL only | `postgresql://pv_migrator:***@<cluster-host>:26257/provenance?sslmode=verify-full` | CI |
+| `PROVENANCE_TEST_DB_URL` | integration-test cluster | `postgresql://pv_migrator:***@<test-host>:26257/provenance_test?sslmode=verify-full` | CI |
 | `COCKROACH_POOL_MIN` / `_MAX` | asyncpg pool bounds per role | `2` / `10` | CP |
 | `COCKROACH_STATEMENT_TIMEOUT_MS` | per-connection `statement_timeout` | `15000` | CP |
 | `PROVENANCE_KEEP_TEST_DBS` | leave a failed test database for post-mortem | `1` | CI |
@@ -3495,7 +3495,7 @@ Two further behavioural controls that cost nothing to implement and matter more 
 
 ## 14. Teardown
 
-Goal: after this runs, nothing in the account or the CockroachDB Cloud organization bills. Run it after the submission is accepted and the video is recorded, not before.
+Goal: after this runs, nothing in the account or the CockroachDB Cloud organization bills. Run it after the deployment is no longer needed and the video is recorded, not before.
 
 ### 14.1 Order
 
@@ -3580,7 +3580,7 @@ ccloud cluster list          # → provenance-prod absent
 ccloud info                  # → confirm no remaining spend against the organization
 ```
 
-Deleting the cluster destroys the seeded corpus, the hero data, and every gate log's referenced row. Export anything the submission narrative depends on **before** this line:
+Deleting the cluster destroys the seeded corpus, the hero data, and every gate log's referenced row. Export anything the demo narrative depends on **before** this line:
 
 ```bash
 ccloud cluster sql provenance-prod --user pv_migrator --format=csv \
@@ -3650,7 +3650,7 @@ A teardown is not complete when the commands have run. It is complete when the c
 
 ### 15.4 Append-only S3 is a policy statement, not Object Lock
 
-§4.4 denies `DeleteObject` to everything except a teardown role. That is defeatable by anyone who can change the bucket policy, which is anyone with administrative IAM in the account. Object Lock in compliance mode would be genuinely immutable and is deliberately not used, because it cannot be enabled after bucket creation, cannot be disabled, and would make §14 require waiting out a retention period. **Decision:** accept the weaker control for the hackathon; state plainly in any Product Readiness discussion that S3-level immutability is policy-enforced, while *database*-level append-only is enforced by grants plus `ON DELETE RESTRICT` and is the stronger of the two.
+§4.4 denies `DeleteObject` to everything except a teardown role. That is defeatable by anyone who can change the bucket policy, which is anyone with administrative IAM in the account. Object Lock in compliance mode would be genuinely immutable and is deliberately not used, because it cannot be enabled after bucket creation, cannot be disabled, and would make §14 require waiting out a retention period. **Decision:** accept the weaker control for v1; state plainly in any Product Readiness discussion that S3-level immutability is policy-enforced, while *database*-level append-only is enforced by grants plus `ON DELETE RESTRICT` and is the stronger of the two.
 
 ### 15.5 `tlsPolicy: Optional` on inbound SES
 

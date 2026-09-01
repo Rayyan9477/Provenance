@@ -8,7 +8,7 @@ laptop with no cloud account -- and it has a working HS256 verifier
 route, no console, and no issuer to redirect to. So the API correctly answered
 `401 UNAUTHENTICATED` to every read, the web app had nothing to put in an
 `Authorization` header, and the whole live path was unreachable on the one
-platform a judge will actually run.
+platform a reviewer will actually run.
 
 `issue_local_token` already existed and was called only by tests. This is the
 one command-line entry point to it, so the claim vocabulary still has exactly

@@ -200,7 +200,16 @@ SECRET_KEYS: Final[dict[str, tuple[str, ...]]] = {
     SECRET_MCP: ("agent_url", "mcp_endpoint", "mcp_bearer"),
 }
 
-# The five SQL roles that already exist on cluster ``rayyandb``
+# The CockroachDB Cloud Managed MCP Server endpoint. Its hostname embeds the
+# cluster name, so it is deployment-specific and is supplied per deployment
+# through the ``pv:mcp_server_url`` context key or the ``MCP_SERVER_URL``
+# environment variable. The default below is a placeholder of the right shape
+# that resolves to nothing: a real cluster hostname committed here would be
+# private infrastructure published in a public tree, and it would keep being
+# handed to every stack long after the cluster it names was gone.
+DEFAULT_MCP_SERVER_URL: Final[str] = "https://mcp.example.invalid"
+
+# The five SQL roles that already exist on the provisioned CockroachDB cluster
 # (CockroachDB CCL v26.2.5, plan BASIC). Named here only so a test can assert
 # that the ``provenance/db`` key set covers every one of them.
 SQL_ROLES: Final[tuple[str, ...]] = (
@@ -346,16 +355,16 @@ class PvConfig:
                 scope,
                 "pv:mcp_server_url",
                 "MCP_SERVER_URL",
-                "https://mcp.rayyandb.cockroachlabs.cloud",
+                DEFAULT_MCP_SERVER_URL,
             ),
             teardown=teardown,
             api_base_url_override=_optional(scope, "pv:api_base_url", "PV_API_BASE_URL"),
             custom_domains_enabled=scope.node.try_get_context("pv:custom_domains") is not False,
             tags={
                 "Project": "Provenance",
-                "Component": "hackathon",
+                "Component": "platform",
                 "Owner": owner,
-                "CostCenter": "crdb-aws-agentic-memory-hackathon",
+                "CostCenter": "provenance-platform",
                 "DeleteAfter": "2026-10-15",
             },
         )

@@ -3,7 +3,7 @@
 Executable CockroachDB Cloud DDL for the 26 canonical Provenance tables, their constraints, indexes, vector index, agent-safe views, SQL roles, Alembic ordering, seed plan, and required database tests.
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 Audience: backend engineers implementing `provenance_db` and the Alembic migration chain; anyone provisioning the CockroachDB Cloud cluster; reviewers checking that the Memory Kernel's invariants are enforced by the schema and not only by Python.
 
@@ -34,7 +34,7 @@ Order of work:
 | Money | `DECIMAL(20,4)`. **Never `FLOAT`, `REAL`, or `DOUBLE PRECISION`.** Currency is a separate `STRING` column constrained to ISO-4217 shape. |
 | Confidence / weight | `DECIMAL(5,4)` constrained to `[0,1]`. |
 | Hashes | `BYTES` (32 bytes for SHA-256). Never hex strings. |
-| Enums | `STRING` + a named `CHECK` constraint. No native DB enum types — CockroachDB enum changes are migration-heavy and the hackathon needs cheap additive changes. |
+| Enums | `STRING` + a named `CHECK` constraint. No native DB enum types — CockroachDB enum changes are migration-heavy and this build needs cheap additive changes. |
 | JSONB | Only for variable payloads typed at the application boundary: `source_locator`, `condition_ast`, `predicate_ast`, `object_json`, `value_json`, `payload`, `parser_metadata`, `normalized_identifiers`, `model_route`, `reason_codes`. **No core domain state hides in JSONB.** |
 | Tenancy | Every user-owned table carries `tenant_id` **and** `user_id` as real columns, and every one of them carries `FOREIGN KEY (tenant_id, user_id) REFERENCES users (tenant_id, id)`. This is the tenant-isolation spine: a row cannot be stitched to a user in another tenant even by a buggy repository. |
 | Parent links | Child rows in the evidence/epistemic/obligation chain use **composite** foreign keys `(tenant_id, user_id, parent_id) → parent (tenant_id, user_id, id)`. That is why most tables also declare `UNIQUE (tenant_id, user_id, id)`. |
@@ -189,7 +189,7 @@ CREATE TABLE tenants (
 );
 ```
 
-The only table without a `tenant_id`; it *is* the tenant. One tenant per user is acceptable for the hackathon, but the abstraction stays so isolation tests are meaningful.
+The only table without a `tenant_id`; it *is* the tenant. One tenant per user is acceptable for v1, but the abstraction stays so isolation tests are meaningful.
 
 ### 3.2 `users`
 
@@ -2624,7 +2624,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE pv_migrator IN SCHEMA public
     REVOKE ALL ON TABLES FROM pv_app_reader_writer, pv_kernel_writer, pv_agent_reader;
 ```
 
-Even if the hackathon deploys with fewer physical credentials than four, create all four roles and connect each subsystem with its own. The grants above are the evidence for the "agent DB access is least privilege" claim in the production-readiness story.
+Even if the deployment uses fewer physical credentials than four, create all four roles and connect each subsystem with its own. The grants above are the evidence for the "agent DB access is least privilege" claim in the production-readiness story.
 
 ---
 
@@ -3002,21 +3002,21 @@ Test 12(d) is the one to keep if budget forces cuts. Without a positive control,
 
 ## 20. Risks, decisions, and verification
 
-**1. Vector index syntax is the single largest execution risk.** `CREATE VECTOR INDEX`, `USING cspann`, and the `vector_cosine_ops` operator class did not all ship in the same CockroachDB release, and this document was written without a live cluster to probe. §1 gives three variants and a decision table, and §5.3 gives an L2-normalization fallback that preserves cosine ranking exactly — but if all three variants fail, there is no vector index and retrieval degrades to a brute-force scan over the user's partition. At 16,000 rows for one user that is survivable for a demo; it is not a production answer. **Run §1 on day one, not the day before submission.**
+**1. Vector index syntax is the single largest execution risk.** `CREATE VECTOR INDEX`, `USING cspann`, and the `vector_cosine_ops` operator class did not all ship in the same CockroachDB release, and this document was written without a live cluster to probe. §1 gives three variants and a decision table, and §5.3 gives an L2-normalization fallback that preserves cosine ranking exactly — but if all three variants fail, there is no vector index and retrieval degrades to a brute-force scan over the user's partition. At 16,000 rows for one user that is survivable for a demo; it is not a production answer. **Run §1 on day one, not the day before release.**
 
-**2. The canonical table count is 26.** This includes the operational `agent_runs` and `idempotency_records` tables. The migration chain, expected-table manifest, gates, and submission material must all assert 26.
+**2. The canonical table count is 26.** This includes the operational `agent_runs` and `idempotency_records` tables. The migration chain, expected-table manifest, gates, and release material must all assert 26.
 
-**3. `support_edge_count` is enforceable but forgeable.** `ck_belief_versions_grounded` stops a version claiming zero edges, but it cannot stop the Kernel writing `support_edge_count = 3` and then inserting two edges. Verification query V3 catches it and test 2 asserts it, so a bug surfaces in CI rather than in production — but the constraint is a tripwire, not a proof. A trigger-maintained counter would close the gap; CockroachDB triggers were judged too version-dependent to depend on for a hackathon build.
+**3. `support_edge_count` is enforceable but forgeable.** `ck_belief_versions_grounded` stops a version claiming zero edges, but it cannot stop the Kernel writing `support_edge_count = 3` and then inserting two edges. Verification query V3 catches it and test 2 asserts it, so a bug surfaces in CI rather than in production — but the constraint is a tripwire, not a proof. A trigger-maintained counter would close the gap; CockroachDB triggers were judged too version-dependent to depend on for v1.
 
 **4. Polymorphic `belief_support.source_id` has no foreign key.** **Decision:** accept this bounded v1 integrity risk to retain one ordered grounding edge table. Only `pv_kernel_writer` may insert edges; the kernel resolves every source before the transaction, V4 verifies every reference, and Gate 4 treats any dangling edge as an invariant failure. Adding another writer requires replacing the polymorphic key with typed nullable foreign keys in a forward migration.
 
-**5. Composite tenant foreign keys cost storage and write latency.** Every user-owned table carries `UNIQUE (tenant_id, user_id, id)` purely so children can reference it, roughly doubling the index footprint of small tables and adding an FK check per insert. That is a deliberate trade: cross-tenant stitching becomes impossible at the storage layer rather than merely unlikely at the application layer. At hackathon scale the cost is invisible; at real scale it should be re-measured.
+**5. Composite tenant foreign keys cost storage and write latency.** Every user-owned table carries `UNIQUE (tenant_id, user_id, id)` purely so children can reference it, roughly doubling the index footprint of small tables and adding an FK check per insert. That is a deliberate trade: cross-tenant stitching becomes impossible at the storage layer rather than merely unlikely at the application layer. At v1 scale the cost is invisible; at real scale it should be re-measured.
 
 **6. `ck_outbox_events_event_type` hard-codes the event vocabulary.** Adding a new domain event requires a migration. That is intentional — it enforces "do not invent event names ad hoc in consumers" — but it will feel obstructive during rapid iteration. If it becomes a bottleneck, drop the CHECK and move the vocabulary to a Pydantic literal, accepting that the database stops being the enforcement point.
 
 **7. Column families on `evidence_items` are unverified.** They should reduce write amplification on retraction updates and embedding backfill substantially, but the layout was chosen analytically, not measured. Probe P11 tells you whether the syntax is accepted; only a benchmark tells you whether it helps. Deleting the three `FAMILY` lines is always safe.
 
-**8. `ck_source_artifacts_mime` and `ck_commitments_type` are closed vocabularies.** A judge uploading an unexpected file type during a live demo must receive a graceful boundary error rather than a database exception. **Decision:** the API validates the declared artifact MIME against the identical allowlist before insert and returns `422 UNSUPPORTED_MIME_TYPE`; HTTP `415` remains reserved for an unsupported request `Content-Type`. Contract tests compare the API allowlist to the DDL manifest so the two cannot drift silently.
+**8. `ck_source_artifacts_mime` and `ck_commitments_type` are closed vocabularies.** Someone uploading an unexpected file type during a live demo must receive a graceful boundary error rather than a database exception. **Decision:** the API validates the declared artifact MIME against the identical allowlist before insert and returns `422 UNSUPPORTED_MIME_TYPE`; HTTP `415` remains reserved for an unsupported request `Content-Type`. Contract tests compare the API allowlist to the DDL manifest so the two cannot drift silently.
 
 **9. Row-level TTL on `idempotency_records` runs a background job.** On a small serverless cluster the hourly TTL job competes with demo traffic. If latency spikes during the demo, disable it (`ALTER TABLE idempotency_records SET (ttl_job_cron = '@daily')`) rather than debugging it live.
 

@@ -1,0 +1,60 @@
+==============================================================================
+Provenance -- live Judge Mode counterfactual  (CF1..CF5, PB)
+started             : 2026-08-24T19:16:28.461678+00:00
+service             : app/counterfactual/service.py (the bound port)
+graph               : agents/runtime/graphs/counterfactual_graph.py
+api                 : Gemini Developer API (AI Studio key)
+verdict semantics   : PASS / FAIL / CANNOT RUN are THREE outcomes (D-00-005).
+==============================================================================
+
+owner scope         : tenant eaf56bfd-2fa3-5de4-bf55-34478e87b351  user 88f54715-2808-58e8-8591-93f515ee21ba
+artifact            : northline-final-invoice  (efd261e6-1a78-5cca-8c90-2d3579cc385a)
+
+-- CF1  canonical state before the counterfactual
+  [PASS      ] cases.revision read for every case  --  10 cases; agent_runs holds 23 rows
+
+-- CF2  POST /v1/judge-mode/counterfactual (both modes, live model)
+  [PASS      ] start_counterfactual -> COMPLETED  --  43.7s, counterfactual_id=6976f07a-a86c-437f-b1ae-63669ff19f21
+
+-- CF3  the two agent_runs rows, read back from the cluster
+  [PASS      ] two agent_runs rows written and accepted by every CHECK  --  agent_runs 23 -> 25
+      ON  is_counterfactual=False graph=counterfactual/1.0.0 status=SUCCEEDED allowed_case_ids=['3f8360c5-d785-5392-9c95-e7e4710010d4'] corpus_visible=16032
+      OFF is_counterfactual=True graph=counterfactual/1.0.0 status=SUCCEEDED allowed_case_ids=[] corpus_visible=0
+
+-- CF4  GET /v1/judge-mode/counterfactual/{id}
+  [PASS      ] parity.all_equal = True  --  artifact_id=True, artifact_sha256=True, model_id=True, prompt_version=True, graph_version=True, decode_params_sha256=True
+      memory_off:
+        model_id            : gemini-3.7-flash
+        retrieval_enabled   : False
+        corpus_size_visible : 0
+        duration_ms         : 5780
+        headline            : Final invoice received for May 2026 internet service
+        classification      : ROUTINE_DOCUMENT
+        conflicts_detected  : 0
+        recommended_action  : NONE
+        support_ids         : []
+        why                 : The artifact presents a standard final invoice for internet service covering May 2026 without any detected conflicts or contradictions against existing record state.
+      memory_on:
+        model_id            : gemini-3.7-flash
+        retrieval_enabled   : True
+        corpus_size_visible : 16032
+        duration_ms         : 7246
+        headline            : Dispute of final invoice asserting balance due of $74.20
+        classification      : COUNTERPARTY_CLAIM_CONTRADICTING_RECORD
+        conflicts_detected  : 1
+        recommended_action  : OUTBOUND_EMAIL_DISPUTE
+        support_ids         : ['e7d8b123-4fbe-44c9-a916-fdc319ca4661', 'a6ed0cbf-9850-4810-8827-ee5cf4712f08']
+        draft | I am writing to dispute the recent invoice stating a balance due of $74.20 for service from 1 May 2026 through 31 May 2026. According to the account records, the balance owed on this account is $0.00. The account was previously confirmed to have a zero balance. The charge of $74.20 on the final invoice does not match the confirmed zero balance. Please update the account to reflect that no amount is due. Please send written confirmation once this adjustment has been completed.
+        why                 : The invoice asserts an outstanding balance of $74.20, which contradicts the confirmed record showing a settled balance of $0.00.
+      delta   : {"conflicts_detected": {"off": 0, "on": 1}, "actions_recommended": {"off": 0, "on": 1}, "support_ids_cited": {"off": 0, "on": 2}, "corpus_size_visible": {"off": 0, "on": 16032}, "verdict": "memory off classified it ROUTINE_DOCUMENT and recommended NONE; memory on classified it COUNTERPARTY_CLAIM_CONTRADICTING_RECORD and recommended OUTBOUND_EMAIL_DISPUTE"}
+
+-- CF5  ops/41_RUNBOOK.md 8.1 step 8: the record must be unmoved
+  [PASS      ] cases.revision identical before and after, every case  --  10 cases compared
+  [PASS      ] safety.case_revision_changed_by_counterfactual == false  --  before=6 after=6 measured=True
+  [PASS      ] safety.memory_off_wrote_canonical_state == false
+  [PASS      ] safety.memory_off_admitted_evidence == false
+  [PASS      ] safety.memory_off_had_proposal_tool == false
+
+==============================================================================
+PASS 9  FAIL 0  CANNOT RUN 0
+==============================================================================

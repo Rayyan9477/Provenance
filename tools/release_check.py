@@ -1,18 +1,18 @@
 """The Definition of Done, checked rather than recited.
 
 Authority: ``docs/implementation/05_RELIABILITY_EVAL_DEMO.md`` section 19 --
-"The architecture is implemented enough for submission when all are true".
+"The architecture is implemented enough to release when all are true".
 
 The drift this surfaces
 -----------------------
 Section 19 was written before the pivot and still requires **Cognito, S3, SES,
 EventBridge and CloudWatch**. ``PIVOT.md``'s status block records, as a binding
-user decision, that *"the CockroachDB/AWS entry is discarded -- ``infra/cdk/``
-is dead weight rather than dual-use"*. Model access is an AI Studio API key; the
-runtime is Cloud Run.
+user decision, that the CockroachDB/AWS deployment is discarded and
+``infra/cdk/`` is dead weight rather than dual-use. Model access is an AI Studio
+API key; the runtime is Cloud Run.
 
-So six of the section-19 items describe a product this build deliberately does
-not ship. A checker that ran them verbatim would report six permanent failures
+So five of the section-19 items describe a product this build deliberately does
+not ship. A checker that ran them verbatim would report five permanent failures
 and be useless; one that quietly dropped them would report a green Definition of
 Done over a checklist nobody had reconciled. Neither is honest, so each such
 item is carried as ``SUPERSEDED`` with the decision that superseded it and the
@@ -118,22 +118,22 @@ def _manual(who_decides: str) -> Callable[[], tuple[Status, str]]:
     return check
 
 
-# -- Mandatory ---------------------------------------------------------------
+# -- Platform ----------------------------------------------------------------
 #
-# The three hard requirements of the All Things Agentic hackathon, plus the
-# three required submission artifacts.
+# The three things this build actually stands on -- the model floor, the agent
+# framework, and a deployed service -- plus the two artifacts a reader needs.
 #
 # These did not exist in this file until 2026-08-27, and their absence was the
 # defect. Section 19's Definition of Done predates the pivot, so every AWS item
 # in it is carried as SUPERSEDED -- but nothing was ever added to check the
-# rules that REPLACED them. The result was a checklist that could report
-# "PASS 8, FAIL 0" while the entry was ineligible, because not one assertion
-# asked whether a Google Cloud service existed.
+# capabilities that REPLACED them. The result was a checklist that could report
+# "PASS 8, FAIL 0" while nothing this build runs on had been asked about,
+# because not one assertion looked for a Google Cloud service.
 #
-# A gate that screens the previous contest is worse than no gate: it produces a
-# green log for a question nobody asked.
+# A gate that screens the previous architecture is worse than no gate: it
+# produces a green log for a question nobody asked.
 
-#: The version floor the rules state: "Gemini 3.5 or newer".
+#: The version floor this build holds itself to: "Gemini 3.5 or newer".
 _GEMINI_FLOOR: tuple[int, int] = (3, 5)
 
 
@@ -196,7 +196,7 @@ def _google_agent_framework() -> tuple[Status, str]:
     transitively". The gate counted a denial as an affirmation, which is an
     L-VAC defect inside the tool written to catch L-VAC defects.
 
-    The requirement it screens is mandatory, so the number had to become true
+    The claim it screens is load-bearing, so the number had to become true
     rather than merely smaller. An AST walk cannot read a comment.
 
     Module-level and lazy imports are counted separately and both reported: a
@@ -299,15 +299,15 @@ def _artifact_agrees_with_reality(path: str) -> tuple[Status, str] | None:
     """Does *path* claim the deployment is absent while it demonstrably exists?
 
     This is the assertion whose absence let the worst finding of the whole
-    submission audit survive: README.md's mandatory-requirements table said the
-    Google Cloud requirement was "Not yet deployed" while two Cloud Run services
-    were serving, and `docs/diagrams/architecture.md` agreed with it in five
-    places. Both files passed their own structural checks -- a heading count and
-    a mermaid-fence count -- because neither asked whether the CONTENT agreed
-    with the machine.
+    documentation audit survive: README.md said the Google Cloud deployment was
+    "Not yet deployed" while two Cloud Run services were serving, and
+    `docs/diagrams/architecture.md` agreed with it in five places. Both files
+    passed their own structural checks -- a heading count and a mermaid-fence
+    count -- because neither asked whether the CONTENT agreed with the machine.
 
-    Stage One is binary. An artifact that tells a judge the entry is ineligible
-    is worse than a missing artifact, and no count of headings can see it.
+    A document that tells a reader the system is not running while it is
+    running is worse than a missing document, and no count of headings can
+    see it.
 
     Returns ``None`` when there is nothing to contradict: if the deployment
     check itself cannot run, this cannot fail on its behalf.
@@ -327,11 +327,11 @@ def _artifact_agrees_with_reality(path: str) -> tuple[Status, str] | None:
     #
     # And the phrase has to be ABOUT the Cloud Run deployment. "workers/ ... not
     # deployed separately" is a true statement about a directory that holds no
-    # code, on a line that has nothing to do with the mandatory requirement.
+    # code, on a line that has nothing to do with the running service.
     without_struck = re.sub(r"~~.*?~~", "", raw, flags=re.S)
     hits: set[str] = set()
     for line in without_struck.lower().splitlines():
-        if "cloud run" not in line and "mandatory" not in line:
+        if "cloud run" not in line:
             continue
         hits |= {phrase for phrase in _DENIES_DEPLOYMENT if phrase in line}
     if not hits:
@@ -339,13 +339,13 @@ def _artifact_agrees_with_reality(path: str) -> tuple[Status, str] | None:
     hits_list = sorted(hits)
     return (
         Status.FAIL,
-        f"{path} says {hits_list} while Cloud Run is serving. A required artifact that "
-        "denies a met mandatory requirement argues for the entry's own disqualification.",
+        f"{path} says {hits_list} while Cloud Run is serving. A document that denies a "
+        "deployment the machine can see is a document nobody can trust on anything else.",
     )
 
 
 def _architecture_diagram() -> tuple[Status, str]:
-    """A required artifact: "a clear visual representation of your system"."""
+    """The architecture diagram: a clear visual representation of the system."""
     diagram = _REPO_ROOT / "docs" / "diagrams" / "architecture.md"
     if not diagram.is_file():
         return Status.FAIL, "docs/diagrams/architecture.md does not exist"
@@ -360,7 +360,7 @@ def _architecture_diagram() -> tuple[Status, str]:
 
 
 def _readme_spinup() -> tuple[Status, str]:
-    """A required artifact: step-by-step setup, locally OR deployed to the cloud.
+    """Step-by-step setup, locally OR deployed to the cloud.
 
     Checked for the four things a reader has to be able to find, because a
     README that has a "Spin-up" heading and no install step satisfies a grep and
@@ -537,7 +537,7 @@ def _every_live_route_renders() -> tuple[Status, str]:
     the system, and it blocks the exit code exactly as a failure does.
 
     A deployed revision is also the stronger claim: localhost proves the code
-    renders, and the ``.run.app`` host proves the thing a judge will open
+    renders, and the ``.run.app`` host proves the thing a user will open
     renders. So the deployment is preferred when there is one, and localhost is
     the fallback rather than the assumption.
 
@@ -571,23 +571,14 @@ def _every_live_route_renders() -> tuple[Status, str]:
 
 
 CHECKS: tuple[Check, ...] = (
-    # -- the three hard requirements, first, because nothing below matters if
-    #    one of them is unmet: the entry is not judged at all.
-    Check("Mandatory", "Gemini 3.5 or newer, proved by invocation", _gemini_version_floor),
-    Check("Mandatory", "at least one Google agent framework, and used", _google_agent_framework),
-    Check("Mandatory", "at least one Google Cloud service, deployed", _google_cloud_service),
-    # -- the three required submission artifacts
-    Check("Submission", "architecture diagram exists", _architecture_diagram),
-    Check("Submission", "README carries step-by-step spin-up", _readme_spinup),
-    Check(
-        "Submission",
-        "demo video, live and unedited, no longer than 4 minutes",
-        _manual(
-            "a human records and times it. The rules ask for unedited live execution and "
-            "visual proof of Google Cloud deployment; `deploy/cloudrun.sh proof` prints what "
-            "to film. ffprobe the file before uploading -- 4:00.0 is the limit, not a target."
-        ),
-    ),
+    # -- the platform invariants first, because nothing below matters if one
+    #    of them is unmet: there is nothing running to check.
+    Check("Platform", "Gemini 3.5 or newer, proved by invocation", _gemini_version_floor),
+    Check("Platform", "at least one Google agent framework, and used", _google_agent_framework),
+    Check("Platform", "at least one Google Cloud service, deployed", _google_cloud_service),
+    # -- the artifacts a reader needs
+    Check("Documentation", "architecture diagram exists", _architecture_diagram),
+    Check("Documentation", "README carries step-by-step spin-up", _readme_spinup),
     Check("Memory", "Memory Kernel is the sole canonical write path", _kernel_is_sole_writer),
     Check("Memory", "State Proof works without an LLM", _state_proof_needs_no_model),
     Check(
@@ -628,17 +619,6 @@ CHECKS: tuple[Check, ...] = (
         "CloudWatch/OTEL traces",
         _superseded("PIVOT.md: OTLP export, currently DISABLED; /v1/version discloses otlp_export"),
     ),
-    Check(
-        "Sponsor",
-        "CockroachDB remains canonical persistent memory",
-        _superseded(
-            "this hackathon has no CockroachDB requirement, and the check behind it was "
-            "_kernel_is_sole_writer -- a claim about WHERE writes live, which would pass "
-            "identically against SQLite or a dict. The database is still CockroachDB and "
-            "db_ok on GET /v1/version is the live evidence; a Sponsor section screening the "
-            "previous contest is the defect this file's header names."
-        ),
-    ),
     Check("Quality", "the deterministic Kernel test suite is green", _kernel_suite_is_green),
     Check(
         "Quality", "the sabotage matrix is proven, not merely listed", _sabotage_matrix_is_proven
@@ -650,7 +630,7 @@ CHECKS: tuple[Check, ...] = (
     Check(
         "UX/demo",
         "the hero story works end to end",
-        _manual("a human runs the rehearsal; no assertion can judge a narrative"),
+        _manual("a human runs the rehearsal; no assertion can assess a narrative"),
     ),
     Check(
         "UX/demo",
@@ -660,9 +640,7 @@ CHECKS: tuple[Check, ...] = (
     Check(
         "UX/demo",
         "no raw chain-of-thought is exposed",
-        _manual(
-            "a human reviews the recorded demo; tools/scrub.py covers transcripts, not the screen"
-        ),
+        _manual("a human reviews the screens; tools/scrub.py covers transcripts, not the screen"),
     ),
 )
 

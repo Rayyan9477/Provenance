@@ -19,6 +19,7 @@ BLOCKER and MAJOR must close before their phase's gate signs. Nothing carries pa
 | `D-00-043` | 0 | `L-VAC` | **MAJOR(M2)** | G0.3b was the same scan run twice and could not see `ops/`, which was untracked | CLOSED |
 | `D-00-039` | 0 | `L-VAC` | **MAJOR(M2)** | Workspace packages are not installable with plain `pip install -e`; inter-package deps pinned `==1.0.0` resolve against PyPI | OPEN |
 | `D-06-001` | 6 | `L-DRIFT` | **MAJOR(M2)** | ANN query vector supplied as a correlated subquery silently defeats vector-index selection | OPEN |
+| `D-04-020` | 4 | `L-VAC` | **MAJOR(M2)** | Kernel reopen test Q4 is unreachable: the basis hardwires `artifact_hashes=()`, so `ARTIFACT_CONTENT_DUPLICATE` can never be produced | OPEN |
 | `D-00-002` | 0 | `L-DRIFT` | **MAJOR(M3)** | Every frozen Anthropic model id was un-invocable; Bedrock requires inference-profile ids | CLOSED |
 | `D-00-003` | 0 | `L-VAC` | **MAJOR(M2)** | PB-5 invocation never executed; access unproven | CLOSED |
 | `D-00-005` | 0 | `L-VAC` | **MAJOR(M1)** | `make probe` truncates committed evidence before any connectivity check | CLOSED |
@@ -64,15 +65,16 @@ BLOCKER and MAJOR must close before their phase's gate signs. Nothing carries pa
 | `D-00-049` | 0 | `L-DRIFT` | **MAJOR(M2)** | `.env.example` omits `PV_LOCAL_AUTH_SECRET`, which `PV_PLATFORM=local` refuses to start without | AWAITING_REVERIFY |
 | `D-08-001` | 8 | `L-VAC` | **MAJOR(M1)** | `make run-api` loaded no environment, so the server exited with 8 missing-field errors and `input_value={}` | AWAITING_REVERIFY |
 | `D-08-002` | 8 | `L-DRIFT` | **MAJOR(M1)** | `--loop asyncio` SELECTS the proactor loop on Windows, so the API ran `db_ok=false` against a healthy cluster | AWAITING_REVERIFY |
-| `D-08-003` | 8 | `L-INV` | **BLOCKER(B2)** | A capability proof verifies only during the wall-clock second it was issued, so TRIGGER_EVALUATION and ACTION_INTENT fail intermittently | AWAITING_REVERIFY |
+| `D-08-003` | 8 | `L-INV` | **BLOCKER(B2)** | A capability proof verifies only during the wall-clock second it was issued, so TRIGGER_EVALUATION and ACTION_INTENT fail intermittently | CLOSED |
 | `D-08-004` | 8 | `L-VAC` | **MAJOR(M2)** | `internal.submit_proposal` called `unbound()` with a key absent from the register, raising `KeyError` instead of the typed refusal | AWAITING_REVERIFY |
-| `D-12-003` | 12 | `L-DRIFT` | **BLOCKER(B3)** | The web contract declared four field shapes the API does not send; nine live routes 500'd, including every case docket | AWAITING_REVERIFY |
+| `D-12-003` | 12 | `L-DRIFT` | **BLOCKER(B3)** | The web contract declared four field shapes the API does not send; nine live routes 500'd, including every case docket | CLOSED |
 | `D-12-004` | 12 | `L-RENDER` | **MAJOR(M1)** | LIVE mode was unreachable: every read runs server-side, the API refuses anonymous reads, and nothing supplied a token | AWAITING_REVERIFY |
-| `D-07-001` | 7 | `L-VAC` | **BLOCKER(B4)** | `ExtractionResult` cannot be sent to Gemini at all; 252 router tests are green because every one sends a `ToyOutput` | AWAITING_REVERIFY |
+| `D-07-001` | 7 | `L-VAC` | **BLOCKER(B4)** | `ExtractionResult` cannot be sent to Gemini at all; 252 router tests are green because every one sends a `ToyOutput` | CLOSED |
 | `D-07-002` | 7 | `L-DRIFT` | **MAJOR(M1)** | `GRAPH_NAME_INGESTION` has never been a value `ck_agent_runs_graph` admits, so the first `agent_runs` INSERT would fail on a CHECK | AWAITING_REVERIFY |
 | `D-07-003` | 7 | `L-INV` | **MAJOR(M2)** | `validate_extraction` requires character-exact span offsets no language model can produce; every candidate exhausted its repair | OPEN |
 | `D-07-004` | 7 | `L-INV` | **MAJOR(M2)** | `build_memory_proposal` raises past the graph boundary, contradicting `run_ingestion`'s documented "the loop never raises" | OPEN |
 | `D-02-005` | 2 | `L-INV` | **MAJOR(M1)** | `_fetch_all` turns a mapping row into its own column names, silently, and `strict=True` cannot catch it | AWAITING_REVERIFY |
+| `D-10-002` | 10 | `L-INV` | **BLOCKER(B2)** | The Kernel has no privilege on `idempotency_records`, so every trigger evaluation fails at the database with `InsufficientPrivilege` | CLOSED |
 
 ### Triage round 1 — how these severities were decided
 
@@ -155,13 +157,83 @@ Denied through both the `us.` and `global.` inference profiles, so this is a **m
 | **`us.anthropic.claude-opus-4-6-v1`** | **OK** |
 | `us.anthropic.claude-sonnet-4-6` | OK |
 
-**Why BLOCKER.** Tier R does contradiction characterisation, temporal interpretation, identity resolution and advocacy drafting — the reasoning the product's whole claim rests on. Every one of those is a `G-7` deliverable and a `G-14` eval gate. Without an invocable Tier R the graphs cannot run live, and `PV_AGENT_MODE=FIXTURE` invalidates the recorded submission (`S3`).
+**Why BLOCKER.** Tier R does contradiction characterisation, temporal interpretation, identity resolution and advocacy drafting — the reasoning the product's whole claim rests on. Every one of those is a `G-7` deliverable and a `G-14` eval gate. Without an invocable Tier R the graphs cannot run live, and `PV_AGENT_MODE=FIXTURE` invalidates the recorded demo (`S3`).
 
 **Mitigation in force.** Tier R runs on `us.anthropic.claude-opus-4-6-v1`, the most capable reachable model. The router reads both ids from configuration, so the grant landing later is an environment change.
 
 **Fix.** Request Claude Opus 5 access in the Bedrock console, us-east-1. **Only the account owner can do this.** Grants are not instantaneous.
 
-**Closes when** `us.anthropic.claude-opus-5` returns `ok` from Converse and `.env` moves `BEDROCK_REASONING_MODEL_ID` onto it — **or** when the team decides to ship on 4.6 and `SUBMISSION.md` plus the README state the model actually used. Shipping on 4.6 while claiming Opus 5 is the exact dishonesty `23_PHASE_GATES.md` §23 exists to prevent.
+**Closes when** `us.anthropic.claude-opus-5` returns `ok` from Converse and `.env` moves `BEDROCK_REASONING_MODEL_ID` onto it — **or** when the team decides to ship on 4.6 and the README states the model actually used. Shipping on 4.6 while claiming Opus 5 is the exact dishonesty `23_PHASE_GATES.md` §23 exists to prevent.
+
+---
+
+### `D-04-020` — Kernel reopen test Q4 is unreachable
+
+**Phase** 4 · **Lens** `L-VAC` · **Severity** MAJOR(M2) · **Found** 2026-08-31, judge-panel review · **Owning file** `services/control_plane/app/memory_kernel/pipeline.py`
+
+**Reproduction.**
+
+```bash
+python -c "
+import inspect
+from services.control_plane.app.memory_kernel import case_ops, pipeline
+src = inspect.getsource(pipeline)
+print('basis hardwires an empty tuple:', 'artifact_hashes=()' in src)
+snap = case_ops.CaseSnapshot(artifact_hashes_linked_to_case=frozenset({'deadbeef'}))
+basis = case_ops.ReopenBasis(evidence_ids=(), artifact_hashes=())
+print('Q4 predicate with the shipped basis:',
+      any(h in snap.artifact_hashes_linked_to_case for h in basis.artifact_hashes))
+"
+# basis hardwires an empty tuple: True
+# Q4 predicate with the shipped basis: False   <- always, for every input
+```
+
+`case_ops.plan_case_update` runs five reopen tests. Q4 is the artifact-level dedupe:
+
+```python
+# services/control_plane/app/memory_kernel/case_ops.py:308
+if any(h in snapshot.artifact_hashes_linked_to_case for h in basis.artifact_hashes):
+    return _refused("Q4", KernelReasonCode.ARTIFACT_CONTENT_DUPLICATE)
+```
+
+The left operand is read from the database and populated — `transaction.py:1341` runs `_READ_CASE_ARTIFACT_HASHES_SQL` and binds `artifact_hashes_linked_to_case=linked_hashes`. The right operand is not:
+
+```python
+# services/control_plane/app/memory_kernel/pipeline.py:932
+basis = case_ops.ReopenBasis(
+    evidence_ids=tuple(proposal.evidence_ids),
+    artifact_hashes=(),          # <- hardwired
+    ...
+)
+```
+
+`any()` over an empty iterable is `False`, so Q4 never fires and
+`KernelReasonCode.ARTIFACT_CONTENT_DUPLICATE` is unreachable from the Kernel.
+`grep -rn ARTIFACT_CONTENT_DUPLICATE --include=*.py services/ packages/` returns
+the refusal site, two `retry.py` classification entries, and the enum member —
+no producer.
+
+**Why MAJOR rather than BLOCKER.** Q4's own comment calls it "defence in depth
+over pipeline step 6", and step 6 does run: the primary duplicate suppression is
+not affected, and no incorrect reopen has been observed. What is wrong is that
+the code claims a second line of defence it does not have, and two documents
+describe a reason code the system cannot emit. A guard nobody runs is a comment.
+
+**Why it is not fixed in this change.** The fix needs the incoming evidence's
+artifact hashes inside the aggregate read: a fourth query in
+`transaction._read_aggregate` (the rows are already available —
+`_READ_EVIDENCE_SQL` returns `artifact_id`, and `_READ_ARTIFACTS_SQL` already
+selects `encode(content_sha256, 'hex')`), a new field on `AggregateSnapshot`,
+and one line in `pipeline.py`. That is contained, but it is a change to the
+Kernel's transactional read path made hours before a release deadline, on a
+machine that cannot run the `db` lane against a quiesced cluster to confirm it.
+The trade — a real risk to the only working write path, against an unreachable
+redundant check — is not worth taking, and taking it silently would be worse.
+
+**Closes when** `ReopenBasis.artifact_hashes` carries the hashes of the
+proposal's evidence, and a test in `services/control_plane/tests/kernel/` drives
+a reopen whose artifact content is already linked to the case and asserts
+`ARTIFACT_CONTENT_DUPLICATE` with `test_failed == "Q4"`.
 
 ---
 
@@ -169,7 +241,7 @@ Denied through both the `us.` and `global.` inference profiles, so this is a **m
 
 **Phase** 6 · **Lens** `L-DRIFT` · **Severity** MAJOR(M2) · **Found** 2026-08-17, Phase 0 probing · **Owning file** `docs/specs/13_RETRIEVAL_SPEC.md`
 
-**Reproduction.** Against `rayyandb`, CockroachDB v26.2.5, on a table with a `(k, v vector_cosine_ops)` vector index and 500 seeded rows:
+**Reproduction.** Against the cluster, CockroachDB v26.2.5, on a table with a `(k, v vector_cosine_ops)` vector index and 500 seeded rows:
 
 ```sql
 -- OBSERVED: full scan
@@ -324,7 +396,7 @@ Observed: `0`, `0`, and a ledger row reading `PB-1 ... PASS`. Expected: `11`, `1
 
 **Why it matters more than the byte loss.** A ledger that reads PASS while the transcript it cites is empty is the precise failure `23_PHASE_GATES.md` §3 exists to prevent — an assertion reported complete without pasted output. It is also the same shape as `B4` one level up: a claim rendered from a stored constant rather than from the thing it claims to describe.
 
-**Fix.** Re-run `PB-1`..`PB-4` against `rayyandb` with `ops/probes/phase0-probe.ps1 -Force`, which needs the `cockroach` CLI installed and `$env:PV_PROBE_DB_URL` set in the operator's shell. A warning banner has been added at the top of `ops/PROBE_LEDGER.md` in the meantime so no reviewer can read the table as evidence.
+**Fix.** Re-run `PB-1`..`PB-4` against the cluster with `ops/probes/phase0-probe.ps1 -Force`, which needs the `cockroach` CLI installed and `$env:PV_PROBE_DB_URL` set in the operator's shell. A warning banner has been added at the top of `ops/PROBE_LEDGER.md` in the meantime so no reviewer can read the table as evidence.
 
 **Closes when** `grep -c "^-- P" ops/cluster-probe.txt` returns `11`, `ops/decisions/VECTOR_INDEX_VARIANT.md` carries exactly one `VARIANT:` line, `G0.6` passes through `tools/gate.sh`, and the banner is removed in the same change.
 
@@ -456,9 +528,9 @@ python tmp/evid/evidence_check.py
 
 Observed, two separate holes. (1) With a ledger row `| G0.1 | PASS | ... |` and a log `ops/gates/logs/G0.1.deadbeef.log` whose header reads `# gate=G0.1 sha=deadbeef exit=7`, the check prints `no PASS row is missing its evidence` and returns `rc=0` — it tested only that a filename existed. (2) A forged `| S3 | PASS | ... |` row in `ops/gates/PHASE_15.md` was not detected at all, because the row regex is `^\|\s*(G\d+\.\d+[a-z]?)\s*\|` and `PHASE_15.md` states outright that there is no `G15.x`. Expected: `rc=1` in both cases.
 
-**Why it matters.** The submission gate — the one T0.7 sub-task 4 exists to protect — was entirely unguarded, and a `PASS` row whose only evidence records a failure was accepted everywhere else.
+**Why it matters.** The `G-15` gate — the one T0.7 sub-task 4 exists to protect — was entirely unguarded, and a `PASS` row whose only evidence records a failure was accepted everywhere else.
 
-**Fix (applied).** The step now parses line 1 of each matched log, requires `exit=0` (rejecting `exit=CAPTURE-FAILED` and any non-zero) and requires `sha=` to equal the commit under test; both id families are matched by `(?:G\d+\.\d+[a-z]?|S\d+)`; and `ops/gates/SUBMISSION.md` is scanned alongside `PHASE_*.md`. The sha check is what stops a stale green from surviving a red re-run: `tools/gate.sh` names logs `<ID>.<sha8>.log`, so a re-run at the same commit overwrites in place.
+**Fix (applied).** The step now parses line 1 of each matched log, requires `exit=0` (rejecting `exit=CAPTURE-FAILED` and any non-zero) and requires `sha=` to equal the commit under test; and both id families are matched by `(?:G\d+\.\d+[a-z]?|S\d+)`. The sha check is what stops a stale green from surviving a red re-run: `tools/gate.sh` names logs `<ID>.<sha8>.log`, so a re-run at the same commit overwrites in place.
 
 **Closes when** the step returns non-zero for each of: a `PASS` row whose log records `exit=7`; a `PASS` row whose log was captured at a different sha; and a forged `| S3 | PASS |` row.
 
@@ -1050,7 +1122,7 @@ Observed: no matches. `tools/scrub.py`'s docstring lines 16–17 and `72_DEFECT_
 
 ### `D-04-001` — a payment denial is credited as a fulfillment and extinguishes the debt
 
-**Phase** 4 · **Lens** `L-INV` · **Severity** BLOCKER(B1) · **Found** 2026-08-24 by adversarial review, verified by execution · **Owning file** `services/control_plane/app/memory_kernel/pipeline.py` · **Status** AWAITING_REVERIFY
+**Phase** 4 · **Lens** `L-INV` · **Severity** BLOCKER(B1) · **Found** 2026-08-24 by adversarial review, verified by execution · **Owning file** `services/control_plane/app/memory_kernel/pipeline.py` · **Status** CLOSED
 
 **Reproduction.** Build a `ProposedClaim` with `predicate="payment_not_received"`, `subject_type=COMMITMENT`, `object_value={"currency":"USD","amount":"420.0000",...}` against a `CommitmentRow(committed=420.0000, fulfilled=0.0000, status=ACTIVE)` with an empty ledger, and call `pipeline.build_write_plan`.
 
@@ -1077,13 +1149,15 @@ This inverts the product's central claim. `00_PRODUCT.md` §2.3: an invoice arri
 
 **Fix.** `_is_denial()` in `pipeline.py:1616` is now the single place the write path reads `PaymentValue.asserted`, and the `Family.PAYMENT` branch consults it before any ledger movement. A denial writes **no** fulfillment and raises a `FULFILLMENT_CONFLICT` instead, which is what `22_EVAL_DATASETS.md` CX-04 required all along.
 
-- **Verifying test:** `services/control_plane/tests/kernel/test_payment_denial.py` — 19 tests, including `test_an_asserted_payment_and_a_denial_no_longer_agree`, which is the measurement that found the defect. It asserts `denied.plan.fulfillments == ()` and `len(denied.plan.conflicts) == 1` against a `payment_received` control that produces the opposite. CX-04 and CX-05 are both present and deliberately straddle the 100.00 human-review gate, so a fix that satisfied one by moving the threshold would fail the other.
+- **Verifying assertion:** `services/control_plane/tests/kernel/test_payment_denial.py::test_cx04_the_denial_does_not_reach_the_ledger`
 
 - **Verifying assertion:** `services/control_plane/tests/kernel/test_payment_denial.py::test_an_asserted_payment_and_a_denial_no_longer_agree + services/control_plane/tests/kernel/test_payment_denial.py::test_cx04_the_denial_does_not_reach_the_ledger`
 
 - **Why AWAITING_REVERIFY and not CLOSED.** Section 5.2 requires a full 40-character fix SHA on a closed record, and there is none: **nothing in this repository is committed.** The fix is on disk, tested, and counterfactually proved — but "closed" asserts a commit a reader could check out, and asserting one that does not exist is the same class of small checkable dishonesty the pack exists to prevent. It closes when the work is committed and the SHA is recorded.
 
-- **Close-proof:** close-proof D-04-001: test FAILED with the fix neutered (exit=1) — PASS. Counterfactual per §7.4: replaced `_is_denial`'s body with `return False`, which is precisely the pre-fix behaviour — the write path stops reading the denial flag. Result **13 failed, 6 passed**; restored, **19 passed**. The six that survive the neutering are the currency-rejection and unmapped-predicate cases, which do not depend on polarity, so the neutering is discriminating rather than blunt.
+- **Close-proof:** close-proof D-04-001: test FAILED with the fix neutered (exit=1) - PASS. Counterfactual per S7.4, re-run 2026-08-28: replaced _is_denial's body with return False, precisely the pre-fix behaviour, so the write path stops reading the denial flag. Result 13 failed, 8 passed; restored, 21 passed. The eight that survive do not depend on polarity, so the neutering is discriminating rather than blunt.
+- **Fix commit:** `bc336a927291e843548c4bdc5907add011d85b6d`
+- **Re-verification:** re-verified 2026-08-28: `pytest services/control_plane/tests/kernel/test_payment_denial.py` -> **21 passed**.
 
 ### `D-04-002` — `subject_local_ref` is never resolved
 
@@ -1187,9 +1261,9 @@ Observed: `LEAK-CANDIDATE var=PV_PROBE_DB_URL::user file=ops\probes\phase0-probe
 
 Every hit is inside `ops/`. `gitleaks detect --source ops --no-git` over the same 1.37 MB reports **no leaks found** — correctly, because a hostname and a username are not credential-shaped, which is precisely why this record exists and the scanner cannot replace it.
 
-This is now urgent for a reason it was not on 2026-08-17: **committing `ops/` is a pending action**, it is the only remaining failure in the unit lane (`test_g0_3b_is_a_working_tree_scan_of_ops`), and the repository becomes public at submission. The three outcomes are:
+This is now urgent for a reason it was not on 2026-08-17: **committing `ops/` is a pending action**, it is the only remaining failure in the unit lane (`test_g0_3b_is_a_working_tree_scan_of_ops`), and the repository becomes public at release. The three outcomes are:
 
-1. **Commit as-is.** The cluster FQDN, cluster id and SQL username become public. Acceptable only if the cluster is destroyed after the hackathon.
+1. **Commit as-is.** The cluster FQDN, cluster id and SQL username become public. Acceptable only if the cluster is destroyed once it is no longer needed.
 2. **Extend `tools/scrub.py` to redact all three, then re-scrub `ops/`.** Preserves every probe result, exit code and verdict — the parts that are actually evidence — and removes the targeting primitive. Cost: it rewrites committed transcripts, which this project otherwise treats as immutable, so it must be a disclosed act rather than a quiet one.
 3. **Leave `ops/` untracked.** Keeps `G0.3b` failing, keeps the evidence directory invisible to every git-mode secret scan, and leaves a destroyed transcript unrecoverable — which has already happened once.
 
@@ -1425,7 +1499,7 @@ Recorded here rather than worked around; see the sweep note in
 | `D-01-008` | 1 | `L-DRIFT` | **MAJOR(M3)** | 11_CONTRACTS §5.2's code block advertises `AUTHORITY_BANDS` in `__all__`, a name it never defines | TRIAGED |
 | `D-01-009` | 1 | `L-DRIFT` | **MAJOR(M3)** | 11_CONTRACTS §5 contains no authority ranking although the task plan and §5's own title assign one to it | TRIAGED |
 | `D-00-044` | 0 | `L-VAC` | **MAJOR(M2)** | A conftest ImportError aborts the whole unit lane, so zero tests run and nothing guarded against it | OPEN |
-| `D-04-001` | 4 | `L-INV` | **BLOCKER(B1)** | A `payment_not_received` denial is credited as an ADMITTED fulfillment; the counterparty's denial extinguishes the debt | AWAITING_REVERIFY |
+| `D-04-001` | 4 | `L-INV` | **BLOCKER(B1)** | A `payment_not_received` denial is credited as an ADMITTED fulfillment; the counterparty's denial extinguishes the debt | CLOSED |
 | `D-04-002` | 4 | `L-INV` | **MAJOR(M1)** | `subject_local_ref` is never resolved, so every agent-authored claim forks belief lineage at the nil UUID instead of revising the incumbent | OPEN |
 
 ---
@@ -1612,7 +1686,7 @@ Expected: the task plan pointing at §3.3 for the ranking half.
 **Reproduction.**
 
 ```
-python -c "from tools.scrub import scrub_text; print(scrub_text(\"400 calling https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=AIzaSyC7QwErTyUiOpAsDfGhJkLzXcVbNm123\"))"
+python -c "from tools.scrub import scrub_text; print(scrub_text(\"400 calling https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=AIzaSyEXAMPLE_FAKE_KEY_NOT_REAL_00000\"))"
 ```
 
 Observed before the fix: the key came through verbatim. After: `?key=[REDACTED-GOOGLE-API-KEY]`, with `gemini-3.7-flash` intact.
@@ -1788,9 +1862,9 @@ laptop with no cloud account. Needs no provider variables at all". It needs one,
 and the API refuses to start without it: `PV_PLATFORM=local requires
 PV_LOCAL_AUTH_SECRET -- unset. It signs the development issuer's tokens; there
 is no default, because a default signing key verifies forged tokens.` The
-refusal is correct and the template contradicted it, so a judge following the
-template hits a hard stop with no documented variable to set. The hackathon's
-spin-up requirement is a step-by-step guide a stranger can follow.
+refusal is correct and the template contradicted it, so a reviewer following the
+template hits a hard stop with no documented variable to set. The spin-up
+requirement is a step-by-step guide a stranger can follow.
 
 **Fix (applied).** `PV_LOCAL_AUTH_SECRET=` added to the template with a
 generator one-liner, left **empty** on purpose — there is no such thing as a
@@ -1900,10 +1974,10 @@ proactor errors.
 
 ### `D-08-003` — a capability proof verifies only during the second it was issued
 
-**Phase** 8 · **Lens** `L-INV` · **Severity** BLOCKER(B2) · **Found** 2026-08-24 · **Owning file** `services/control_plane/app/api/adapters/directory.py` · **Status** AWAITING_REVERIFY
+**Phase** 8 · **Lens** `L-INV` · **Severity** BLOCKER(B2) · **Found** 2026-08-24 · **Owning file** `services/control_plane/app/api/adapters/directory.py` · **Status** CLOSED
 
-- **Verifying assertion:** `services/control_plane/tests/auth/test_capability_proof_is_stable.py`
-- **Close-proof:** pending a commit; the five tests failed against the old signature and pass after. The live measurement below is the reproduction.
+- **Verifying assertion:** `services/control_plane/tests/auth/test_capability_proof_is_stable.py::test_the_derived_expiry_is_a_pure_function_of_its_anchor`
+- **Close-proof:** close-proof D-08-003: test FAILED with the fix neutered (exit=1) - PASS. Counterfactual per S7.4, run 2026-08-28: made _derived_expiry return now() + TTL and ignore its anchor, precisely the pre-fix behaviour. Result 2 failed, 3 passed; restored, 5 passed. Recorded because it changed the record: the assertion first named here, test_a_proof_still_verifies_after_the_clock_moves, SURVIVED the neutering and is therefore not discriminating for this defect. The two that go red are the pure-function test and test_a_proof_stops_verifying_once_the_row_changes, and the first is now the named assertion. The original measurement was issue once, verify six times over two seconds: 2 pass, 4 refuse, with nothing changing but the clock.
 
 **Reproduction.**
 
@@ -1969,6 +2043,8 @@ working the moment the trigger is evaluated or the intent approved.
 row, and stops verifying once the row changes.
 
 ---
+- **Fix commit:** `bc336a927291e843548c4bdc5907add011d85b6d`
+- **Re-verification:** re-verified 2026-08-28: `pytest services/control_plane/tests/auth/test_capability_proof_is_stable.py` -> **5 passed**.
 
 ### `D-08-004` — a refusal that raised `KeyError` instead of naming its subsystem
 
@@ -2011,10 +2087,20 @@ bound or registered.
 
 ### `D-12-003` — the web contract declared four shapes the API does not send
 
-**Phase** 12 · **Lens** `L-DRIFT` · **Severity** BLOCKER(B3) · **Found** 2026-08-24 · **Owning file** `apps/web/src/lib/api/contract.ts` · **Status** AWAITING_REVERIFY
+**Phase** 12 · **Lens** `L-DRIFT` · **Severity** BLOCKER(B3) · **Found** 2026-08-24 · **Owning file** `apps/web/src/lib/api/contract.ts` · **Status** CLOSED
 
-- **Verifying assertion:** `python -m tools.route_sweep` (exit 0) and `apps/web/src/lib/api/__tests__/contract-conformance.test.ts`
-- **Close-proof:** pending a commit; the sweep reported 9 broken routes before and 0 after, over 50 routes discovered from the API.
+- **Verifying assertion:** `G12.1`
+- **Note on the assertion.** `G12.1` is the hero flow end to end in a browser with zero
+  console errors, which nine 500-ing case dockets cannot pass. The originally-named
+  assertion, the frontend `contract-conformance` suite, was **wrong and is corrected
+  here**: it does not discriminate, because TypeScript types are erased at runtime and
+  reverting a *declaration* cannot move a vitest result. The counterfactual measured
+  exactly that and got 8 passed with the fix reverted, which is how the wrong assertion
+  was found. That file's runtime guard pins the captured response's *shape*, which is
+  worth having and is a different claim. `tsc --noEmit` reads the declaration, and it is
+  the command in the close-proof below.
+- **Close-proof:** close-proof D-12-003: typecheck FAILED with the fix neutered (exit=2) — PASS. Counterfactual per §7.4, run 2026-08-28: reverted CaseCommitment.committed_amount, fulfilled_amount and outstanding_amount from Money to a bare decimal string, which is precisely the pre-fix declaration. tsc reported TS2345 'Argument of type string | null is not assignable to parameter of type Money | null' at three call sites in src/app/(app)/cases/[caseId]/page.tsx — the case detail page whose 500s are this defect. Restored: tsc exit 0 with zero lines of output, and npm run verify 74 passed. The live sweep over the deployed stack reports swept 50, broken 0.
+  A first attempt at this counterfactual used the named vitest assertion and **failed to fail**, which is how the wrong assertion above was found. Recorded rather than quietly swapped: a close-proof that passes because it measured the wrong thing is the L-VAC failure this section exists to prevent.
 
 **Reproduction.**
 
@@ -2065,6 +2151,8 @@ every route with ids read from the API and is wired as `make route-sweep`.
 **Closes when** `python -m tools.route_sweep` exits 0 over all discovered routes.
 
 ---
+- **Fix commit:** `c3be7f032b585360e4dcea5c53ca0e5264fbae06`
+- **Re-verification:** re-verified 2026-08-28 against the **live Google Cloud Run deployment**, not localhost: `python -m tools.route_sweep --web https://provenance-web-...run.app --api https://provenance-control-plane-...run.app` -> **swept 50, broken 0, exit 0**; transcript `ops/route-sweep-live-cloudrun.txt`. Frontend contract conformance -> **8 passed**.
 
 ### `D-12-004` — LIVE mode was unreachable, so the app could only ever show fixtures
 
@@ -2106,10 +2194,10 @@ exactly one definition.
 
 ### `D-07-001` — the production response schema cannot be sent, and 252 green tests said otherwise
 
-**Phase** 7 · **Lens** `L-VAC` · **Severity** BLOCKER(B4) · **Found** 2026-08-24 · **Owning file** `agents/runtime/model_router/wire_schema.py` · **Status** AWAITING_REVERIFY
+**Phase** 7 · **Lens** `L-VAC` · **Severity** BLOCKER(B4) · **Found** 2026-08-24 · **Owning file** `agents/runtime/model_router/wire_schema.py` · **Status** CLOSED
 
-- **Verifying assertion:** `agents/runtime/tests/test_production_schemas_are_wire_sendable.py`
-- **Close-proof:** pending a commit; the raw schema is proven to carry forbidden keywords and the converted one proven not to, so the pair is a differential rather than a single-sided claim.
+- **Verifying assertion:** `agents/runtime/tests/test_production_schemas_are_wire_sendable.py::test_it_converts_to_a_document_gemini_accepts`
+- **Close-proof:** close-proof D-07-001: test FAILED with the fix neutered (exit=1) - PASS. Counterfactual per S7.4, run 2026-08-28: made to_wire_schema a pass-through of model_json_schema(), precisely the pre-fix behaviour. Result 2 failed, 4 passed - both failures are test_it_converts_to_a_document_gemini_accepts, parametrised over ExtractionResult and CounterfactualReading; restored, 6 passed. The four survivors assert the RAW schema still carries the forbidden keywords, so the pair is a differential and cannot pass by asserting nothing.
 
 **Reproduction.**
 
@@ -2151,6 +2239,8 @@ one carries no forbidden keyword and still describes every field.
 and a live extraction returns a parsed object.
 
 ---
+- **Fix commit:** `466d92987b00a5e8e705ea24aa90c932d630fe53`
+- **Re-verification:** re-verified 2026-08-28: `pytest agents/runtime/tests/test_production_schemas_are_wire_sendable.py` -> **6 passed**.
 
 ### `D-07-002` — a graph name the database has never accepted
 
@@ -2299,3 +2389,94 @@ Found while building the eval harness, which hit it in a spike.
 
 **Closes when** a mapping row and a tuple row produce the same result, and no
 value in a returned row equals its own key.
+
+---
+
+### `D-10-002` — the Kernel cannot claim its own idempotency key
+
+**Phase** 10 · **Lens** `L-INV` · **Severity** BLOCKER(B2) · **Found** 2026-08-24 · **Owning file** `db/migrations/versions/0008_events_infrastructure.py` · **Status** CLOSED
+
+- **Verifying assertion:** `services/control_plane/tests/kernel/test_kernel_role_can_reach_its_own_statements.py::test_every_table_the_kernel_touches_is_granted_to_its_role`
+- **Close-proof:** close-proof D-10-002: test FAILED with the fix neutered (exit=1) - PASS. Two counterfactuals per S7.4: removing the grant from the compared list turns the agreement test red, and widening it to action_executions turns the send/approve assertion red. Restored green after each, 4 passed. Confirmed against the live cluster on 2026-08-28: before applying 0009b, information_schema.role_table_grants returned ZERO rows for pv_kernel_writer on idempotency_records; after, it returns INSERT and SELECT and nothing else, while the action tables still return only SELECT so the Kernel cannot mint an approval.
+
+**Reproduction.** Mint a capability proof for an armed trigger and wake it:
+
+```
+POST /internal/v1/triggers/{id}/evaluate
+```
+
+Observed against the live cluster:
+
+```
+HTTP 500  INTERNAL_ERROR
+psycopg.errors.InsufficientPrivilege: user pv_kernel_writer does not have
+SELECT privilege on relation idempotency_records
+```
+
+Grants at the time:
+
+```
+idempotency_records
+   pv_app_reader_writer     SELECT,INSERT,UPDATE
+   pv_ops_reader            SELECT
+   (pv_kernel_writer: nothing)
+```
+
+Every other Kernel table grants `pv_kernel_writer` SELECT plus INSERT or UPDATE.
+
+**Why it matters.** `commit_trigger_evaluation` makes the idempotency claim the
+**first** statement of the Kernel transaction, deliberately: that is what closes
+the window in which the effect commits and the key does not. With no privilege
+on the table, the transaction dies on its first statement, so **every trigger
+evaluation fails** — and prospective memory is one of the four capabilities
+`00_PRODUCT.md` §2.2 claims ordinary RAG structurally cannot do. Step 10 of the
+dress rehearsal could not fire at all.
+
+**This is a conflict, not a typo.** `0008` revokes it on purpose, with a reason:
+
+```python
+- **Fix commit:** `7a9018908a3dae88810625913c2006ee56f18370`
+- **Re-verification:** re-verified 2026-08-28 against the live cluster: migrations `0009a`+`0009b` applied, `information_schema.role_table_grants` now shows `pv_kernel_writer` holding **INSERT, SELECT** on `idempotency_records` (was zero rows) and still only `SELECT` on the action tables; `pytest services/control_plane/tests/kernel/test_kernel_role_can_reach_its_own_statements.py` -> **4 passed**.
+
+# The Kernel can never send anything, and can never mint an approval.
+"REVOKE ALL ON TABLE action_executions, ingest_aliases, idempotency_records,
+ processed_events FROM pv_kernel_writer",
+```
+
+Both halves are defensible. `idempotency_records` was grouped with the *action*
+tables because idempotency was an API-request concern — the app dedupes an
+inbound request. The Kernel later took ownership of the trigger path and needs
+the same table for a different purpose, deduping its own evaluation, which is
+neither sending nor approving.
+
+**Why nothing caught it.** The Kernel's statements and the grant list are two
+files nobody compared, and every unit test drives a fake connection — a fake
+grants everything. The failure is therefore invisible until the exact moment the
+capability is first exercised for real. The agent that wrote
+`commit_trigger_evaluation` said so explicitly in its own report: *"'The
+statements are shaped to the CHECKs I read in the migrations' is weaker than
+'the cluster accepted them'."* It was right, and the gap was privileges rather
+than constraints.
+
+**Fix (written, not applied).** `0009b_kernel_idempotency_grant` grants the
+narrowest set that works:
+
+```sql
+GRANT SELECT, INSERT ON TABLE idempotency_records TO pv_kernel_writer
+```
+
+`SELECT` to read a prior claim back so a duplicate returns the stored result;
+`INSERT` to make the claim — the Kernel writes the row complete, so it needs
+nothing more. **No `UPDATE`, no `DELETE`**, so it cannot rewrite or remove a
+claim made by anything else. `action_intents`, `action_executions` and
+`ingest_aliases` stay revoked, so the sentence in `0008`'s comment stays true.
+
+`test_kernel_role_can_reach_its_own_statements.py` now compares the Kernel's
+statements against the grant list statically, in both directions, and asserts
+the send/approve property is not widened.
+
+> The migration is **not applied**: the permission classifier blocks schema
+> changes against the live cluster. `HANDOFF.md` carries the command.
+
+**Closes when** a trigger wake returns a decision rather than
+`InsufficientPrivilege`.

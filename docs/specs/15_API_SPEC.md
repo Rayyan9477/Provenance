@@ -3,7 +3,7 @@
 Purpose: the complete, implementation-grade HTTP contract for every public `/v1` and internal `/internal/v1` endpoint, including authentication, error envelope, pagination, idempotency, staleness, domain events, and the outbox dispatcher state machine.
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 Audience: backend engineers implementing `services/control_plane`, frontend engineers consuming `/v1`, agent engineers implementing AgentCore tool calls against `/internal/v1`, worker engineers implementing Lambda consumers, and judges auditing the security boundary.
 
@@ -53,7 +53,7 @@ Product: **Provenance** — a system of record for the institutions that already
 | Cognito OAuth | `https://provenance-auth.auth.us-east-1.amazoncognito.com` | Hosted UI + `/oauth2/token`. |
 | Ingest domain | `in.provenance.app` | Amazon SES inbound MX (layered on after upload-first ingest works). |
 
-Assumption stated explicitly: the hackathon deployment uses one App Runner service in `us-east-1`. `/internal/v1` is not network-isolated; it is **auth-isolated** (§2.4). If a VPC connector and private ALB are added later, the auth rules in this document still hold and become defence in depth.
+Assumption stated explicitly: the v1 deployment uses one App Runner service in `us-east-1`. `/internal/v1` is not network-isolated; it is **auth-isolated** (§2.4). If a VPC connector and private ALB are added later, the auth rules in this document still hold and become defence in depth.
 
 Throughout, curl examples use:
 
@@ -1206,7 +1206,7 @@ All rows require `Authorization: Bearer <provenance-web access token>` unless ma
 | 8.39 | GET | `/v1/events/{event_id}` | human | — |
 | 8.40 | GET | `/v1/triggers/{trigger_id}` | human | — |
 
-**Forty routes, 8.1 through 8.40.** Rows 8.32 through 8.40 were previously described in `frontend/32_JUDGE_MODE.md` §8.1, `quality/21_OBSERVABILITY_ANALYTICS.md` §2.4, `quality/23_PHASE_GATES.md` `G11.6` and `submission/51_VIDEO_SCRIPT.md` beat 6 without appearing here. Under `README.md` → *Change control* those documents could not be implemented from, because a route absent from this index does not exist. They are now in the surface. `spec_lint` compares this table against the generated OpenAPI document and fails on any row present in one and absent from the other; adding a route to a downstream document without adding it here is a build failure, not a style note.
+**Forty routes, 8.1 through 8.40.** Rows 8.32 through 8.40 were previously described in `frontend/32_JUDGE_MODE.md` §8.1, `quality/21_OBSERVABILITY_ANALYTICS.md` §2.4 and `quality/23_PHASE_GATES.md` `G11.6` without appearing here. Under `README.md` → *Change control* those documents could not be implemented from, because a route absent from this index does not exist. They are now in the surface. `spec_lint` compares this table against the generated OpenAPI document and fails on any row present in one and absent from the other; adding a route to a downstream document without adding it here is a build failure, not a style note.
 
 Rows 8.32 through 8.35 additionally require `judge_mode_enabled` on the principal and return `403 JUDGE_MODE_DISABLED` when it is absent.
 
@@ -1273,7 +1273,7 @@ Unauthenticated by design: a judge must be able to `curl` it with nothing but th
 |---|---|---|
 | `git_sha` | string, 7–40 hex | The commit this container was built from. This is the value the video's status chip renders; `build_sha` is not a field name and must not be used. |
 | `schema_revision` | string | The Alembic revision the connected database is actually at, read once at startup from `alembic_version`. A drifted database is visible here rather than at the first failing query. |
-| `fixture_mode` | bool | `true` when any model call may be served from a stored fixture instead of Bedrock (`CANONICAL_DECISIONS.md`, *Fixture mode*). The recorded submission must show `false`. |
+| `fixture_mode` | bool | `true` when any model call may be served from a stored fixture instead of Bedrock (`CANONICAL_DECISIONS.md`, *Fixture mode*). The recorded demonstration must show `false`. |
 | `agent_mode` | enum `LIVE` \| `FIXTURE` \| `DEGRADED` | `FIXTURE` implies `fixture_mode: true`. `DEGRADED` means Tier R fell back or retrieval is running in `BRUTE_FORCE_PARTITION`. |
 | `otlp_export` | enum `ENABLED` \| `DISABLED` \| `FAILING` | Whether spans are reaching the collector, so "the trace is empty" is distinguishable from "the trace was never exported". |
 | `db_ok` | bool | A single cached liveness bit refreshed by the background dependency task, never a synchronous query. It is safe to expose because it is one bit that reveals nothing an outage would not. |
@@ -1282,7 +1282,7 @@ Unauthenticated by design: a judge must be able to `curl` it with nothing but th
 
 ```bash
 curl -sS "$PV_API/v1/version" | jq '{git_sha, schema_revision, fixture_mode, agent_mode, db_ok}'
-#   → fixture_mode must be false before recording (submission item S3)
+#   → fixture_mode must be false before recording (gate item S3)
 ```
 
 ---
@@ -2255,7 +2255,7 @@ Step 1 of upload-first ingest. Returns a pre-signed S3 `PUT` URL scoped to exact
 | `sha256` | hex string | no | 64 lowercase hex chars. When supplied, `/complete` enforces it. |
 | `source_hint` | enum | no | Advisory only; never sets truth. |
 
-MIME allowlist: `application/pdf`, `image/png`, `image/jpeg`, `text/plain`, `message/rfc822`. Anything else → `422 UNSUPPORTED_MIME_TYPE` with `details.allowed[]`. Executables and archives are rejected outright for the hackathon build.
+MIME allowlist: `application/pdf`, `image/png`, `image/jpeg`, `text/plain`, `message/rfc822`. Anything else → `422 UNSUPPORTED_MIME_TYPE` with `details.allowed[]`. Executables and archives are rejected outright in v1.
 
 **201**
 
@@ -3648,7 +3648,7 @@ The Advocate proposes a grounded draft. Creating an intent is not an action; not
 
 1. `basis_case_revision == cases.revision`, else `409 ACTION_STALE`.
 2. `action_type` ∈ the case's `action_policy.supported_actions`, else `422 VALIDATION_FAILED`.
-3. `recipient` domain on the allowlist, else `422 RECIPIENT_NOT_ALLOWED`. For the hackathon the allowlist is the counterparty's `canonical_domain` plus `demo-sink.provenance.app`.
+3. `recipient` domain on the allowlist, else `422 RECIPIENT_NOT_ALLOWED`. In v1 the allowlist is the counterparty's `canonical_domain` plus `demo-sink.provenance.app`.
 4. Every `support_ids` entry resolves inside the **current** State Proof for this case, under this user, and is not retracted. Any that does not → `422 DRAFT_UNSUPPORTED_CLAIM` listing the offending sentences.
 5. Every `supporting_belief_versions` entry is the current version of its belief.
 6. Body scanned for `action_policy.prohibited` patterns (legal threats, payment commitments, ultimatums) by a deterministic classifier, not a model. A hit sets status `NEEDS_REVIEW` with a warning rather than rejecting — the human decides.
@@ -4672,7 +4672,7 @@ The dispatcher makes **no** ordering guarantee across aggregates, and only a bes
 
 ## 14. Rate limits and quotas
 
-Enforced in the control plane with a fixed-window counter keyed on `(principal_key, bucket)`. For the hackathon the counter is in-process per App Runner instance, with the instance count pinned to 1–2; the limits below are per instance and the design note in §17 covers the multi-instance case.
+Enforced in the control plane with a fixed-window counter keyed on `(principal_key, bucket)`. In v1 the counter is in-process per App Runner instance, with the instance count pinned to 1–2; the limits below are per instance and the design note in §17 covers the multi-instance case.
 
 ### 14.1 Limits
 
@@ -4723,7 +4723,7 @@ Retry-After: 17
 
 ### 14.4 Abuse controls beyond rate limiting
 
-- Recipient allowlist on every outbound action; the hackathon allowlist is the counterparty's `canonical_domain` plus `demo-sink.provenance.app`.
+- Recipient allowlist on every outbound action; the v1 allowlist is the counterparty's `canonical_domain` plus `demo-sink.provenance.app`.
 - Ingest alias rotation and disable (§8.22), so a leaked forwarding address is revocable in one statement.
 - SES verdict preservation, so a spoofed sender lowers an artifact's authority band rather than being silently trusted.
 - Per-user vector-index prefix, so retrieval cost and retrieval blast radius are both bounded by one user's corpus.
@@ -4802,7 +4802,7 @@ Honest assessment of where this contract is thin, wrong-shaped, or carrying an a
 
 ### 17.1 Rate limiting is in-process
 
-**Risk.** The counters in §14 live in App Runner instance memory. With two instances a user gets double the intended limit; with autoscaling the limit becomes meaningless, and a burst of upload-intent calls could saturate the model budget. **Mitigation for the hackathon:** pin App Runner to 1–2 instances and treat the limits as cost guards, not security controls. **Production fix:** move the counters into CockroachDB (a small `rate_counters` table with a fixed-window upsert) or in front of App Runner (WAF rate rules). CockroachDB adds a write per request, which is why it was not chosen for v1. **This is a real gap, not a deferred nicety** — the `counterfactual` and `upload_intent` buckets are the ones that map most directly to spend.
+**Risk.** The counters in §14 live in App Runner instance memory. With two instances a user gets double the intended limit; with autoscaling the limit becomes meaningless, and a burst of upload-intent calls could saturate the model budget. **Mitigation for v1:** pin App Runner to 1–2 instances and treat the limits as cost guards, not security controls. **Production fix:** move the counters into CockroachDB (a small `rate_counters` table with a fixed-window upsert) or in front of App Runner (WAF rate rules). CockroachDB adds a write per request, which is why it was not chosen for v1. **This is a real gap, not a deferred nicety** — the `counterfactual` and `upload_intent` buckets are the ones that map most directly to spend.
 
 ### 17.2 The capability proof HMAC key is a single point of compromise
 

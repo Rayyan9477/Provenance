@@ -127,26 +127,26 @@ def test_a_pass_row_proved_at_another_commit_is_rejected(tmp_path: Path) -> None
     assert "not at the commit under test" in result.stderr, result.stderr
 
 
-def test_a_forged_submission_row_is_rejected(tmp_path: Path) -> None:
+def test_a_forged_release_row_is_rejected(tmp_path: Path) -> None:
     """Hole 2: the `S1`..`S10` family was matched by nothing, so the
-    pre-submission battery — the assertions T0.7 sub-task 4 exists to protect —
-    was entirely unguarded."""
+    release-readiness battery — the assertions T0.7 sub-task 4 exists to
+    protect — was entirely unguarded."""
     make_ledger(tmp_path, "PHASE_15.md", "| S3 | PASS | (no log) |")
     result = run_check(tmp_path)
     assert result.returncode != 0, (
         "a forged `| S3 | PASS |` row was not detected. ops/gates/PHASE_15.md "
-        "states there is no G15.x, so a G-only row regex leaves the submission "
+        "states there is no G15.x, so a G-only row regex leaves the G-15 "
         "gate unguarded:\n" + result.stdout
     )
     assert "S3" in result.stderr, result.stderr
 
 
-def test_a_forged_row_in_the_submission_ledger_is_rejected(tmp_path: Path) -> None:
-    """`ops/gates/SUBMISSION.md` is scanned alongside `PHASE_*.md`; before the
-    fix it was not opened at all."""
-    make_ledger(tmp_path, "SUBMISSION.md", "| S8 | PASS | (no log) |")
+def test_a_forged_s_row_in_any_phase_ledger_is_rejected(tmp_path: Path) -> None:
+    """The `S<n>` family is scanned in every `PHASE_*.md` ledger; before the
+    fix it was matched by nothing at all."""
+    make_ledger(tmp_path, "PHASE_14.md", "| S8 | PASS | (no log) |")
     result = run_check(tmp_path)
     assert result.returncode != 0, (
-        "a forged row in ops/gates/SUBMISSION.md was not detected:\n" + result.stdout
+        "a forged S-row in ops/gates/PHASE_14.md was not detected:\n" + result.stdout
     )
     assert "S8" in result.stderr, result.stderr

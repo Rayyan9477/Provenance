@@ -5,7 +5,7 @@
 > pre-filled, so an assertion that is never run shows up as an **omission**
 > rather than as an absence (§3 rule 2).
 >
-> **The demo URL is a Stage One item.** §22.4: this phase always gets the **full**
+> **The demo URL is a `G-15` release item.** §22.4: this phase always gets the **full**
 > verification round. From here on, §23.11 applies: any assertion in this report
 > whose command names `localhost` is marked **NOT RUN**.
 

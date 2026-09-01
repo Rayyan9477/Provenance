@@ -1,0 +1,44 @@
+==============================================================================
+Provenance -- demo rehearsal against a DEPLOYED Cloud Run revision
+  run    : 2026-08-31T22:13:24Z
+  commit : b71274098e3779d4d17df5065214a8c4c54ba428
+  api    : https://provenance-control-plane-vaq74wztva-uk.a.run.app
+  web    : https://provenance-web-vaq74wztva-uk.a.run.app
+  Every verdict below is computed. There is no code path that writes
+  a PASS without a comparison returning True.
+==============================================================================
+
+  [   PASS   ] GET /v1/version is unauthenticated and discloses the mode
+               fixture_mode=False db_ok=True agent_mode=LIVE otlp=DISABLED
+  [   PASS   ] the deployed revision is this commit
+               deployed=b71274098e37 head=b71274098e37
+  [   PASS   ] an unauthenticated read is refused
+               GET /v1/cases -> 401 (401 expected; a 200 would be a tenancy failure)
+  [   PASS   ] beat A -- the dashboard is summed from Kernel-written rows
+               USD 2020.0000 across 4 relationships, 2 open of 8 cases; triggers_armed=2 active_conflicts=0
+  [   PASS   ] beat A -- no conflict is seeded
+               active_conflicts=0 -- 0 is required. A seeded conflict would mean the reveal had already happened before anyone pressed anything, and an ABSENT count is not a zero.
+  [   PASS   ] beat C -- the State Proof is assembled by SQL, not by a model
+               deterministic=True model_used=None revision=4 beliefs=1 commitments=1
+  [   PASS   ] beat C -- every rendered belief carries grounding
+               1 of 1 beliefs grounded
+  [   PASS   ] beat F -- prospective memory is armed
+               COMMITMENT_DEADLINE not_before=2026-06-15T00:01:00+00:00; RESPONSE_DEADLINE not_before=2026-06-29T00:00:00+00:00
+  [   PASS   ] beat F -- the wake route reaches its handler
+               POST .../wake with an unknown id -> 404 TRIGGER_NOT_FOUND; a router miss would carry no trace_id and a different code
+  [CANNOT RUN] beat F -- firing the landlord trigger
+               deliberate. It is the demo's second reveal, and the first press disarms it -- pressing it here would leave the recorded demo showing a NO_OP.
+  [   PASS   ] the deployed WEB APP renders live data with the token it actually holds
+               GET https://provenance-web-vaq74wztva-uk.a.run.app/dashboard -> 200; money rendered: ['USD 1,800.00', 'USD 2,020.00', 'USD 220.00']; fixture banner: False; unauthenticated-render: False
+  [CANNOT RUN] beats B and D -- ingest the June invoice, then the counterfactual on it
+               deliberate. northline-june-invoice.eml is absent from source_artifacts because the demo ingests it live to create the conflict. ops/ingestion-live-run.txt measures that path against the cluster and was re-recorded on 2026-08-31, after migration 0009a: PASS 13, FAIL 0, CANNOT RUN 1. Every step now passes through the app-side memory_proposals INSERT, which the earlier transcript recorded as a FAIL because ck_memory_proposals_model did not yet admit the Gemini model ids. The single CANNOT RUN is commit_proposal, and its reason is structural rather than a blocker: the Kernel commits its own transaction, this runner rolls back, so a Kernel decision would outlive the proposal row it decided. commit_proposal has therefore still never been measured on a live path.
+  [CANNOT RUN] beat E -- approve and send
+               no action_intents row exists to approve. internal.create_action_intent is the only unbound method in the action plane; approve, reject, execute_action and both reads are bound. Not attempted, so not a FAIL.
+  [CANNOT RUN] beat G -- the Memory Trace
+               the trace assembler is unbuilt. read.get_trace and read.memory_trace answer 501 NOT_IMPLEMENTED naming the subsystem, never 500.
+
+==============================================================================
+  PASS 10   FAIL 0   CANNOT RUN 4
+  CANNOT RUN is neither. Four of them here are deliberate: they are the
+  demo's own reveals, and rehearsing them would spend them.
+==============================================================================

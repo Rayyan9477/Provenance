@@ -146,7 +146,7 @@ FROZEN_EMBEDDING_MODEL_ID: Final = "amazon.titan-embed-text-v2:0"
 # trap D-00-002 fell into. `ops/probes/gemini_probe.py` is what settles these.
 #
 # There is deliberately no Pro tier: `gemini-3.1-pro-preview` is version 3.1,
-# BELOW the hackathon's "3.5 or newer" floor, so both tiers are Flash-class.
+# BELOW the "3.5 or newer" floor, so both tiers are Flash-class.
 # ---------------------------------------------------------------------------
 DEFAULT_GEMINI_REASONING_MODEL_ID: Final = "gemini-3.7-flash"
 DEFAULT_GEMINI_EXTRACTION_MODEL_ID: Final = "gemini-3.5-flash-lite"
@@ -310,8 +310,8 @@ EmbeddingNormalization = Literal["NONE", "L2_UNIT"]
 #: Which cloud a deployment actually runs on. This decides which of the
 #: provider-specific variables below are REQUIRED -- see
 #: ``_platform_requirements``. Before the pivot the object demanded fifteen
-#: AWS variables unconditionally, which made the hackathon's mandatory
-#: "spin-up instructions" unsatisfiable for anyone without our AWS account.
+#: AWS variables unconditionally, which made the README's spin-up instructions
+#: unsatisfiable for anyone without our AWS account.
 PlatformName = Literal["aws", "gcp", "local"]
 
 
@@ -474,9 +474,9 @@ class Settings(BaseSettings):
     )
 
     # -- 12.7b Google platform ---------------------------------------------
-    #: The AI Studio key for the Gemini Developer API. The hackathon rules name
-    #: this path explicitly ("accessed through Gemini API or Vertex AI"), so no
-    #: service account, ADC or IAM binding is involved.
+    #: The AI Studio key for the Gemini Developer API. Model access goes
+    #: through that API rather than through Vertex AI, so no service account,
+    #: ADC or IAM binding is involved.
     google_api_key: SecretStr | None = Field(default=None, validation_alias="GOOGLE_API_KEY")
     gcs_artifact_bucket: str | None = Field(default=None, validation_alias="GCS_ARTIFACT_BUCKET")
     google_cloud_project: str | None = Field(default=None, validation_alias="GOOGLE_CLOUD_PROJECT")

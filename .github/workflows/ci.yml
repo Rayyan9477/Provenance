@@ -151,8 +151,8 @@ jobs:
 
           # Assertion ids come in two families and BOTH must be covered:
           # G<phase>.<n> for G0.1..G14.7, and S<n> for the ten G-15
-          # pre-submission items. ops/gates/PHASE_15.md states outright that
-          # there is no G15.x, so a G-only regex left the submission gate -
+          # release-readiness items. ops/gates/PHASE_15.md states outright that
+          # there is no G15.x, so a G-only regex left the G-15 gate -
           # the one this step exists to protect - entirely unguarded.
           ident = r"(?:G\d+\.\d+[a-z]?|S\d+)"
           log_name = re.compile(rf"^({ident})\.[0-9a-f]+\.log$")
@@ -176,7 +176,7 @@ jobs:
           # | G0.4 | PASS | ops/gates/logs/G0.4.c2a0c05e.log |
           row = re.compile(rf"^\|\s*({ident})\s*\|\s*([^|]*?)\s*\|")
           unproven = list(malformed)
-          ledgers = sorted(gates.glob("PHASE_*.md")) + [gates / "SUBMISSION.md"]
+          ledgers = sorted(gates.glob("PHASE_*.md"))
           for ledger in ledgers:
               if not ledger.exists():
                   continue

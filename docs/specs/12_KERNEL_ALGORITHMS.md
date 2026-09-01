@@ -3,7 +3,7 @@
 Purpose: specify every deterministic algorithm the Memory Kernel executes, precisely enough that a competent engineer can implement it and unit-test it with zero calls to Bedrock or any other model.
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 Audience: backend engineers implementing `services/control_plane/app/memory_kernel/` and `packages/python/provenance_domain/`, coding agents generating that code, and judges auditing whether the "deterministic kernel" claim is real.
 
@@ -1023,7 +1023,7 @@ Q5 failing does not discard the evidence. The claim, the conflict, and the belie
 
 → legal. `RESOLVED → REOPENED`, revision `7 → 8`, `reopened_count 0 → 1`, reason `CASE_REOPENED_QUALIFYING_EVIDENCE`.
 
-Negative control that must also be in the fixture set: an ISP *marketing* email arriving the same day. It produces new evidence (Q1 ✅) recorded after resolution (Q2 ✅) but no conflict, no commitment change, no trigger, no user dispute (Q3 ❌). The case stays `RESOLVED`, revision unchanged, decision `ACCEPTED` with `CASE_REOPEN_REFUSED_NON_QUALIFYING`. Without Q3 this scenario reopens the case and the product looks broken to a judge in the first thirty seconds.
+Negative control that must also be in the fixture set: an ISP *marketing* email arriving the same day. It produces new evidence (Q1 ✅) recorded after resolution (Q2 ✅) but no conflict, no commitment change, no trigger, no user dispute (Q3 ❌). The case stays `RESOLVED`, revision unchanged, decision `ACCEPTED` with `CASE_REOPEN_REFUSED_NON_QUALIFYING`. Without Q3 this scenario reopens the case and the product looks broken in the first thirty seconds.
 
 ---
 

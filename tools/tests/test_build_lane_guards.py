@@ -488,7 +488,7 @@ def test_the_named_eval_baseline_is_not_ignored() -> None:
 def test_notice_attributes_langgraph_to_graphs_that_exist() -> None:
     """D-00-034: `NOTICE` credited LangGraph for "the Librarian, Registrar and
     Advocate graphs"; neither of the first two appears anywhere in the design
-    pack. `NOTICE` is a public submission artifact read at S2 and S7, and two
+    pack. `NOTICE` is a public release artifact read at S2 and S7, and two
     invented component names in it read as a project describing a system it did
     not build.
 

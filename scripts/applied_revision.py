@@ -17,7 +17,7 @@ Titan vectors at ``VECTOR(1024)``, and ``ACTIVE_EMBEDDING_PROFILE`` resolves to
 So a deploy that reported the chain head as ``schema_revision`` on
 ``GET /v1/version`` would publish a revision the database is not at -- a
 confident, specific, wrong number on the one endpoint the project offers a
-judge as its authoritative disclosure channel. Better to say nothing than to
+reviewer as its authoritative disclosure channel. Better to say nothing than to
 say that: the web app's status strip now renders an unset revision as an
 explicit absence marker, which is true, rather than as a bare ``schema=``.
 

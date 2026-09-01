@@ -1,7 +1,7 @@
 # Provenance — Defect Triage Protocol
 
 Status: execution apparatus v1.0
-Implementation status: not started — no code, no cluster resource, no test run, and no defect described in this document has been observed
+Implementation status: in force. The protocol runs: `ops/defects/DEFECTS.md` is its ledger and `make defects` is a binding gate precondition. See `STATUS.md` at the repository root, which is measured rather than declared
 Owns: severity classification, the defect record schema, deduplication, the fix-and-reverify loop, rejected findings, carried debt, and the anti-gaming detectors
 Does not own: gate exit assertions (`quality/23_PHASE_GATES.md`), test layer counts (`quality/20_TDD_STRATEGY.md`), or any product or runtime semantic (`00_PRODUCT.md`, `CANONICAL_DECISIONS.md`)
 
@@ -164,7 +164,7 @@ m1. Everything else: cosmetic, or correct-but-unclear.
 These exist to remove the last three judgement calls.
 
 1. **Grounding counts as an invariant.** B1 lists five, not four. `23_PHASE_GATES.md` §1 and §22.3 Q3 both treat "the five (four canon invariants plus grounding)" as one set. A triager who has to decide whether grounding is an invariant is making exactly the call this rule exists to prevent.
-2. **Insufficient reproduction goes back, never down.** If the transcript cannot answer B1–B4 yes or no, the finding is `INCOMPLETE` and returns to the hunter. It does **not** become MAJOR because the BLOCKER questions were unanswerable. Downgrading for want of evidence is the single most likely way a real BLOCKER gets carried into submission.
+2. **Insufficient reproduction goes back, never down.** If the transcript cannot answer B1–B4 yes or no, the finding is `INCOMPLETE` and returns to the hunter. It does **not** become MAJOR because the BLOCKER questions were unanswerable. Downgrading for want of evidence is the single most likely way a real BLOCKER gets carried into a release.
 3. **Genuine uncertainty resolves upward.** A finding that plausibly satisfies a BLOCKER question is filed BLOCKER. It may be lowered only by the gate reviewer, only by naming the ordered rule that excludes it, and only with that reason written into the record. The burden of proof is on lowering, always.
 
 ### 4.3 Consequence by severity
@@ -192,7 +192,7 @@ The kernel commits the claim, belief version, grounding edges, conflict, case re
 The executor reads `cases.revision` on the app pool, compares it to `basis_case_revision`, then calls SES. A kernel commit landing between the read and the send moves revision 13 → 14 and the message goes anyway. `G9.1` still passes, because its test moves the revision *before* the executor runs. BLOCKER at B3: an external side effect from state the approval no longer describes. The only irreversible operation in the system is exactly the one with a time-of-check-to-time-of-use window.
 
 **B-ex-5 — Counterfactual columns rendered when `parity.all_equal = false` (rule B4).**
-`GET /v1/judge-mode/counterfactual/{id}` returns `parity.all_equal = false` because `decode_params_sha256` differs between the MEMORY OFF and MEMORY ON runs. The UI renders both output columns anyway and shows the parity badge in grey. The render gate in `CANONICAL_DECISIONS.md` → *Counterfactual parity canon* is binding on `frontend/30_UX_SPEC.md` §14.4 item 9 and `frontend/32_JUDGE_MODE.md` §7.2 alike: `all_equal = false` means the columns are **not rendered** and a failure banner replaces them. BLOCKER at B4 — the side-by-side is a claim about identity of inputs, and rendering it when the identity does not hold puts an unbacked claim on screen. This is also the single most persuasive asset in the build and therefore the one a hostile judge attacks first (`23_PHASE_GATES.md` §22.3 Q4).
+`GET /v1/judge-mode/counterfactual/{id}` returns `parity.all_equal = false` because `decode_params_sha256` differs between the MEMORY OFF and MEMORY ON runs. The UI renders both output columns anyway and shows the parity badge in grey. The render gate in `CANONICAL_DECISIONS.md` → *Counterfactual parity canon* is binding on `frontend/30_UX_SPEC.md` §14.4 item 9 and `frontend/32_JUDGE_MODE.md` §7.2 alike: `all_equal = false` means the columns are **not rendered** and a failure banner replaces them. BLOCKER at B4 — the side-by-side is a claim about identity of inputs, and rendering it when the identity does not hold puts an unbacked claim on screen. This is also the single most persuasive asset in the build and therefore the one a hostile reviewer attacks first (`23_PHASE_GATES.md` §22.3 Q4).
 
 ### 4.5 MAJOR — five worked examples
 
@@ -203,7 +203,7 @@ The attention node emits `ACTION_REQUIRED` and the persistence path writes it st
 Part (d) is written as `assert len(results) > 0` instead of asserting that `sid('evidence','isp-wrong-term-date')` appears in the top 20 with the retraction predicate removed. Part (c) — "none of the 3 retraction fixtures appear" — then passes whether or not the filter exists, because nothing proves the fixtures were ever retrievable. The mechanical proof of vacuity is that `G6.7`, the sabotage that neuters `retrieval.predicates.retraction_filter`, stays green. MAJOR at M2. Fully worked as `D-06-004` in §5.4.
 
 **M-ex-3 — `agent_runs.mcp_tool_calls` used as a column name (rule M3).**
-The repository selects `mcp_tool_calls` from `agent_runs`. `CANONICAL_DECISIONS.md` → *Hero commit canon* is single-valued here: the **column** is `agent_runs.tool_calls` and the **HTTP field** is `mcp_tool_calls[]`. If a view alias hides the difference the hero path is green and `G11.4`'s second query — `SELECT count(*) FROM agent_runs WHERE id='…' AND tool_calls IS NOT NULL` — returns 0, so the assertion that proves the rendered trace is backed by a real row fails at the sponsor-tool gate. MAJOR at M3.
+The repository selects `mcp_tool_calls` from `agent_runs`. `CANONICAL_DECISIONS.md` → *Hero commit canon* is single-valued here: the **column** is `agent_runs.tool_calls` and the **HTTP field** is `mcp_tool_calls[]`. If a view alias hides the difference the hero path is green and `G11.4`'s second query — `SELECT count(*) FROM agent_runs WHERE id='…' AND tool_calls IS NOT NULL` — returns 0, so the assertion that proves the rendered trace is backed by a real row fails at the MCP gate. MAJOR at M3.
 
 **M-ex-4 — Business-day arithmetic counts Saturday (rule M1).**
 `TM-04` expects v1 semantics: Monday through Friday, no holiday calendar, and extraction must surface `BUSINESS_DAY_CALENDAR_ASSUMED`. An implementation that counts calendar days, or that counts Saturday, produces a `due_at` one or two days off. Nothing is corrupted and the transaction is sound; the obligation is simply due on the wrong day, and a deadline that is wrong by a day is the whole product being wrong by a day. MAJOR at M1.
@@ -221,7 +221,7 @@ Each carries a named owner and a closing phase, per §9. The `<owner>` slot belo
 
 **m-ex-3 — Gate log filenames use the full SHA.** `tools/gate.sh` writes `logs/<ID>.<full-sha>.log` where `23_PHASE_GATES.md` §2.2 specifies `<ID>.<sha8>.log`. Nothing breaks; `ops/gates/logs/` becomes unreadable at a glance and the report links drift. MINOR at M3 by the letter of the rule — a real spec divergence with no behavioural consequence. Owner: tooling. Closes by: phase 14.
 
-**m-ex-4 — Trace id not selectable in the UI.** `X-Provenance-Trace-Id` is correctly returned on success and error (`G8.7`) but the UI does not display it, so a judge cannot copy a trace id to correlate with the Memory Trace panel. Cosmetic. Owner: frontend. Closes by: phase 12.
+**m-ex-4 — Trace id not selectable in the UI.** `X-Provenance-Trace-Id` is correctly returned on success and error (`G8.7`) but the UI does not display it, so a reviewer cannot copy a trace id to correlate with the Memory Trace panel. Cosmetic. Owner: frontend. Closes by: phase 12.
 
 ### 4.7 Four boundary cases the rule decides for you
 
@@ -251,7 +251,7 @@ ops/defects/
 
 `implementation/00_IMPLEMENTATION_MAP.md` §5 places `ops/defects/` in the tree with `DEFECTS.md` in it. The three siblings above are additions of this document; `DEFECTS.md` remains the file the rest of the pack names.
 
-**All four are committed and gitleaks-scanned**, exactly like the gate logs (`CANONICAL_DECISIONS.md` → *Repository layout canon*). Therefore: **every reproduction is scrubbed before it is committed.** A transcript containing `postgresql://pv_kernel_writer:…@rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257` is a credential leak in a committed file, and the rotation comes before the defect work. Run reproductions under `asm-exec` so the URL never enters the transcript, and pipe pasted output through `tools/scrub.py` before committing:
+**All four are committed and gitleaks-scanned**, exactly like the gate logs (`CANONICAL_DECISIONS.md` → *Repository layout canon*). Therefore: **every reproduction is scrubbed before it is committed.** A transcript containing `postgresql://<user>:…@<cluster-host>.cockroachlabs.cloud:26257` is a credential leak in a committed file, and the rotation comes before the defect work. Run reproductions under `asm-exec` so the URL never enters the transcript, and pipe pasted output through `tools/scrub.py` before committing:
 
 ```bash
 asm-exec --env PV_DB_APP='{{resolve:secretsmanager:provenance/db:SecretString:app_url}}' -- \
@@ -618,7 +618,7 @@ A rejection reopens on exactly one thing: **a new reproduction the basis does no
 Two things that look like debt and are not:
 
 - **A scheduled deferral is not debt.** `G-2` explicitly defers DDL §19 tests 1, 3, 4, 6, 7, 8, 9, 10, 12 to phases 4, 6, 9 and 10 and requires the gate report to list them with their closing phase. That is a plan, it lives in the gate report, and putting it in the debt ledger would bury the real debt in twelve rows of expected work.
-- **A disclosed limitation is not debt.** Fixture mode, the brute-force retrieval fallback, and the EventBridge Scheduler timing gap (§23.13) are disclosures that ship in `README.md` and `SUBMISSION.md`. Debt is something that closes; a disclosure is something that is true.
+- **A disclosed limitation is not debt.** Fixture mode, the brute-force retrieval fallback, and the EventBridge Scheduler timing gap (§23.13) are disclosures that ship in `README.md`. Debt is something that closes; a disclosure is something that is true.
 
 ### 9.2 Format
 
@@ -630,7 +630,7 @@ Two things that look like debt and are not:
 | C-05-001 | D-05-003 | State Proof renders a disputed belief's unchanged value with equal weight to its changed status | <frontend owner> | G-12 | G-5 | G-6 STILL ACCEPTED · G-7 STILL ACCEPTED · G-8 STILL ACCEPTED → ESCALATED | The most interesting twenty seconds of the video reads as "nothing happened" |
 ```
 
-`Owner` is a **name**, not a role and not "TBD" — an unowned MINOR is not carriable and blocks the gate exactly like a MAJOR. `Closes by` is a **gate id**, not "later" and not "post-hackathon".
+`Owner` is a **name**, not a role and not "TBD" — an unowned MINOR is not carriable and blocks the gate exactly like a MAJOR. `Closes by` is a **gate id**, not "later" and not "someday".
 
 ### 9.3 The re-read rule
 
@@ -651,9 +651,9 @@ An empty ledger prints `0 carried items` and **that line must still appear in th
 At `G-14`, the ledger must contain no item whose `Closes by` is `G-15` or earlier and whose status is not `CLOSED`. Any item still open at `G-14` takes one of exactly two paths:
 
 1. **It closes before `G-15` opens.** Normal for a genuine MINOR.
-2. **It is converted to a disclosed limitation** — deleted from `CARRIED_DEBT.md` and written, in plain words, into the *What is seeded vs what is computed* section of `README.md` or the tool-usage disclosure in `SUBMISSION.md`, both of which `S7` greps for. A disclosure is a truthful statement about the shipped system; carrying it silently is not.
+2. **It is converted to a disclosed limitation** — deleted from `CARRIED_DEBT.md` and written, in plain words, into the *What is seeded vs what is computed* section of `README.md`, which `S7` greps for. A disclosure is a truthful statement about the shipped system; carrying it silently is not.
 
-`G-15` has no debt section by construction: the §24 battery is `S1`–`S10` and every item is binary. `make debt --assert-empty` is run once at `G-14` and once as part of the final `SUBMISSION.md` assembly, and its failure blocks submission the same way a failing `G14.2` threshold does.
+`G-15` has no debt section by construction: the §24 battery is `S1`–`S10` and every item is binary. `make debt --assert-empty` is run once at `G-14` and once as part of the final release assembly, and its failure blocks the release the same way a failing `G14.2` threshold does.
 
 ---
 
@@ -758,7 +758,7 @@ OPEN BLOCKER: 0  OPEN MAJOR: 0  OPEN MINOR: 2  CARRIED: 1  REJECTED: 4
 
 ## 12. Risks and open questions
 
-**R1 — In a solo build, all four roles are one operator, and the fresh-context guarantee is weak.** `23_PHASE_GATES.md` §25 risk 4 already concedes that an agent reviewing its own work re-derives the same blind spots from the same specs. This document inherits that risk fully and adds a role structure that a single operator can satisfy only by convention. *Mitigation:* every close condition is machine output (§7.4), and the disputed-severity procedure requires the exclusion sentence to be written before the fixer's argument is seen. *Residual risk:* high and unavoidable within the hackathon window. The honest framing for a reader is that this protocol makes dishonesty require a deliberate act rather than a convenient one, which is the same thing `23_PHASE_GATES.md` §25 risk 7 says about the fixture guard.
+**R1 — In a solo build, all four roles are one operator, and the fresh-context guarantee is weak.** `23_PHASE_GATES.md` §25 risk 4 already concedes that an agent reviewing its own work re-derives the same blind spots from the same specs. This document inherits that risk fully and adds a role structure that a single operator can satisfy only by convention. *Mitigation:* every close condition is machine output (§7.4), and the disputed-severity procedure requires the exclusion sentence to be written before the fixer's argument is seen. *Residual risk:* high and unavoidable in a solo build. The honest framing for a reader is that this protocol makes dishonesty require a deliberate act rather than a convenient one, which is the same thing `23_PHASE_GATES.md` §25 risk 7 says about the fixture guard.
 
 **R2 — Triage overhead competes directly with build time, and build time is the binding constraint.** Six lenses at sixteen gates is up to 96 hunter passes. `23_PHASE_GATES.md` §25 risk 3 already notes that 16 full verification rounds is a working day of pure review and that verification is the first thing compressed when the build runs late. Adding a triage step makes that worse. *Mitigation:* the five-minute dispute box, the mandatory-lens table that drops to four lenses for phases 0–3 and 5–6, and `make` targets so a round costs a command. *Decision:* if the round must be cut, cut lenses — never cut the severity rule or the close-proof, because those are what make the remaining findings trustworthy.
 
@@ -770,6 +770,6 @@ OPEN BLOCKER: 0  OPEN MAJOR: 0  OPEN MINOR: 2  CARRIED: 1  REJECTED: 4
 
 **R6 — Assumption: the design pack's test paths are the ones the build will use, and two documents disagree.** `20_TDD_STRATEGY.md` §3.3 places the twelve required database tests at `services/control_plane/tests/db/test_kernel_required.py`, consistent with the `CANONICAL_DECISIONS.md` test-placement rule that per-package tests live beside their package. `23_PHASE_GATES.md` §8–§17 refers to them as `tests/db/test_02_grounding_required.py`, `tests/db/test_12_vector_scope_and_retraction.py`, and so on, at the repository root. **This document uses the `20_TDD_STRATEGY.md` paths**, because the placement rule is canon and a test importing only from `control_plane` belongs beside it. That choice makes the `Repro` and `Verifying assertion` cells in §5.4 concrete, and it means those cells are wrong if the reconciliation lands the other way. *This is itself a MAJOR-M3 documentation defect in the pack* — one file path, two spellings, in two documents that both gate the same work — and it should be filed as `D-00-001` in the first round rather than resolved by whoever writes the test first. Recording it here is the first use of the protocol this document defines.
 
-**R7 — Open question: whether the `INCOMPLETE` state is stable under time pressure.** §6.3 says an incomplete finding about a BLOCKER-class question blocks the gate. That is correct and it is also the rule most likely to be quietly skipped at 2 a.m. on the day before submission, because the cheapest way to unblock a gate is to decide the reproduction was never going to reproduce. There is no detector for that; `NOT_REPRODUCIBLE` in `REJECTED.md` requires an attempt count, which raises the cost of the shortcut but does not remove it. Flagged rather than solved.
+**R7 — Open question: whether the `INCOMPLETE` state is stable under time pressure.** §6.3 says an incomplete finding about a BLOCKER-class question blocks the gate. That is correct and it is also the rule most likely to be quietly skipped at 2 a.m. on the day before a release, because the cheapest way to unblock a gate is to decide the reproduction was never going to reproduce. There is no detector for that; `NOT_REPRODUCIBLE` in `REJECTED.md` requires an attempt count, which raises the cost of the shortcut but does not remove it. Flagged rather than solved.
 
 **R8 — Open question: what happens when a defect's owning file is a document rather than code.** `R6` above is a real defect whose owning file is `docs/quality/23_PHASE_GATES.md`. The close-proof is undefined for a documentation fix — there is no test to revert the fix against. *Provisional decision:* documentation defects close on the **change-control rule in `README.md`** instead of a close-proof: the decision register, the owning specification, the dependent contracts and examples, and the migration note updated in one change. The record's `Verifying assertion` field carries the `rg`/`grep` command that returns zero hits for the old spelling. That is weaker than a close-proof and it is the strongest thing available for prose.

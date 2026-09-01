@@ -3,7 +3,7 @@
 Purpose: define the behaviour, state, and data binding of every screen in the Provenance web application, so that a competent frontend engineer can build it against `specs/15_API_SPEC.md` without asking a question.
 
 Status: planning complete v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 Audience: frontend engineers implementing `apps/web`; backend engineers who need to know which response fields are load-bearing in the UI; the designer receiving `frontend/31_DESIGN_BRIEF_FOR_OPUS5.md`; accessibility reviewers; and judges auditing whether the interface tells the truth about the system behind it.
 
@@ -1664,7 +1664,7 @@ There is no chat surface in Provenance v1. Not a de-emphasised one, not one behi
 
 **A chat-first product is dark when the model is dark.** `GET /v1/cases/{id}/state-proof` makes no model call, ever, and must return correct output with Bedrock fully unavailable. The dashboard's `headline` is a deterministic template for the same reason. A product whose primary surface is a conversation has no degraded mode; it has an outage.
 
-**And for the rubric specifically.** Product Readiness is one of five equally weighted criteria, and it is scored on security, observability, scalability, resilience, and access control. A chat window has no state to be stale, no revision to bind, no hash to freeze, no capability boundary to display, and no place to render the `sql_role` a read went through. The screens in this document put the security model on the glass: the approval binding on S5, the SQL role and access mode on S6, the retraction filter's own count on S4. That is not an aesthetic preference. It is the difference between claiming a property and demonstrating one.
+**And for product readiness specifically.** Product readiness is one of the five dimensions this build is weighed on, and it turns on security, observability, scalability, resilience, and access control. A chat window has no state to be stale, no revision to bind, no hash to freeze, no capability boundary to display, and no place to render the `sql_role` a read went through. The screens in this document put the security model on the glass: the approval binding on S5, the SQL role and access mode on S6, the retraction filter's own count on S4. That is not an aesthetic preference. It is the difference between claiming a property and demonstrating one.
 
 ### 16.3 What natural-language input does exist
 

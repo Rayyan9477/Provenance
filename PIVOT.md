@@ -1,26 +1,23 @@
-# Pivot assessment — All Things Agentic Hackathon
+# Platform migration — Bedrock and AWS to Gemini and Cloud Run
 
-Written 2026-08-19 as a point-in-time assessment. **Read the status block below
-before anything else in this file:** four of its recommendations have since been
-decided or superseded, and one of them was wrong.
+Written 2026-08-19 as a point-in-time assessment of moving this build off Amazon
+Bedrock and AWS. **Read the status block below before anything else in this
+file:** four of its recommendations have since been decided or superseded, and
+one of them was wrong.
 
 > ### Status as of 2026-08-24
 >
-> **Deadline: 2026-08-31, 17:00 PDT — seven days.** The "twelve days" below was
-> correct when written and is not now.
+> **Decided, and binding:**
 >
-> **Decided by the user, and binding:**
->
-> 1. **The CockroachDB/AWS entry is discarded.** `infra/cdk/` (10 stacks, 7,861
+> 1. **The AWS deployment is discarded.** `infra/cdk/` (10 stacks, 7,861
 >    lines, 304 tests) is dead weight rather than dual-use.
 > 2. **The database does not move.** CockroachDB Cloud stays exactly where it
 >    is, on AWS `us-east-1`. §4's recommendation to stand up a new cluster on
 >    GCP is therefore **not** being followed — the eight migrations, the seed and
 >    ~390 tests are worth more than co-location, and Cloud Run in `us-east4` is
 >    the same physical metro anyway.
-> 3. **Model access is an AI Studio API key** — the Gemini Developer API, which
->    the rules name explicitly. No Vertex, no service account, no IAM.
-> 4. **Target breadth across prize categories.**
+> 3. **Model access is an AI Studio API key** — the Gemini Developer API. No
+>    Vertex, no service account, no IAM.
 >
 > **§5's embedding recommendation is superseded.** It recommends
 > `gemini-embedding-001` at 1536. The shipped choice is **`gemini-embedding-2`**,
@@ -30,67 +27,74 @@ decided or superseded, and one of them was wrong.
 > stop meaning anything. `-2` also raises the input ceiling from 2,048 to 8,192
 > tokens and is multimodal.
 >
-> **§2's prize list is incomplete.** It omits **Startup Excellence ($20k)** and
-> **Individual/Hobbyist (2 × $10k)**, the latter of which this entry is directly
-> eligible for. Total pool is $180,000.
->
 > **The canonical record is now `docs/CANONICAL_DECISIONS.md` → *Gemini model id
 > canon*.** Where this file and that section disagree, that section wins.
 >
-> **Nothing below has been probed.** Every Gemini model id in this repository is
-> transcribed from documentation and none has been invoked. `ops/probes/gemini_probe.py`
-> exists and currently reports `CANNOT RUN — GOOGLE_API_KEY is not set`.
+> **Nothing below had been probed when this was written.** Every Gemini model id
+> in this repository was transcribed from documentation and none had been
+> invoked; `ops/probes/gemini_probe.py` reported
+> `CANNOT RUN — GOOGLE_API_KEY is not set`.
+>
+> > **Superseded 2026-08-24.** The probe ran. The transcript is committed at
+> > `ops/gemini-probe.txt` — PASS 11, FAIL 0, CANNOT RUN 0, exit 0 — so the ids
+> > are measured rather than transcribed. §6 is the reason it was run first, and
+> > it stands as written.
 
-Every measurement here was taken from the tree today. Nothing is estimated.
-
----
-
-## 1. What the new hackathon requires
-
-Three hard requirements, all three mandatory:
-
-1. **Gemini 3.5 or newer**, via the Gemini API or Vertex AI.
-2. **At least one Google agent framework** — ADK, GenAI SDK, Antigravity SDK, or GenKit.
-3. **At least one Google Cloud infrastructure service** — Cloud Run, Cloud SQL,
-   Firestore, GKE, Pub/Sub.
-
-Submission needs a public-or-shared repo, **spin-up instructions in README.md**,
-an **architecture diagram**, and a **~4-minute demo video** that includes proof
-of Google Cloud deployment.
-
-Judging: **40%** Innovation & Operational Utility · **30%** Architectural
-Discipline & Tech Stack (system design, state management, security, failure
-handling) · **30%** Demo & Production Readiness.
+Every measurement here was taken from the tree on the day it was written.
+Nothing is estimated.
 
 ---
 
-## 2. Fit — better than it first appears
+## 1. What the target platform commits to
 
-The 30% architectural-discipline band is the one this build has spent itself on.
-Three prize tracks map onto work that already exists:
+Three commitments, and everything downstream follows from them:
 
-**The Fortified Enterprise Fleet ($20k)** — "scalable institutional agent
-networks with security compliance". Already built and asserted: capability-typed
-principals that cannot be constructed from request data, five `agent_*_v1` views,
-`pv_agent_reader` holding **zero** table grants, a single canonical writer proved
-by `write_path_lint` (17 canonical write statements in the Kernel, named in
-`transaction.CANONICAL_WRITE_STATEMENTS`), and 63 adversarial
-cross-tenant tests. This is the strongest fit on the board.
+1. **Gemini 3.5 or newer**, reached through the Gemini Developer API rather than
+   through Vertex AI.
+2. **The Google Gen AI SDK** (`google-genai`) as the agent runtime's client.
+3. **Google Cloud for compute** — Cloud Run.
 
-**The Collaborative Partner ($20k)** — "agents that ask clarifying questions and
-adapt". The `NEEDS_HUMAN` gate and the H1–H8 disposition ladder are exactly this,
-and the hero case resolves on H5 rather than on model confidence.
+Nothing in that list touches the decision core. The part of this build that cost
+the most — system design, state management, the security boundary, failure
+handling — is the part the migration must not damage, and §3 measures how much
+of it is coupled to a cloud at all.
 
-**The Taskmaster ($20k)** — multi-step workflow agents. The
-ingest → claim → belief → conflict → commitment → action pipeline is the workflow.
+---
 
-**Best Architectural Design ($5k)** — 118 machine-checkable gate assertions,
-sabotage testing where a green run is a failure, and a defect ledger with
-counterfactual close-proofs.
+## 2. Scope and non-goals
 
-The product thesis is unchanged and remains sponsor-neutral: institutions keep
-durable structured records about people; people keep nothing comparable about
-institutions.
+The product thesis is unchanged by the migration and is deliberately
+vendor-neutral: institutions keep durable structured records about people;
+people keep nothing comparable about institutions.
+
+**In scope, and already built:**
+
+- **A single canonical writer.** Capability-typed principals that cannot be
+  constructed from request data, five `agent_*_v1` views, `pv_agent_reader`
+  holding **zero** table grants, and one canonical write path proved by
+  `write_path_lint` (17 canonical write statements in the Kernel, named in
+  `transaction.CANONICAL_WRITE_STATEMENTS`), with 63 adversarial cross-tenant
+  tests.
+- **A human gate that is part of the model rather than a wrapper on it.** The
+  `NEEDS_HUMAN` gate and the H1–H8 disposition ladder; the hero case resolves on
+  H5 rather than on model confidence.
+- **A multi-step pipeline as the unit of work** —
+  ingest → claim → belief → conflict → commitment → action.
+- **Verification as a shipped artifact** — 118 machine-checkable gate
+  assertions, sabotage testing where a green run is a failure, and a defect
+  ledger with counterfactual close-proofs.
+
+**Not in scope, and worth naming because the components look adjacent:**
+
+- **An institutional agent fleet.** This is one consumer's record. An agent
+  registry for cross-department discovery, agent identity, an agent gateway and
+  reasoning-chain observability are a different product. Reading the
+  capability-typed principals and the zero-grant reader role as that product is
+  an analogy rather than a fact: they are excellent database security, and they
+  are not a gateway.
+- **Autonomous outbound action.** Every action passes through a recorded,
+  human-approved intent, and that is a boundary rather than a milestone still to
+  be crossed.
 
 ---
 
@@ -127,7 +131,7 @@ implementation of an existing interface.
 
 | Layer | From | To | Cost |
 |---|---|---|---|
-| Reasoning model | `us.anthropic.claude-opus-4-6-v1` (Bedrock) | Gemini 3.5+ (Vertex AI) | config + a probe |
+| Reasoning model | `us.anthropic.claude-opus-4-6-v1` (Bedrock) | Gemini 3.5+ | config + a probe |
 | Extraction model | `us.anthropic.claude-haiku-4-5` | Gemini Flash tier | config + a probe |
 | Embeddings | `amazon.titan-embed-text-v2:0`, 1024 dims | `gemini-embedding-001` | **see §5 — the expensive one** |
 | Agent framework | LangGraph on Bedrock AgentCore | **Google ADK** | Phase 7 was never built — see below |
@@ -138,9 +142,8 @@ implementation of an existing interface.
 | Database | CockroachDB on AWS | **CockroachDB on GCP** | see §4 |
 
 **Phase 7 was never started, and that is now an advantage.** There is no
-LangGraph code to port. The agent layer gets written once, natively in ADK,
-against a Memory Kernel that already refuses to let an agent write canonical
-state.
+LangGraph code to port. The agent layer gets written once, natively, against a
+Memory Kernel that already refuses to let an agent write canonical state.
 
 ### Discarded
 
@@ -154,8 +157,8 @@ be carried across to the Google Cloud equivalent rather than rediscovered.
 
 ## 4. CockroachDB can stay, and probably should
 
-CockroachDB Cloud runs on GCP in 28+ regions with vector indexing across Cloud
-offerings. The rules require **at least one** Google Cloud service; Cloud Run
+CockroachDB Cloud runs on GCP in 28+ regions with vector indexing across cloud
+offerings. §1 needs compute on Google Cloud and nothing more; Cloud Run
 satisfies that on its own.
 
 Keeping it preserves 8 migrations, 26 tables, 5 agent views, the seed, and
@@ -164,9 +167,8 @@ work in the repository. Moving to Cloud SQL or AlloyDB would mean re-doing the
 vector index strategy, and `CREATE VECTOR INDEX` has no exact equivalent
 (pgvector/ScaNN differ in both syntax and tuning).
 
-If the CockroachDB entry is still being submitted, this is dual-use at almost no
-cost. **Recommendation: create a new CockroachDB Cloud cluster on GCP, in the
-same region as Cloud Run, and re-run the migrations there.**
+**Recommendation: create a new CockroachDB Cloud cluster on GCP, in the same
+region as Cloud Run, and re-run the migrations there.**
 
 ---
 
@@ -177,7 +179,7 @@ Google's recommended **768 / 1536 / 3072** via `output_dimensionality`. The
 schema is `VECTOR(1024)`, frozen in migration `0002` and in
 `CANONICAL_DECISIONS.md`.
 
-So the pivot requires:
+So the migration requires:
 
 1. A migration `0009` altering `evidence_items.embedding` to the new width.
 2. **Re-embedding all 18,035 texts** with Gemini — real spend, and the Titan run
@@ -205,22 +207,22 @@ Anthropic chat models needed `us.` inference-profile prefixes, every other
 provider needed bare ids, and Opus 5 was denied outright. That cost a full
 re-probe and a canon rewrite.
 
-Before writing a line of Gemini integration, run the Vertex equivalent of PB-5:
-invoke each candidate model and record the transcript. Do not freeze a model id
-from documentation. The same applies to `output_dimensionality` — confirm the
-value the API actually returns rather than the one the docs recommend.
+Before writing a line of Gemini integration, run the equivalent of PB-5: invoke
+each candidate model and record the transcript. Do not freeze a model id from
+documentation. The same applies to `output_dimensionality` — confirm the value
+the API actually returns rather than the one the docs recommend.
 
 ---
 
 ## 7. How the pending items fold in
 
-From `STATUS.md`, and the pivot changes their priority:
+From `STATUS.md`, and the migration changes their priority:
 
 **Now cheaper or moot**
 - Phase 13 (deploy) — the AWS CDK is discarded; Cloud Run is a far smaller
   surface than App Runner + Amplify + AgentCore + Cognito + SES + EventBridge.
   The `provenance-teardown-role` deploy blocker disappears with it.
-- Phase 7 — no port needed; built once in ADK.
+- Phase 7 — no port needed; built once against the Google SDK.
 
 **Unchanged and still required**
 - **G4.7 concurrency test** — still missing, and it is the assertion that would
@@ -233,44 +235,48 @@ From `STATUS.md`, and the pivot changes their priority:
 - Phase 5 is one task of five; Phase 9, 10, 11 (MCP), 14, 15 unstarted.
 - 10 open MAJOR defects against phase 0; `ops/` still untracked.
 
-**New, created by the pivot**
-- Vertex model + embedding probe, with a committed transcript.
+**New, created by the migration**
+- A Gemini model and embedding probe, with a committed transcript.
 - Migration `0009` for the embedding width, plus a re-seed.
-- ADK agent layer (replaces Phase 7).
+- The agent layer (Phase 7), written natively against the Google SDK.
 - Google Cloud infrastructure, replacing `infra/cdk/`.
-- **Architecture diagram** — a hard submission requirement, and we have none.
-- **README spin-up instructions** — a hard requirement, currently absent.
+- **An architecture diagram** — none exists.
+- **README spin-up instructions** — currently absent.
 
 ---
 
 ## 8. Recommended sequence
 
-Given twelve days, ordered by what unblocks the most:
+Ordered by what unblocks the most:
 
-1. **Probe Vertex.** Model ids, `output_dimensionality`, quota. Commit the
+1. **Probe the models.** Model ids, `output_dimensionality`, quota. Commit the
    transcript. Half a day, and it prevents the mistake that cost days last time.
 2. **Stand up CockroachDB on GCP** and run migrations `0001`–`0008` against it.
 3. **Migration `0009`** for the embedding width; re-embed and re-seed. Start this
    early — it is two hours of wall clock and mostly unattended.
-4. **`VertexGeminiEmbedder`** behind the existing `TextEmbedder` Protocol.
-5. **ADK agent layer** — the ingestion and advocate graphs, emitting typed
+4. **A `GeminiEmbedder`** behind the existing `TextEmbedder` Protocol.
+5. **The agent layer** — the ingestion and advocate graphs, emitting typed
    `MemoryProposal`s only. The Kernel boundary is already enforced.
 6. **Cloud Run** for the control plane and the frontend; Pub/Sub for the outbox.
-7. **Architecture diagram, README spin-up, demo video.** These are 30% of the
-   score and are currently at zero. Do not leave them to the last day.
+7. **Architecture diagram, README spin-up, walkthrough recording.** All three are
+   at zero. Do not leave them to the end.
 
 Items 1–4 are largely mechanical because of the Protocol seam. Item 5 is the real
-new engineering. Items 6–7 are where the 30% "Demo & Production Readiness" band
-is won or lost.
+new engineering. Items 6–7 are where production readiness is either demonstrated
+or is not.
 
 ---
 
 ## 9. Decisions needed
 
-1. **Is the CockroachDB/AWS entry still being submitted?** If yes, keep both
-   alive — the shared core makes that nearly free. If no, `infra/cdk/` can be
-   deleted rather than maintained.
+1. **Does `infra/cdk/` stay in the tree?** If nothing will ever be deployed from
+   it, it can be deleted rather than maintained.
+   > **Decided 2026-08-31: it stays, committed and attributed.** Its 304 tests
+   > still run and the reasoning inside it is worth reading, but nothing is
+   > deployed from it and no AWS account is reachable from the running system.
+   > `NOTICE` says so, under its own heading.
 2. **Embedding width** — 1536 recommended.
-3. **Prize track to target.** Fortified Enterprise Fleet is the strongest fit and
-   should shape the demo's framing.
-4. **Cluster region** — Cloud Run and CockroachDB should be co-located.
+3. **Cluster region** — Cloud Run and CockroachDB should be co-located.
+   > **Superseded by status decision 2 above.** The cluster does not move;
+   > `us-east4` and AWS `us-east-1` are the same Northern Virginia metro, so the
+   > cross-cloud hop stays in single-digit milliseconds.

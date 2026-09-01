@@ -38,11 +38,11 @@ the script tells you and keeps going so the AWS probe still reports. Fetch it wi
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:APPDATA\postgresql" | Out-Null
-Invoke-WebRequest -Uri "https://cockroachlabs.cloud/clusters/4023638b-52be-42bd-9677-d3611c613477/cert" -OutFile "$env:APPDATA\postgresql\root.crt"
+Invoke-WebRequest -Uri "https://cockroachlabs.cloud/clusters/<cluster-id>/cert" -OutFile "$env:APPDATA\postgresql\root.crt"
 ```
 
-That cluster id is `rayyandb`, plan BASIC, AWS `us-east-1`,
-host `rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257`.
+That cluster is plan BASIC, AWS `us-east-1`,
+host `<cluster-host>.cockroachlabs.cloud:26257`.
 
 The script appends `sslmode=verify-full`, `sslrootcert=<that path>`, `connect_timeout=15` and
 `application_name=provenance-phase0-probe` to every connection string it derives, so you do not have to.
@@ -64,10 +64,10 @@ it instead:
 
 ```powershell
 $pw = Read-Host 'CockroachDB SQL password' -AsSecureString
-$env:PV_PROBE_DB_URL = 'postgresql://rayyan9477:' +
+$env:PV_PROBE_DB_URL = 'postgresql://<sql-user>:' +
     [Runtime.InteropServices.Marshal]::PtrToStringAuto(
         [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pw)) +
-    '@rayyandb-32190.j77.aws-us-east-1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full'
+    '@<cluster-host>.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full'
 ```
 
 If you have already typed a URL with an inline password at a prompt, the credential is in that
@@ -79,7 +79,7 @@ Notes on that value:
   database is **`provenance`** and does **not** exist yet — the script creates `provenance` and
   `provenance_ci` with the bootstrap user before any probe that needs them, then re-points every
   derived URL at `provenance`.
-- The bootstrap SQL user is `rayyan9477`. The four SQL roles (`pv_migrator`, `pv_app_reader_writer`,
+- The bootstrap SQL user is the cluster's own console account (`<sql-user>`). The four SQL roles (`pv_migrator`, `pv_app_reader_writer`,
   `pv_kernel_writer`, `pv_agent_reader`, plus the optional `pv_ops_reader`) do not exist until the
   migrations run, so PB-1 is answered for the bootstrap user. If you have already created
   `pv_migrator`, also set `$env:PV_PROBE_MIGRATOR_URL` and the script re-asks PB-1 as that role —
@@ -145,15 +145,15 @@ after PB-2 has run. Read the final one.
 > A successful `CREATE VECTOR INDEX` makes PB-1 moot.
 >
 > **Step 2.** If PB-2 also fails, open a CockroachDB Cloud support request to enable the feature on
-> cluster `4023638b-52be-42bd-9677-d3611c613477` and record the ticket id in `ops/cluster-probe.txt`.
+> cluster `<cluster-id>` and record the ticket id in `ops/cluster-probe.txt`.
 > Continue Phase 1 and Phase 2 meanwhile — nothing before Phase 6 needs the index.
 >
 > **Step 3.** If it cannot be enabled, take the frozen fallback: *"L2-normalized vector index; if no
-> vector index works, disclose brute-force user-partition scan and fail the sponsor vector-index
-> submission gate."* Set `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION`, which scans within
+> vector index works, disclose brute-force user-partition scan and fail the vector-index
+> gate."* Set `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION`, which scans within
 > `user_id = $1` over roughly 16,035 hero-partition rows. It is survivable for a demo and it is
-> **not** vector indexing. It must be disclosed in Judge Mode and in `SUBMISSION.md`, and `G6.2`
-> plus submission item `S5` tool 1 stay **blocked**.
+> **not** vector indexing. It must be disclosed in Judge Mode, and `G6.2`
+> plus release item `S5` tool 1 stay **blocked**.
 
 ### PB-2 — Which index variant works, and is it actually *chosen*? *(consumes P3–P8 + an `EXPLAIN` proof)*
 
@@ -184,7 +184,7 @@ Two details the script gets right that a hand-run would not:
 |---|---|---|
 | A errors, B succeeds | access-method syntax only | `VARIANT: B`, use §5.2. Semantics identical. |
 | `<=>` errors at P5, or A and B both reject `vector_cosine_ops` | cosine opclass unavailable | `VARIANT: C`, use §5.3. Set `EMBEDDING_NORMALIZATION=L2_UNIT` and request Titan v2 with `"normalize": true`. On unit vectors `l2(a,b)² = 2 − 2·cos(a,b)`, so L2 ordering **is** cosine ordering and ranking is unchanged. |
-| All three error, or `EXPLAIN` shows a full scan | no usable vector index | PB-1 step 3: `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION`, disclosed, sponsor gate blocked. |
+| All three error, or `EXPLAIN` shows a full scan | no usable vector index | PB-1 step 3: `PV_RETRIEVAL_MODE=BRUTE_FORCE_PARTITION`, disclosed, vector-index gate blocked. |
 | P8 fails | multi-column prefix rejected | Skip optional index variant R (`evidence_embedding_ann_active_idx`). Retraction filtering uses over-fetch-then-filter, the default path anyway: `k_raw = greatest(40, 4 * k_final)`, `k_final = 20`. |
 
 The `user_id` prefix is **mandatory**. It is the mechanism by which ANN physically cannot return
@@ -394,10 +394,10 @@ In order, from `41_RUNBOOK.md`:
 
 ## Risks and open questions
 
-1. **PB-1 is the probe most likely to fail, and its worst outcome is a submission risk, not a build
+1. **PB-1 is the probe most likely to fail, and its worst outcome is a release risk, not a build
    risk.** `MODIFYCLUSTERSETTING` is commonly withheld on managed BASIC clusters. Nothing before Phase 6
    needs the index, so a failure does not block Phase 1–5 — but if it reaches step 3 of the ladder, the
-   sponsor vector-index claim (`S5` tool 1) and `G6.2` are gone, and the demo scans ~16,035 rows per
+   vector-index claim (`S5` tool 1) and `G6.2` are gone, and the demo scans ~16,035 rows per
    query. Budget the support ticket in step 2 as calendar time, not as work.
 2. **PB-1 is answered for the bootstrap user, not for `pv_migrator`.** The roles do not exist yet. A
    bootstrap user that can set a cluster setting proves nothing about `pv_migrator`. Set
@@ -422,8 +422,8 @@ In order, from `41_RUNBOOK.md`:
    wire shape and produce a false PASS. The specific minimum SDK version that exports it is not pinned
    anywhere in the design pack; that is an open item for `requirements-dev.txt`.
 7. **Cluster settings are cluster-wide.** `SET CLUSTER SETTING feature.vector_index.enabled = true`
-   affects every database on `rayyandb`, including `defaultdb` and `provenance_ci`. On a single-purpose
-   hackathon cluster that is fine. It would not be on a shared one.
+   affects every database on the cluster, including `defaultdb` and `provenance_ci`. On a
+   single-purpose cluster that is fine. It would not be on a shared one.
 8. **PB-5 spends real money and real quota**, in tokens on Opus 5 and Haiku 4.5 and one Titan embedding.
    The amounts are trivial (`max_tokens=16`), but a `ThrottlingException` on a fresh account is a quota
    fact, not an access fact, and the script is careful to report it as such.

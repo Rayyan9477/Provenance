@@ -1,7 +1,7 @@
 # Provenance Implementation Architecture Pack
 
 Status: planning complete v1.1  
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 This directory is the implementation-grade expansion of the original `ARCHITECTURE.md` and `MEMORY_SYSTEM.md`.
 

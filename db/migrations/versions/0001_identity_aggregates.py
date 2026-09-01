@@ -19,7 +19,7 @@ That composite key is the point. It makes cross-user stitching impossible at the
 storage layer rather than merely unlikely at the application layer: DDL section
 19 test 11 bypasses the Memory Kernel entirely and attempts the raw ``INSERT``,
 and the foreign key has to be what refuses it. It costs an extra index per table
-and an extra FK check per insert; at hackathon scale that cost is invisible and
+and an extra FK check per insert; at this system's scale that cost is invisible and
 the guarantee is not.
 
 Rules this revision obeys (DDL section 16)

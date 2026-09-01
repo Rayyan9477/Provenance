@@ -498,3 +498,53 @@ targetRules = ["generic-api-key"]
 regexes = [
   '''^pv-ingest-[0-9a-f]{40}$''',
 ]
+
+# --- G. Bare-brace placeholder passwords in settings fixtures ---------------
+# `packages/python/provenance_contracts/tests/test_settings_platform.py` builds
+# DSNs with an f-string placeholder:
+#
+#     f"postgresql://u:{SENTINEL}@h.invalid:26257/provenance"
+#
+# The existing placeholder allowlist on `pv-db-connection-url-with-password`
+# covers `${VAR}` and `%VAR%` but not the bare `{NAME}` form Python uses, so
+# the rule fired on the literal text `{SENTINEL}`.
+#
+# Value-scoped and narrow: a single brace-wrapped identifier and nothing else.
+# The host is `h.invalid` — RFC 2606 reserves `.invalid` precisely so it can
+# never resolve — but this is excused by the PASSWORD shape rather than by the
+# host, because excusing a host would excuse every password used against it.
+[[allowlists]]
+description = "Bare-brace format placeholders used as passwords in settings fixtures"
+targetRules = ["pv-db-connection-url-with-password"]
+regexes = [
+  '''^\{[A-Za-z_][A-Za-z0-9_]*\}$''',
+]
+
+# --- H. This project's own idempotency-key prefixes -------------------------
+# Section E above excuses UUIDv7 and `ses-` idempotency keys in the API
+# specification's worked examples. The same `generic-api-key` rule also fires
+# on the two PREFIXED forms the test suite uses, which section E predates:
+#
+#     pv-cap-consumed-00                 tests/auth/test_capability_binding.py
+#     prop-018f9e90-attempt-1            tests/api/test_proposal_submission.py
+#
+# An idempotency key is not a credential. It is a client-chosen deduplication
+# token that `15_API_SPEC.md` section 4 requires the server to echo back, so it
+# is public by contract.
+#
+# The same trade-off section E states applies here and is narrower: both
+# patterns are anchored to a literal prefix this project controls, so a secret
+# would have to be deliberately named `pv-cap-` or `prop-` to be excused.
+#
+# These were briefly listed in `.gitleaksignore` instead, which
+# `tools/tests/test_gitleaks_config.py::
+# test_gitleaksignore_only_covers_the_scanner_s_own_tests` correctly rejected:
+# that file exists for the scanner's own bootstrap problem, and a finding
+# outside `tools/tests/` is a config question, not an ignore-list question.
+[[allowlists]]
+description = "Idempotency keys with this project's own prefixes"
+targetRules = ["generic-api-key"]
+regexes = [
+  '''^pv-[a-z0-9-]{1,60}$''',
+  '''^prop-[0-9a-f]{8}-attempt-[0-9]{1,3}$''',
+]

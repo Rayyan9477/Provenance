@@ -825,7 +825,7 @@ class LiveRouterAdapter:
 
     Every ``ModelCallRecord`` is kept, including the ones from a failed attempt:
     a call that produced no body still produced a bill and a latency, and
-    ``agent_runs.model_calls`` is the column a judge reads to check the
+    ``agent_runs.model_calls`` is the column a reviewer reads to check the
     submission's model claim against persisted state.
     """
 

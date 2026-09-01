@@ -1,8 +1,5 @@
 # Provenance — architecture diagrams
 
-Submission artifact for the **All Things Agentic Hackathon** (deadline
-2026-08-31, 17:00 PDT).
-
 Mermaid source. GitHub renders it inline; `docs/diagrams/README.md` covers other
 renderers and the conventions these diagrams follow.
 
@@ -51,7 +48,7 @@ flowchart TB
   IN["Untrusted inbound<br/>forwarded email, uploaded PDF<br/>bytes are never edited; identity is content_sha256"]
 
   subgraph WEB["web - Next.js 15 - target Cloud Run"]
-    UI["14 screens: State Proof, approvals, Judge Mode<br/>BUILT - 65 tests, render-honesty checker<br/>runs in FIXTURE mode with a permanent banner<br/>until PV_API_BASE_URL is set"]
+    UI["14 screens: State Proof, approvals, Judge Mode<br/>BUILT - 74 tests, render-honesty checker<br/>runs in FIXTURE mode with a permanent banner<br/>until PV_API_BASE_URL is set"]
   end
 
   subgraph AGENTS["agent-runtime - google-genai SDK - target Cloud Run"]
@@ -62,14 +59,14 @@ flowchart TB
 
   subgraph CP["control-plane - one FastAPI container - target Cloud Run"]
     API["API and auth<br/>capability-typed Principal, never built from request data<br/>BUILT - ports bound to the database, one pool per SQL role<br/>starts even when the pool is refused, reporting db_ok false"]
-    RETR["Retrieval - eight stages A to H<br/>A scope, B identity, C temporal, D vector ANN,<br/>E relational, F grounding, G rerank, H context<br/>BUILT - vector is stage D, never stage A"]
+    RETR["Retrieval - eight stages A to H<br/>A scope, B identity, C temporal, D vector ANN,<br/>E relational, F grounding, G rerank, H context<br/>IN FLIGHT - every stage is built and the ANN<br/>statement is proved; NO EXECUTOR composes them,<br/>so internal.retrieve is unbound"]
     KERNEL["MEMORY KERNEL<br/>deterministic: no model call, no network call<br/>validate, reconcile, enforce invariants<br/>THE ONLY CANONICAL WRITER<br/>BUILT"]
     SPROOF["State Proof builder<br/>grounding edges plus version lineage<br/>BUILT"]
     ACTION["Action policy, intents and executor<br/>bind to case revision plus draft sha256, revalidate, execute once<br/>BUILT - see diagram 4"]
   end
 
   subgraph GEM["Gemini Developer API - AI Studio key"]
-    MODELS["gemini-3.7-flash - Tier R<br/>gemini-3.5-flash-lite - Tier E<br/>gemini-3.6-flash - capacity fallback<br/>gemini-embedding-2 at 1536 dims<br/>IN FLIGHT - these ids are UNPROBED"]
+    MODELS["gemini-3.7-flash - Tier R<br/>gemini-3.5-flash-lite - Tier E<br/>gemini-3.6-flash - capacity fallback<br/>gemini-embedding-2 at 1536 dims<br/>BUILT - every id PROBED by invocation<br/>ops/gemini-probe.txt PASS 11 FAIL 0 CANNOT RUN 0"]
   end
 
   DB[("CockroachDB Cloud<br/>canonical memory plane<br/>26 tables, 5 agent views, 5 SQL roles<br/>18035 evidence rows seeded<br/>BUILT")]
@@ -106,9 +103,9 @@ flowchart TB
   ADVOCATE -. "no SQL write credential exists to hold" .-x DB
   UI -. "the browser never reaches the database" .-x DB
 
-  class UI,RETR,SPROOF,INTERP,RESOLVE,ADVOCATE,ACTION built
-  class OUTBOX built
-  class API,MODELS inflight
+  class UI,SPROOF,INTERP,RESOLVE,ADVOCATE,ACTION built
+  class OUTBOX,MODELS,API built
+  class RETR inflight
   class KERNEL kernel
   class DB store
   class IN untrusted
@@ -118,33 +115,61 @@ flowchart TB
 
 | Claim | How it is checked |
 |---|---|
-| The Kernel is the only canonical writer | `python -m tools.write_path_lint` — measured on this tree: *5 rules, 0 violations; 23 canonical write statements, 17 of them in the Kernel; `agents/` 0, `workers/` 0, `apps/web/` 0, `packages/` 0*. The Kernel's seventeen are **named** in `memory_kernel/transaction.CANONICAL_WRITE_STATEMENTS`, so the count is a claim about specific statements rather than a constant nobody re-measures. The other six are all `UPDATE outbox_events` in `app/events/dispatcher.py` — claim, mark-dispatched, mark-failed, mark-dead, reclaim-lease, replay — permitted by rule `W5-outbox-UPDATE-is-dispatcher-permitted`, because they move a dispatch status field on an already-committed event rather than canonical epistemic state. (`processed_events` is **not** in the linter's `CANONICAL_TABLES`; it belongs to `pv_app_reader_writer` outright, so `consumer.py`'s update is not counted at all.) |
+| The Kernel is the only canonical writer | `python -m tools.write_path_lint` — measured 2026-08-27: *5 rules, 0 violations; 27 canonical write statements, 19 of them in the Kernel; `agents/` 0, `workers/` 0, `apps/web/` 0, `packages/` 0*. The Kernel's nineteen are **named** in `memory_kernel/transaction.CANONICAL_WRITE_STATEMENTS`, so the count is a claim about specific statements rather than a constant nobody re-measures. The other eight are app-role writes that a rule permits **by name**: six `UPDATE outbox_events` in `app/events/dispatcher.py` — claim, mark-dispatched, mark-failed, mark-dead, reclaim-lease, replay — under `W5-outbox-UPDATE-is-dispatcher-permitted`, because they move a dispatch status field on an already-committed event rather than canonical epistemic state; and the evidence and proposal `INSERT`s in `app/ingestion` and `app/proposals` under `W4-evidence-and-proposal-INSERT-is-app-permitted`. (`processed_events` is **not** in the linter's `CANONICAL_TABLES`; it belongs to `pv_app_reader_writer` outright, so `consumer.py`'s update is not counted at all.) Re-run it rather than quoting the number: it moves as the ingestion path grows. |
 | The agent layer holds no write capability | `agents/runtime/tests/test_no_write_tools.py` — enumerates the tool protocols, walks the AST of every shipped agent module for canonical write vocabulary and for the two writer SQL roles, and runs 12 injected adversarial artifacts end to end asserting *kernel commits caused: 0, action intents created: 0, scopes escalated: 0* — with a positive control that every injected artifact is still admitted as evidence, because silently dropping the text would break the append-only invariant while looking like a pass. |
 | Agents cannot write, by grant rather than by prompt | Migration `0008` issues `GRANT SELECT` on the five `agent_*_v1` views to `pv_agent_reader`, then `REVOKE ALL ON TABLE <all 26> FROM pv_agent_reader`. |
 | The commit is one transaction | `services/control_plane/app/memory_kernel/transaction.py` — `SERIALIZABLE`, bounded retry on SQLSTATE `40001`. |
 | No model or network call inside that transaction | `python -m tools.txn_purity_lint services packages workers`, wired into `make lint`. |
 | Vector search is stage D, not stage A | `STAGES` in `services/control_plane/app/retrieval/pipeline.py`, asserted by a test rather than left as a comment. |
-| Every invariant names a test that actually runs | `python -m tools.invariant_map_check packages/python/provenance_domain/INVARIANTS.md` — *5 invariants, 5 mapped, 0 UNPROVEN*. |
+| Every invariant names a test that actually runs | `python -m tools.invariant_map_check packages/python/provenance_domain/INVARIANTS.md` — *5 invariants, 5 mapped, 0 UNPROVEN* — provided the workspace packages are installed (`make bootstrap`); an editable install pointing at a stale path makes every invariant read UNPROVEN, which is a broken environment and not a regression. |
 
 ### The honest gaps in diagram 1
 
-- **The agent layer is new and its model calls are unexercised.**
-  `agents/runtime/` is now ~9,500 lines — ingestion and advocate graphs, the
-  resolver, the Gemini model router, typed schemas — and **252 tests pass**. But
-  every one of those runs against fakes. No graph has executed against a live
-  Gemini endpoint, because there is no API key on this machine. The structure is
-  proved; the integration is not.
+- ~~**The agent layer's model calls are unexercised.**~~ **Closed 2026-08-24.**
+  `agents/runtime/` is ~11,600 lines across ingestion, advocate and
+  counterfactual graphs, the resolver, the Gemini model router and typed
+  schemas, with **310 tests**. Three artifacts have been walked against live
+  Gemini endpoints, both tiers invoked, leaving **31 `agent_runs` rows** where
+  there were zero — each carrying `model_calls[]` attribution
+  (`ops/agent-graph-live-run.txt`). A live Judge Mode counterfactual is recorded
+  in `ops/counterfactual-live-run-2.txt` with `parity.all_equal = true` and all
+  ten case revisions unmoved.
+
+  Three defects only a live call could have found are in the ledger, and the
+  sharpest is worth stating here: **`ExtractionResult` could not be sent to
+  Gemini at all** — `types.Schema` is `extra="forbid"` and rejects the `ge`/`le`
+  and `prefixItems` the contract emits. The 252-test router suite was green
+  because every test sent a `ToyOutput` defined in the test file. Not an
+  assertion that checks nothing: an entire suite checking a stand-in for the
+  thing under test.
+
+- **Retrieval is stages without a pipeline.** `app/retrieval/` holds all eight
+  stages and they are good — `ann.py` parses the canonical predicate out of the
+  spec markdown so the SQL cannot drift from the document — but
+  `pipeline.py` is a `STAGES` tuple and a `call_order()` function, and **no
+  module runs A through G end to end**. That is why `internal.retrieve` is
+  unbound, and why the Judge Mode counterfactual currently passes an empty
+  `evidence` array to its MEMORY ON side. The badge says `IN FLIGHT` for that
+  reason and not as a hedge.
 - **The event plane went green while this file was being written.** The trigger
   predicate parser had 19 failing tests an hour before this edit and now has
   none: `services/control_plane/tests/events` is 262 passing, `actions` 74,
-  `agents/runtime` 252. Treat every count in this document as a timestamp rather
+  `agents/runtime` 310. Treat every count in this document as a timestamp rather
   than a fact, and re-run the command instead of quoting the number.
-- **The Gemini model ids are UNPROBED.** `ops/probes/gemini_probe.py` exists;
-  `ops/gemini-probe.txt` currently records `CANNOT RUN — GOOGLE_API_KEY is not
-  set`. Every id above is transcribed from documentation. The last time this
-  project froze model ids from documentation, all of them were wrong.
-  `CANNOT RUN` is recorded distinctly from `FAIL`, because the two lead to
-  opposite decisions.
+- ~~**The Gemini model ids are UNPROBED.**~~ **Settled 2026-08-24.** Every id
+  above was *invoked*, not listed: `PASS 11 | FAIL 0 | CANNOT RUN 0`, exit 0,
+  transcript at `ops/gemini-probe.txt`. `client.models.list()` appears in that
+  transcript under an explicit `REFERENCE ONLY, NOT PROOF` heading, because
+  enumeration is not invocation and listing is the trap the previous model canon
+  fell into — where all four frozen ids turned out to be un-invocable.
+
+  Two of this probe's own first-run verdicts were wrong and **both were defects
+  in the probe**: `D-00-046` recorded PASS for three ids that answered nothing
+  (`max_output_tokens` is one allowance shared with thinking, so the budget was
+  spent before the first visible token), and `D-00-047` recorded a capability
+  FAIL that was a 1×1 transparent PNG the API rejects — an 8×8 solid one of the
+  same 75 bytes succeeds. Acting on that FAIL would have kept an external OCR
+  dependency on the evidence of one transparent pixel.
 - **The vectors in `evidence_items` are Titan vectors at 1024 dimensions**, not
   Gemini vectors at 1536. Migration `0009_gemini_embedding_plane` widens the
   column to `VECTOR(1536)`, repoints both model `CHECK` constraints to the
@@ -153,9 +178,8 @@ flowchart TB
   their grounding edges survive; the vectors do not. The Gemini re-embed that
   refills them is in flight, and until it lands retrieval returns nothing,
   because the canonical query filters `embedding_version = 'v2'`.
-- **Nothing is deployed to Cloud Run.** "target Cloud Run" means exactly that: a
-  target. No container has been built or pushed. This is the one gap on this
-  list that no amount of local work closes.
+- **Deployed to Cloud Run and serving.** Two services in `provenance-agentic-2026` / `us-east4`, both `Ready`. `GET /v1/version` reports `fixture_mode: false` and `db_ok: true`; an unauthenticated read is refused with `401`; the dashboard renders `USD 2,020.00` summed by the API from Kernel-written rows.
+  `deploy/README.md` is the runbook and `deploy/cloudrun.sh up` reproduces it.
 - **A running control plane does not imply a reachable database.**
   `build_dependencies()` no longer raises, and `make run-api` starts a real
   server — but startup deliberately survives a refused pool and reports
@@ -207,7 +231,16 @@ displayable rather than implicit.
 
 ---
 
-## 3. The four SQL roles, ordered by privilege
+## 3. The five SQL roles, ordered by privilege
+
+<!--
+  Five, not four. The heading said four and the section then listed five. The
+  four comes from `RUNTIME_ROLES` in migration 0008, which counts the roles a
+  RUNNING process may hold and therefore excludes `pv_migrator` -- correctly,
+  since nothing serving a request may migrate. But README.md, STATUS.md and
+  `pools.SqlRole` all say five, and this section lists five, so the heading was
+  the only thing disagreeing.
+-->
 
 The permission boundary is the grant, not the prompt. `pv_agent_reader` is not
 asked nicely to stay out of the base tables; it holds zero grants on them.
@@ -321,31 +354,51 @@ read.
 
 ## 5. What is deployed
 
-Nothing. The build runs on a workstation against a live CockroachDB Cloud
-cluster.
+**Deployed.** Two Cloud Run services in `provenance-agentic-2026` / `us-east4`:
+
+```
+web            https://provenance-web-vaq74wztva-uk.a.run.app
+control plane  https://provenance-control-plane-vaq74wztva-uk.a.run.app
+```
+
+Nine secrets in Secret Manager, every one mounted by reference rather than
+inlined into a revision spec. The control plane reaches the seeded CockroachDB
+cluster on AWS `us-east-1` from GCP `us-east4` — the same physical metro, which
+is why that region was chosen.
+
+Note the shape: `agent-runtime` is **not** a third Cloud Run service. It runs
+in-process inside the control plane, which is what a modular monolith means
+here, and is why there are two containers rather than four.
 
 ```mermaid
 flowchart LR
 
   classDef planned fill:#fff8e1,stroke:#f9a825,color:#5c4400,stroke-dasharray: 6 4
   classDef built   fill:#e8f5e9,stroke:#2e7d32,color:#14371a
+  classDef image   fill:#e3f2fd,stroke:#1565c0,color:#0b2f57
 
   DEV["Developer workstation<br/>Python 3.12, Node 20+, GNU Make 3.82+<br/>BUILT - this is where everything currently runs"]
-  CR1["Cloud Run - control-plane<br/>NOT DEPLOYED"]
-  CR2["Cloud Run - web<br/>NOT DEPLOYED"]
-  CR3["Cloud Run - agent-runtime<br/>NOT DEPLOYED"]
-  CRDB[("CockroachDB Cloud<br/>BUILT - migrated and seeded, 18035 evidence rows")]
-  GAPI["Gemini Developer API<br/>reachable - no probe transcript yet"]
+  IMG1["image: control-plane<br/>python:3.12-slim, linux/amd64, non-root<br/>BUILT - runs locally, 200 on /v1/healthz,<br/>401 on an unauthenticated read"]
+  IMG2["image: web<br/>node:20-slim, Next standalone output<br/>BUILT - runs locally, serves the dashboard"]
+  CR1["Cloud Run - control-plane<br/>agent-runtime runs IN-PROCESS here<br/>DEPLOYED and serving - db_ok true"]
+  CR2["Cloud Run - web<br/>DEPLOYED - LIVE, no fixture banner"]
+  SM["Secret Manager<br/>9 secrets, all mounted by reference<br/>CREATED"]
+  CRDB[("CockroachDB Cloud - AWS us-east-1<br/>BUILT - migrated and seeded, 18035 evidence rows")]
+  GAPI["Gemini Developer API<br/>BUILT - PROBED, 11 PASS, and both tiers<br/>invoked by the agent graphs"]
 
   DEV --> CRDB
-  DEV -. "planned" .-> CR1
-  DEV -. "planned" .-> CR2
-  DEV -. "planned" .-> CR3
-  CR1 -. "planned" .-> CRDB
-  CR3 -. "planned" .-> GAPI
+  DEV --> GAPI
+  DEV ==> |"make deploy-images"| IMG1
+  DEV ==> |"make deploy-images"| IMG2
+  IMG1 ==> |"deploy/cloudrun.sh up"| CR1
+  IMG2 ==> |"deploy/cloudrun.sh up"| CR2
+  SM ==> |"secretKeyRef"| CR1
+  CR1 ==> |"sslmode=verify-full"| CRDB
+  CR1 ==> |"google-genai"| GAPI
 
-  class CR1,CR2,CR3,GAPI planned
-  class DEV,CRDB built
+  class CR1,CR2,SM built
+  class IMG1,IMG2 image
+  class DEV,CRDB,GAPI built
 ```
 
 The prior build's ten AWS CDK stacks — 170 resources, 304 synthesis tests — are

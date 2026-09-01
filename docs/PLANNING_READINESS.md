@@ -1,7 +1,7 @@
 # Provenance — Planning Readiness and Traceability
 
 Status: planning complete v1.1  
-Implementation status: not started  
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared  
 Assessed: 2026-08-17
 
 This is the planning handoff ledger. It proves that every product objective has an owning design contract and an execution gate. It does not assert that code, cloud resources, tests, or integrations exist.

@@ -3,9 +3,9 @@
 Purpose: define the 16 build phases, the machine-checkable exit assertion for every one of them, the verification round a reviewer must run at each gate, and the anti-self-deception rules that stop this build from reporting success it has not earned.
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
-Audience: the coding agents building Provenance, the human or agent acting as gate reviewer, and judges who want to know how the team distinguishes "it works" from "it demoed once".
+Audience: the coding agents building Provenance, the human or agent acting as gate reviewer, and anyone who wants to know how the team distinguishes "it works" from "it demoed once".
 
 > Provenance is a system of record for the institutions that already have one of you. A system of record that lies to its own authors about whether it committed is worse than no system at all. This document is the mechanism that keeps that from happening.
 
@@ -36,7 +36,7 @@ Audience: the coding agents building Provenance, the human or agent acting as ga
 21. Phase 15 — submission artifacts
 22. The verification-round protocol
 23. The anti-self-deception checklist
-24. Pre-submission gate (Stage One pass/fail)
+24. Pre-submission gate (pass/fail)
 25. Risks and decided posture
 
 ---
@@ -137,7 +137,7 @@ This is the single rule that everything else in this document supports. Concrete
 4. Any sentence in a report of the form "X works" that is not adjacent to output showing X working is struck by the reviewer, and the phase is reopened.
 5. A builder who cannot produce output for an assertion must say **"I claimed this without running it"** in the standing-questions block (§22.3, Q1). This sentence is not a confession of failure; it is the required format. Omitting it when it applies is the failure.
 
-The escalation is deliberately harsh and deliberately cheap: **a phase reported complete without output is automatically reopened, and its battery is re-run by someone other than the person who reported it.** There is no argument step. The cost of the rule is a re-run; the cost of not having it is discovering on submission day that the Kernel never committed.
+The escalation is deliberately harsh and deliberately cheap: **a phase reported complete without output is automatically reopened, and its battery is re-run by someone other than the person who reported it.** There is no argument step. The cost of the rule is a re-run; the cost of not having it is discovering on release day that the Kernel never committed.
 
 ---
 
@@ -153,7 +153,6 @@ ops/
 │   └── VECTOR_INDEX_VARIANT.md      # which of §5.1/§5.2/§5.3 was chosen and why
 └── gates/
     ├── PHASE_00.md ... PHASE_15.md  # one signed report per phase
-    ├── SUBMISSION.md                # the §24 pre-submission gate
     └── logs/                        # scrubbed battery output, <ID>.<sha8>.log
 ```
 
@@ -191,7 +190,7 @@ Verdict: SIGNED | REJECTED | SIGNED WITH CARRIED DEBT
 Q1 What did I claim without running?
 Q2 What is mocked that should be real?
 Q3 Which invariant is currently unproven?
-Q4 What would a hostile judge click on first?
+Q4 What would a hostile reviewer click on first?
 Q5 What passed because of seeded state rather than logic?
 Q6 What did I not look at?
 Q7 If this phase is secretly broken, how and when would I find out?
@@ -203,7 +202,7 @@ Q7 If this phase is secretly broken, how and when would I find out?
 <the exact command that returns the system to the last known-good state>
 ```
 
-A verdict of **SIGNED WITH CARRIED DEBT** is legitimate and expected under hackathon time pressure. It is honest. What is not legitimate is **SIGNED** with debt that was not written down.
+A verdict of **SIGNED WITH CARRIED DEBT** is legitimate and expected under schedule pressure. It is honest. What is not legitimate is **SIGNED** with debt that was not written down.
 
 ---
 
@@ -254,9 +253,9 @@ A verdict of **SIGNED WITH CARRIED DEBT** is legitimate and expected under hacka
 | 8 | API + auth | G-4, G-5 | minutes (stateless) | No |
 | 9 | Actions + approval + executor | G-8 | minutes (kill switch) | No — invariant 4 lives here |
 | 10 | Events + outbox + scheduler | G-4, G-8 | minutes (disable rule) | Scheduler is the second reveal; keep |
-| 11 | MCP + SQL roles + agent views | G-2, G-7 | minutes (revoke) | **No.** Sponsor tool requirement. |
+| 11 | MCP + SQL roles + agent views | G-2, G-7 | minutes (revoke) | **No.** The agent read boundary lives here. |
 | 12 | Frontend + Judge Mode + counterfactual | G-8, G-9, G-11 | minutes (previous deploy) | No |
-| 13 | Deploy | G-12 | minutes forward-only | No — demo URL is Stage One |
+| 13 | Deploy | G-12 | minutes forward-only | No — the demo URL depends on it |
 | 14 | Evals + adversarial + concurrency | G-4, G-6, G-7 | none (does not ship) | Reducible in scope, not in kind |
 | 15 | Submission artifacts | all | n/a | No |
 
@@ -765,7 +764,7 @@ PV_SABOTAGE=retrieval.predicates.retraction_filter pytest tests/db/test_12_vecto
 ### Rollback position
 
 - **Roll back to:** `G-3` commit.
-- **Undo:** revert the retrieval module. If the ANN index is the problem, `DROP INDEX evidence_embedding_ann_idx` and fall back to a brute-force scan over the user's partition — at ~16,000 rows for the hero user this is survivable for a demo and must be **disclosed** in Judge Mode and in the submission, never presented as vector indexing.
+- **Undo:** revert the retrieval module. If the ANN index is the problem, `DROP INDEX evidence_embedding_ann_idx` and fall back to a brute-force scan over the user's partition — at ~16,000 rows for the hero user this is survivable for a demo and must be **disclosed** in Judge Mode and in the release notes, never presented as vector indexing.
 - **Cannot be undone:** re-embedding 18,000 rows costs Bedrock spend and ~tens of minutes. Cache the seed corpus vectors in `db/seeds/vectors.parquet` at first generation so a reseed does not re-invoke Bedrock.
 
 ---
@@ -1050,7 +1049,7 @@ PV_SABOTAGE=triggers.evaluator.reevaluate_predicate pytest tests/db/test_08_trig
 
 ## 17. Phase 11 — MCP, SQL roles, agent views
 
-**Gate `G-11`. Depends on: `G-2`, `G-7`. Rollback cost: minutes. Sponsor tool requirement — not cuttable.**
+**Gate `G-11`. Depends on: `G-2`, `G-7`. Rollback cost: minutes. Not cuttable — the agent read boundary lives here.**
 
 ### Entry criteria
 
@@ -1122,7 +1121,7 @@ PV_MCP_ENABLED=false pytest tests/mcp/test_degradation.py -q -s
 
 - **Roll back to:** `G-7` commit.
 - **Undo:** `REVOKE` the agent grants and set `PV_MCP_ENABLED=false`. The agent falls back to control-plane retrieval, which must therefore stay functional — this is a real dependency and it is asserted by `G11.7`.
-- **Cannot be undone:** nothing. But note that removing MCP removes one of the two required CockroachDB tools and would fail the Stage One gate (§24).
+- **Cannot be undone:** nothing. But note that removing MCP removes one of the two CockroachDB tools the release claims and would fail the pre-submission gate (§24).
 
 ---
 
@@ -1365,10 +1364,8 @@ Everything. This is the phase where the entire suite runs together, in one comma
 
 ### Deliverables
 
-- `README.md`: what Provenance is, the architecture diagram, the four invariants, local setup, the demo URL, judge credentials, and an explicit **"what is seeded vs what is computed"** section.
-- `SUBMISSION.md`: hackathon-facing summary, the CockroachDB tools used and how, the AWS services used, and the tool-usage disclosure.
-- Demo video under 3 minutes, publicly viewable.
-- `ops/gates/SUBMISSION.md` — the signed §24 battery.
+- `README.md`: what Provenance is, the architecture diagram, the four invariants, local setup, the demo URL, and an explicit **"what is seeded vs what is computed"** section.
+- The signed §24 battery, recorded under `ops/gates/`.
 
 ### Exit assertions
 
@@ -1376,8 +1373,8 @@ See §24. `G-15` is signed only when every item there is PASS with pasted output
 
 ### Rollback position
 
-- **Roll back to:** the `G-13` deployed revision. Submission artifacts are documents; they carry no runtime risk.
-- **Cannot be undone:** a submitted entry. Verify §24 before submitting, not after.
+- **Roll back to:** the `G-13` deployed revision. Release artifacts are documents; they carry no runtime risk.
+- **Cannot be undone:** a published release. Verify §24 before publishing, not after.
 
 ---
 
@@ -1409,12 +1406,12 @@ These are answered at **every** gate, in the report, in the builder's and the re
 List every statement in the completion report that has no pasted output behind it. The honest answer is rarely "nothing".
 
 **Q2. What is mocked that should be real?**
-Name each substitute — fixture model outputs, a fake SES sink, a compressed clock, a simulated EventBridge invocation, a seeded row standing in for a computed one — and name the phase in which it becomes real. A substitute with no closing phase is permanent, and must be disclosed as such in the submission.
+Name each substitute — fixture model outputs, a fake SES sink, a compressed clock, a simulated EventBridge invocation, a seeded row standing in for a computed one — and name the phase in which it becomes real. A substitute with no closing phase is permanent, and must be disclosed as such in the release notes.
 
 **Q3. Which invariant is currently unproven?**
 Take the five (four canon invariants plus grounding) and, for each, name the test that proves it *at this commit*. If the answer is "the code does it", the invariant is UNPROVEN — write UNPROVEN. An invariant enforced only by careful coding is enforced by nothing.
 
-**Q4. What would a hostile judge click on first?**
+**Q4. What would a hostile reviewer click on first?**
 Name three. State exactly what happens for each. The likely candidates, in rough order: the Memory Trace (is it real or is it an animation?); the counterfactual (does Memory OFF genuinely lack the memory, or is it a different prompt on the same context?); the second browser tab / second user (does isolation hold?); the back button mid-approval; uploading the same invoice twice; uploading something that is not an invoice at all.
 
 **Q5. What passed because of seeded state rather than logic?**
@@ -1430,7 +1427,7 @@ Detection latency. "At the demo" is the worst possible answer and, when it is th
 
 ### 22.4 Time budget
 
-A full round costs roughly 30–60 minutes of wall time for most phases. Under hackathon pressure, phases 0–3 may use a **fast lane** — steps 1, 2, 3, 6 only, with step 4 deferred to the next gate that touches the same code. Phases **4, 9, 11, 13, and 15 always get the full round.** Those five own, respectively: the canonical write path, invariant 4, the sponsor tool requirement and the SQL boundary, the demo URL, and the submission itself.
+A full round costs roughly 30–60 minutes of wall time for most phases. Under schedule pressure, phases 0–3 may use a **fast lane** — steps 1, 2, 3, 6 only, with step 4 deferred to the next gate that touches the same code. Phases **4, 9, 11, 13, and 15 always get the full round.** Those five own, respectively: the canonical write path, invariant 4, the agent read boundary and the SQL grants, the demo URL, and the release itself.
 
 ---
 
@@ -1463,7 +1460,7 @@ Each item below is a specific way this build will try to fool the people buildin
 - `G12.2` — every rendered `data-node-id` must exist in the intercepted API payload.
 - `G12.4` — the mutation probe: commit a real correction, reload, the trace must gain a node and the revision must move 13 → 14. A trace that does not change when the database changes is a picture.
 
-**Bites at:** phase 12, and it is the single thing a hostile judge is most likely to test.
+**Bites at:** phase 12, and it is the single thing a hostile reviewer is most likely to test.
 
 ### 23.4 The eval that passes because the fixture was regenerated
 
@@ -1548,7 +1545,7 @@ cockroach sql --url "$PV_DB_APP" --format=csv -e "
 
 **Smell:** there is a special mode for the demo, and it is on.
 
-**Detector:** `PV_AGENT_MODE=FIXTURE` renders a non-dismissible banner (`G12.7`) and sets `fixture_mode: true` in `GET /v1/version` and in every trace payload. The §24 battery requires `fixture_mode: false` in the recorded demo. Fixture mode remains a legitimate emergency fallback — `05_RELIABILITY_EVAL_DEMO.md` §17 explicitly allows it, provided the real Kernel, database, and event path still execute and its use is disclosed. Undisclosed use is fraud, and it is trivially detectable by a judge who reads `GET /v1/version`.
+**Detector:** `PV_AGENT_MODE=FIXTURE` renders a non-dismissible banner (`G12.7`) and sets `fixture_mode: true` in `GET /v1/version` and in every trace payload. The §24 battery requires `fixture_mode: false` in the recorded demo. Fixture mode remains a legitimate emergency fallback — `05_RELIABILITY_EVAL_DEMO.md` §17 explicitly allows it, provided the real Kernel, database, and event path still execute and its use is disclosed. Undisclosed use is fraud, and it is trivially detectable by a reviewer who reads `GET /v1/version`.
 
 **Bites at:** phases 12, 15.
 
@@ -1578,11 +1575,11 @@ cockroach sql --url "$PV_DB_APP" --format=csv -e "
 
 ---
 
-## 24. Pre-submission gate (Stage One pass/fail)
+## 24. Pre-submission gate (pass/fail)
 
-The CockroachDB × AWS Hackathon — Build with Agentic Memory — screens on Stage One items before any judging happens on the five equally weighted criteria (Agentic Memory Design, Technological Implementation, Real-World Impact, Product Readiness, Creativity & Originality). Stage One is binary. Every item below is PASS or FAIL with pasted output, recorded in `ops/gates/SUBMISSION.md`.
+This battery is the release screen: it runs before anything else is assessed, and it is binary. Every item below is PASS or FAIL with pasted output, recorded in `ops/gates/PHASE_15.md`.
 
-**Run this battery twice: once 24 hours before the deadline, and once within 2 hours of submitting.** The first run finds the problems; the second run proves nothing rotted.
+**Run it twice: once 24 hours before the release, and once within 2 hours of cutting it.** The first run finds the problems; the second run proves nothing rotted.
 
 ```bash
 # S1 — public repository.
@@ -1601,21 +1598,15 @@ grep -rn "Copyright" NOTICE | head -1     # → present
 # S3 — functional demo URL, from a network that is not the build network.
 curl -sS -o /dev/null -w '%{http_code} %{time_total}\n' "$PV_WEB"                # → 200
 curl -sS "$PV_API/v1/version" | jq '{git_sha, fixture_mode, agent_mode, schema_revision}'
-#   → fixture_mode == false      ← §23.12; a true here invalidates the submission
-# Judge credentials work from a clean browser profile:
+#   → fixture_mode == false      ← §23.12; a true here invalidates the release
+# The app loads from a clean browser profile:
 npx playwright test e2e/judge_login.spec.ts --project=clean-profile --reporter=line
 #   → "1 passed"
 # The whole hero flow, on the public URL, right now:
 PV_WEB=https://<public> npx playwright test e2e/hero_flow.spec.ts --reporter=line
-#   → "1 passed"; trace_id recorded in the submission report
+#   → "1 passed"; trace_id recorded in the release report
 
-# S4 — demo video strictly under 3 minutes and publicly viewable.
-ffprobe -v error -show_entries format=duration -of csv=p=0 demo/provenance-demo.mp4
-#   → a number < 180.0 (record it; 179.4 is fine, 180.2 is a FAIL)
-curl -sS -o /dev/null -w '%{http_code}\n' "<public video url>"                  # → 200
-# Watched end to end in a private window by someone who did not edit it: yes/no
-
-# S5 — at least two CockroachDB tools, genuinely used.
+# S5 — the database features, genuinely used rather than named.
 #   Tool 1: Distributed Vector Indexing.
 cockroach sql --url "$PV_DB_APP" -e "EXPLAIN <the live retrieval query>;" | grep evidence_embedding_ann_idx
 #   → the index named, on the query the demo actually runs
@@ -1635,20 +1626,12 @@ test -s ops/cluster-provision.txt && head -5 ops/cluster-provision.txt
 #     - ccloud removed        → the cluster cannot be reprovisioned from scratch.
 #   A "tool used" that breaks nothing when removed is decoration. Say so if it is true.
 
-# S6 — at least one AWS service (Provenance uses many; evidence, not a list).
-aws logs start-query --log-group-name /provenance/control-plane \
-  --query-string 'fields span_name | filter trace_id="<from S3>" | stats count() by span_name' ...
-#   → spans proving Bedrock, S3, Cognito, EventBridge, SES were on the demo path
-cdk list
-#   → the deployed stacks, by name
-# Services on the critical demo path: Bedrock (AgentCore Runtime + Titan embeddings),
-# Cognito, S3, App Runner, EventBridge + Scheduler, SQS, SES, CloudWatch, Amplify Hosting.
+# S6 — the hosted platform, evidenced rather than listed.
+curl -sS "$PV_API/v1/version" | jq '{region, git_sha, schema_revision}'
+#   → region us-east4, and a git_sha matching the deployed revision
+# Both Cloud Run services serving: see deploy/cloudrun.sh and the Phase 13 gate.
 
-# S7 — tool-usage disclosure.
-grep -n "## Tool usage disclosure" -A 40 SUBMISSION.md
-#   → names every AI tool used to build Provenance (including Claude Code and the models
-#     used at build time), every third-party service, and — separately — the runtime models
-#     anthropic.claude-opus-5, anthropic.claude-haiku-4-5, amazon.titan-embed-text-v2:0.
+# S7 — what is seeded vs what is computed, stated plainly.
 grep -n "## What is seeded vs what is computed" -A 30 README.md
 #   → an explicit table. The 18,000 decoy evidence rows are synthetic and seeded; the
 #     32 hero evidence items are hand-curated and seeded; the conflict, the reopen, the
@@ -1671,16 +1654,15 @@ make demo-reset && make seed && make db-verify
 #     been demoed on, it does not work.
 ```
 
-### 24.1 Submission checklist, condensed
+### 24.1 Release checklist, condensed
 
 - [ ] Repository public and anonymously reachable (S1)
 - [ ] Apache-2.0 `LICENSE` present, SPDX-detected (S2)
-- [ ] Demo URL returns 200 from an outside network; judge login works from a clean profile (S3)
+- [ ] Demo URL returns 200 from an outside network; the app loads from a clean profile (S3)
 - [ ] `fixture_mode: false` in the recorded demo (S3)
-- [ ] Video strictly under 180.0 seconds and publicly viewable (S4)
-- [ ] ≥ 2 CockroachDB tools with evidence **and** a stated degradation if removed (S5)
-- [ ] ≥ 1 AWS service, evidenced by a real trace on the demo path (S6)
-- [ ] Tool-usage disclosure and the seeded-vs-computed table (S7)
+- [ ] Database features evidenced **and** a stated degradation if removed (S5)
+- [ ] Both Cloud Run services serving, region and sha matching (S6)
+- [ ] The seeded-vs-computed table present and accurate (S7)
 - [ ] Clean secret scan on the repo and on the gate logs (S8)
 - [ ] Third-party setup timed and recorded honestly (S9)
 - [ ] Full demo reset, reseed, re-verify, re-run the hero flow (S10)
@@ -1699,7 +1681,7 @@ make demo-reset && make seed && make db-verify
 
 **4. The reviewer may be the same agent that built the phase.** Fresh context is a weaker guarantee than a different person. An agent reviewing its own work re-derives the same blind spots from the same specs. The mutation probe (§22.2 step 4) exists because it is the one review step that does not depend on the reviewer's judgement — the code either notices sabotage or it does not. If only one review step survives a time crunch, make it that one.
 
-**5. The supported vector-index syntax is an execution-time capability check.** Phase 0 runs the ordered variants from the DDL. If all fail, development may use a disclosed brute-force user-partition scan, but `G6.2` and the sponsor vector-index submission claim remain blocked. The logical retrieval contract does not change.
+**5. The supported vector-index syntax is an execution-time capability check.** Phase 0 runs the ordered variants from the DDL. If all fail, development may use a disclosed brute-force user-partition scan, but `G6.2` and the vector-index claim remain blocked. The logical retrieval contract does not change.
 
 **6. Gates run against the same cluster as the demo.** The mitigation is a separate `provenance_ci` database in the same cluster, but they share the cluster's resources, and a destructive gate run against the wrong `PV_DB_*` URL would flatten the demo data. Demo data is regenerable (`make demo-reset && make seed`) and that regeneration is itself gated by `S10` — but regeneration costs Bedrock spend on 18,000 embeddings unless `db/seeds/vectors.parquet` is populated. **Populate the vector cache at first seed, not later.**
 
@@ -1707,10 +1689,10 @@ make demo-reset && make seed && make db-verify
 
 **8. Phase 13's rollback is asymmetric.** Code rolls back; schema rolls forward. **Decision:** `G13.9` verifies the immediately previous image against the head schema before every deployment. A migration that breaks that compatibility is rejected or paired with an expand/migrate/contract sequence across separate releases.
 
-**9. The hostile-judge model is a guess.** §22.3 Q4 assumes judges probe the Memory Trace, the counterfactual, and multi-user isolation. That ordering comes from what is most impressive and therefore most suspicious, not from evidence. If judges instead probe cost, latency under load, or the SQL grant boundary, the gates covering those (`G13.8`, `G11.1`–`G11.2`) are thinner than the ones covering the trace.
+**9. The hostile-reviewer model is a guess.** §22.3 Q4 assumes reviewers probe the Memory Trace, the counterfactual, and multi-user isolation. That ordering comes from what is most impressive and therefore most suspicious, not from evidence. If reviewers instead probe cost, latency under load, or the SQL grant boundary, the gates covering those (`G13.8`, `G11.1`–`G11.2`) are thinner than the ones covering the trace.
 
 **10. Sabotage coverage is only as good as the matrix.** `tests/sabotage_matrix.yaml` is hand-maintained. A code path with no entry is a code path whose tests were never checked for vacuousness, and nothing in `make sabotage` will tell you the entry is missing — it reports on what is listed. Pair every new invariant-bearing function with a matrix entry in the same commit, and treat a phase whose new modules added zero matrix entries as suspicious on its face.
 
-**11. "Genuinely used" is a judgement, not a measurement.** S5's degradation test is the best available proxy, but a judge may reasonably hold a different standard for what makes a sponsor tool load-bearing. The defence is honesty: state what each tool does, state what breaks without it, and do not claim depth that the degradation test does not support.
+**11. "Genuinely used" is a judgement, not a measurement.** S5's degradation test is the best available proxy, but a reviewer may reasonably hold a different standard for what makes a third-party tool load-bearing. The defence is honesty: state what each tool does, state what breaks without it, and do not claim depth that the degradation test does not support.
 
 **12. This document cannot make a team honest.** Every mechanism here is bypassable by someone willing to paste output from a different run, sign their own gate, or write "none" to all seven standing questions. It is designed for a team that wants to know the truth and needs a structure to make finding it routine. If the incentive flips — if a gate becomes something to get past rather than something to learn from — none of it holds. The only real defence is that the gate logs are committed, timestamped, and public.

@@ -133,7 +133,7 @@ def score(candidate: Candidate, *, now: datetime) -> tuple[float, dict[str, floa
     Returns the total and the per-term breakdown. The breakdown is not
     diagnostic decoration: it is carried on every ``EvidenceSnippet`` and
     rendered in the Memory Trace, because a ranking that cannot be explained
-    term by term is a ranking nobody will trust in a judging session.
+    term by term is a ranking nobody will trust under scrutiny.
     """
     identity = candidate.match_strength
     vector = max(0.0, min(1.0, candidate.cosine_similarity or 0.0))

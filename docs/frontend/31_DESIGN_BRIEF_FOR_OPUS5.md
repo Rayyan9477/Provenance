@@ -3,7 +3,7 @@
 Purpose: carry a ready-to-paste, self-contained prompt that commissions the complete visual product design for Provenance from a separate Claude Opus 5 session that has no access to this repository.
 
 Status: planning complete v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 Audience: the project owner, who will run the design session; and the frontend implementation team, who will receive the result and build it against `specs/15_API_SPEC.md`.
 
@@ -237,9 +237,9 @@ What earns that trust: calm, specific, monetary, and legible. Real amounts and r
 
 What destroys it: alarm colouring, exclamation marks, gamification, anything that resembles a notification demanding action, or anything that implies the software has already done something on their behalf.
 
-### 3.2 Audience two: hackathon judges who are database and AI engineers
+### 3.2 Audience two: database and AI engineers evaluating the system
 
-The same interface is judged in a competition by engineers evaluating five equally weighted criteria: memory design, technical implementation, real-world impact, product readiness (security, observability, scalability, resilience, access control), and creativity. They will look for production seriousness and they will notice its absence immediately. They want to see typed values, version numbers, transaction boundaries, permission boundaries, retry counts, and honest failure states.
+The same interface is read by engineers weighing five things equally: memory design, technical implementation, real-world impact, product readiness (security, observability, scalability, resilience, access control), and creativity. They will look for production seriousness and they will notice its absence immediately. They want to see typed values, version numbers, transaction boundaries, permission boundaries, retry counts, and honest failure states.
 
 ### 3.3 The rule that resolves the tension
 
@@ -627,7 +627,7 @@ Then **stop and wait for me to choose.** Do not produce tokens, components, or s
 
 **R4 — "Fair fight" framing of the counterfactual is in tension with visual storytelling.** The brief forbids visually degrading the memory-OFF side, which is correct for credibility, but a perfectly symmetrical layout may not read as decisive in a three-minute video. *Assumption made:* content asymmetry plus the explicit difference block carries the persuasion without layout asymmetry. If the returned design is symmetrical but flat on camera, the fix is emphasis in the difference block, never dimming the OFF side.
 
-**R5 — The dual-audience rule is asserted but untested.** "Emotional trust first, technical depth on demand" is a design principle, not a measured finding. No usability testing is planned within the hackathon window. *Residual risk:* moderate. *Mitigation:* the disclosure mechanism is a single reusable component, so if the depth threshold is set wrong it is one component change rather than seven screen changes.
+**R5 — The dual-audience rule is asserted but untested.** "Emotional trust first, technical depth on demand" is a design principle, not a measured finding. No usability testing is planned for v1. *Residual risk:* moderate. *Mitigation:* the disclosure mechanism is a single reusable component, so if the depth threshold is set wrong it is one component change rather than seven screen changes.
 
 **R6 — The typography requirement and the no-network requirement conflict.** Rejecting Inter, Roboto, and system stacks while forbidding external font requests means the design session must either embed licensed font files as base64 or hand back a specification we self-host. The prompt instructs it to be explicit about which. *Action:* budget for a font licence, or accept a high-quality open-licence pairing that is not on the forbidden list. Do not let this be resolved silently by falling back to a system stack.
 

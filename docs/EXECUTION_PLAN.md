@@ -1,7 +1,7 @@
 # Provenance — Execution-Ready Delivery Plan
 
 Status: planning complete v1.1  
-Implementation status: not started  
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared  
 Execution authorization: not granted by this document
 
 This plan makes the design executable without beginning implementation. `quality/23_PHASE_GATES.md` owns detailed commands and evidence requirements; this document owns sequencing, work ownership, integration points, and completion boundaries.
@@ -44,7 +44,7 @@ Build the smallest truthful vertical slice from contracts and invariants outward
 | 12 | Frontend and Judge Mode | Browser hero flow uses real API state and trace rows; no hard-coded identifiers. |
 | 13 | Deployment | Reviewed build is reachable publicly and observable end to end. |
 | 14 | Evaluation | All 51 scenarios, adversarial cases, concurrency runs, and sabotage checks meet thresholds. |
-| 15 | Submission | Public repository, live URL, disclosure, video, reset proof, and final gate ledger are complete. |
+| 15 | Release | Public repository, live URL, disclosure, video, reset proof, and final gate ledger are complete. |
 
 ## Critical path
 
@@ -60,7 +60,7 @@ contracts
   -> actions/events/MCP
   -> frontend
   -> deployment
-  -> evaluation and submission proof
+  -> evaluation and release proof
 ```
 
 Infrastructure definitions may be prepared in parallel after Phase 1, but no deployed component may bypass the critical-path contracts.
@@ -81,8 +81,8 @@ The first integration milestone is complete only when one June invoice travels t
 ## Cut and fallback policy
 
 - Never cut contracts, schema correctness, kernel invariants, human approval, tenant isolation, or real trace backing.
-- Retrieval may degrade to a disclosed brute-force per-user scan for development, but the sponsor vector-index submission claim remains blocked.
-- Agent fixture mode may unblock deterministic development, but it must be visible and cannot satisfy the live submission gate.
+- Retrieval may degrade to a disclosed brute-force per-user scan for development, but the vector-index claim remains blocked.
+- Agent fixture mode may unblock deterministic development, but it must be visible and cannot satisfy the live-mode gate.
 - Optional SES inbound may follow upload ingestion; both must converge on the same artifact contract.
 - Optional multimodal extraction, multi-region compute, broad integrations, and professional-user features remain out of scope.
 

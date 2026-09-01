@@ -80,13 +80,13 @@ Mandatory lenses at this gate (§3.1): **all six**.
 whose `Closes by` is `G-15` or earlier and whose status is not `CLOSED`. Every remaining
 item takes one of exactly two paths: it closes before `G-15` opens, or it is converted to
 a **disclosed limitation** — deleted from `CARRIED_DEBT.md` and written in plain words into
-`README.md` or `SUBMISSION.md`, both of which `S7` greps for. Run `make debt --assert-empty`
+`README.md`, which `S7` greps for. Run `make debt --assert-empty`
 and paste the result.
 
 ## Standing questions (§22.3) — answered honestly
 
 - **Q1** What did I claim without running?
-- **Q2** What is mocked that should be real? — a substitute with no closing phase is permanent and must be disclosed as such in the submission.
+- **Q2** What is mocked that should be real? — a substitute with no closing phase is permanent and must be disclosed as such in `README.md`.
 - **Q3** Which invariant is currently unproven?
 - **Q4** What would a hostile judge click on first?
 - **Q5** What passed because of seeded state rather than logic?

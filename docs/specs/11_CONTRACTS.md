@@ -3,7 +3,7 @@
 Purpose: the exact, copy-pasteable Pydantic v2 type system that every Provenance process — control plane, agent runtime, and Lambda workers — imports instead of re-declaring JSON shapes.
 
 Status: planning-complete baseline v1.1
-Implementation status: not started
+Implementation status: substantial; see `STATUS.md` at the repository root, which is measured rather than declared
 
 Audience: coding agents generating `packages/python/provenance_contracts` and `packages/python/provenance_domain`; backend engineers writing the Memory Kernel and API layer; agent engineers writing LangGraph node signatures; reviewers checking that the four invariants are enforced by types and not by prose.
 
